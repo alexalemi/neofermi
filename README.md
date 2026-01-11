@@ -22,10 +22,21 @@ Think: **[Frink](https://frinklang.org/) + [Squiggle](https://www.squiggle-langu
 - [Plaque](https://blog.alexalemi.com) - Live-updating blog platform
 - [txtpad](https://txtpad.alexalemi.com) - Text editor with live rendering
 
+## Key Decisions
+
+✅ **TypeScript** - Type safety for dimensional analysis
+✅ **20,000 samples** - Better accuracy than Squiggle (1k), optimized for web
+✅ **Peggy parser** - Validated by Squiggle's success
+✅ **GitHub Pages** - Static hosting, no backend needed
+✅ **Pure sampling** - Start simple, add symbolic optimizations later
+
+See [DECISIONS.md](./DECISIONS.md) for full rationale.
+
 ## Next Steps
 
 See [PLAN.md](./PLAN.md) for:
 - Detailed architecture design
-- Technology choices (TypeScript, mathjs, Ohm parser)
+- Technology stack (TypeScript, mathjs, Peggy, jStat)
 - 6-phase implementation roadmap
 - MVP in 6-10 weeks
+- Squiggle architecture analysis

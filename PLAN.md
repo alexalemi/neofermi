@@ -112,11 +112,11 @@ A mobile-friendly, web-based domain-specific language for order of magnitude cal
 ### Key Design Decisions
 
 #### 1. TypeScript vs JavaScript
-**Recommendation: TypeScript**
+**DECIDED: TypeScript** ✓
 - Type safety helps catch unit/dimension errors at compile time
 - Better IDE support for complex calculations
-- `safe-units` or `uom-ts` provide compile-time dimensional analysis
 - Can still compile to vanilla JS for maximum compatibility
+- Confirmed 2026-01-11
 
 #### 2. Units Library
 **Recommendation: Start with mathjs, consider migration path**
@@ -126,69 +126,86 @@ A mobile-friendly, web-based domain-specific language for order of magnitude cal
 - **Future**: Consider `uom-ts` for TypeScript type safety if going that route
 
 #### 3. Distribution Strategy
-**Recommendation: Custom particle-based implementation using jStat primitives**
+**DECIDED: Particle-based with 20,000 samples** ✓
 - Similar to MonteCarloMeasurements.jl approach
 - Use jStat for basic distributions (normal, beta, lognormal, etc.)
-- Store N particles per uncertain value (default 1000-10000, configurable)
+- **20,000 samples per uncertain value** (configurable)
+  - Higher than Squiggle's 1k for better accuracy
+  - Lower than SimpleFermi's 200k for web performance
+  - ~0.7% sampling error (1/√20000)
+- Start with pure sampling (Phase 1)
+- Can add symbolic optimizations later (Phase 5+)
 - Arithmetic operates on particles directly
-- **Sample count trade-off**: Lower for mobile performance, higher for accuracy
+- Confirmed 2026-01-11
 
 #### 4. Parser
-**Recommendation: Ohm**
-- Clean separation of grammar and semantics
-- Great for incremental development
-- Interactive grammar editor (ohmjs.org/editor)
-- Left recursion support (important for operators)
-- Can start simple and expand
+**DECIDED: Peggy** ✓
+- Validated by Squiggle's production success
+- PEG parser with excellent TypeScript support
+- Great error messages out of the box
+- Fast with caching (`--cache` flag)
+- Left recursion support
+- Active development (v4+)
+- Confirmed 2026-01-11
 
 #### 5. Frontend Architecture
-**Recommendation: Reactive document model**
-- Similar to Observable notebooks or your Plaque project
+**DECIDED: Static site for GitHub Pages** ✓
+- **GitHub Pages hosting** - static HTML/CSS/JS only
+- Client-side computation only (no backend)
 - Real-time evaluation as user types
 - Cell-based structure (like Jupyter/Guesstimate)
 - Mobile-first responsive design
-- CodeMirror or Monaco for code editing
-- D3.js or similar for quantile dotplots
+- CodeMirror or Monaco for code editing (decide in Phase 4)
+- Canvas-based quantile dotplots for performance
+- localStorage for persistence + URL hash for sharing
+- Confirmed 2026-01-11
 
 ## Implementation Phases
 
 ### Phase 1: Core Engine (MVP)
 **Goal**: Basic uncertainty + units calculator working in Node.js
 
+**Target**: Working programmatic library with 20k-sample Monte Carlo
+
 1. **Setup project structure**
-   - TypeScript project with modern build tooling (Vite/esbuild)
-   - Testing framework (Vitest or Jest)
-   - Linting and formatting
+   - TypeScript project with Vite for bundling
+   - pnpm for package management
+   - Vitest for testing (Vite-native)
+   - ESLint + Prettier for code quality
+   - GitHub Actions for CI
 
 2. **Implement Quantity class**
-   - Wraps value (scalar or particle array) + unit
+   - Wraps value (scalar or 20k-particle array) + unit
    - Basic arithmetic (+, -, *, /, ^)
-   - Unit conversion
-   - toString/display methods
+   - Unit conversion via mathjs
+   - Statistical methods (mean, median, percentile)
+   - toString/display methods with proper precision
 
 3. **Distribution functions** (port from SimpleFermi)
-   - `plusminus(mean, std)` - normal distribution
-   - `to(low, high)` - lognormal or normal
-   - `lognormal(low, high)` - for positive quantities
-   - `normal(left, right)` - for general ranges
-   - `outof(part, whole)` - beta distribution
-   - `sigfig(string)` - uniform based on significant figures
+   - **All create 20,000 samples by default:**
+   - `plusminus(mean, std, unit?)` - normal distribution
+   - `to(low, high, unit?)` - lognormal or normal
+   - `lognormal(low, high, unit?)` - for positive quantities
+   - `normal(left, right, unit?)` - for general ranges
+   - `outof(part, whole)` - beta distribution (proportions)
+   - `sigfig(string, unit?)` - uniform based on significant figures
    - `percent(pct)` - multiplicative error
    - `db(decibels)` - decibel-based multiplicative error
-   - `uniform(left, right)` - uniform distribution
-   - `data(values, weights)` - bootstrap sampling
+   - `uniform(left, right, unit?)` - uniform distribution
+   - `data(values, weights?)` - bootstrap sampling
 
 4. **Physical constants library**
    - Port CODATA constants from SimpleFermi
-   - Include uncertainties
-   - Common units (length, mass, time, etc.)
+   - Include measured uncertainties as distributions
+   - Common units pre-defined (length, mass, time, etc.)
 
 5. **Test suite**
-   - Unit arithmetic
-   - Distribution propagation
-   - Edge cases
+   - Unit arithmetic correctness
+   - Distribution propagation accuracy
+   - Statistical properties (mean, std dev match expected)
+   - Edge cases (division by zero, negative logs, etc.)
 
-**Deliverable**: `npm` package that can be imported and used programmatically
+**Deliverable**: `npm` package `neofermi` that can be imported and used programmatically
 
 ### Phase 2: Language & Parser
 **Goal**: Domain-specific syntax for natural expression of fermi estimates
@@ -237,30 +254,40 @@ A mobile-friendly, web-based domain-specific language for order of magnitude cal
 **Deliverable**: Standalone visualization library
 
 ### Phase 4: Web Interface (MVP)
-**Goal**: Mobile-friendly live notebook
+**Goal**: Mobile-friendly live notebook for GitHub Pages
 
-1. **Basic UI framework**
-   - Vanilla JS or lightweight framework (Svelte, Preact, or Vue)
-   - Cell-based input (like Jupyter)
+1. **Static site setup**
+   - Vite build targeting GitHub Pages
+   - Deploy to `gh-pages` branch via GitHub Actions
+   - Custom domain: `neofermi.alexalemi.com` (optional)
+   - Service worker for offline support
+
+2. **Basic UI framework**
+   - Start with vanilla TS/JS (decide on framework during implementation)
+   - Cell-based input (like Jupyter/Observable)
    - Each cell: code input → evaluation → visualization
    - Responsive design, mobile-first
 
-2. **Live evaluation**
-   - Debounced auto-evaluation as user types
-   - Dependency tracking between cells
-   - Error handling and display
+3. **Live evaluation**
+   - Debounced auto-evaluation as user types (300ms delay)
+   - Dependency tracking between cells (or just sequential for MVP)
+   - Error handling and display with helpful messages
+   - Show evaluation time (useful for 20k samples)
 
-3. **Local storage**
-   - Save/load notebooks to browser storage
-   - Export to JSON
-   - Import examples
+4. **Local storage + sharing**
+   - Save/load notebooks to browser localStorage
+   - Export to JSON file (download)
+   - Import JSON file (upload)
+   - Share via URL hash (compressed notebook state)
+   - Pre-loaded example notebooks
 
-4. **Basic styling**
+5. **Basic styling**
    - Clean, readable design
-   - Syntax highlighting (CodeMirror or Monaco)
-   - Dark mode support
+   - Syntax highlighting (CodeMirror or Monaco - decide in Phase 4)
+   - Dark mode support (respect `prefers-color-scheme`)
+   - Mobile-optimized touch targets
 
-**Deliverable**: Static web app that can be hosted anywhere
+**Deliverable**: Static web app deployed to GitHub Pages, fully functional on mobile
 
 ### Phase 5: Enhanced Features
 **Goal**: Match and exceed SimpleFermi capabilities
@@ -599,9 +626,29 @@ Squiggle uses a **hybrid approach** with three internal formats:
 
 ### What This Means for NeoFermi
 
-**1. Distribution Strategy (REVISED)**
+**1. Distribution Strategy (DECISION: Start with Sampling)**
 
-Instead of "always use particles," we should implement:
+**Phase 1 approach - Pure sampling:**
+
+```typescript
+class Quantity {
+  constructor(
+    public value: number | number[],  // scalar or 20k particles
+    public unit: Unit
+  ) {}
+
+  // All operations work on particles
+  add(other: Quantity): Quantity {
+    // Element-wise addition of particle arrays
+    return new Quantity(
+      this.toParticles().map((v, i) => v + other.toParticles()[i]),
+      this.unit.add(other.unit)
+    )
+  }
+}
+```
+
+**Phase 5+ optimization - Can add symbolic later:**
 
 ```typescript
 type DistFormat =
@@ -609,27 +656,15 @@ type DistFormat =
   | { type: 'samples', particles: number[] }       // Monte Carlo
   | { type: 'points', xs: number[], ys: number[] } // PDF coordinates
 
-class Quantity {
-  constructor(
-    public value: DistFormat | number,
-    public unit: Unit
-  ) {}
-
-  // Operations try to stay symbolic, fall back to sampling
-  add(other: Quantity): Quantity {
-    if (isSymbolic(this) && isSymbolic(other)) {
-      return symbolicAdd(this, other)  // if tractable
-    }
-    return sampleAdd(this, other)  // fall back to MC
-  }
-}
+// Operations try symbolic first, fall back to sampling
 ```
 
-**Benefits:**
-- Fast for simple cases (most unit conversions, basic arithmetic)
-- Accurate for complex nonlinear operations
-- Smaller memory footprint
-- Better UX (instant results for simple expressions)
+**Rationale for starting with pure sampling:**
+- ✓ Simpler implementation (single code path)
+- ✓ Handles all operations correctly (nonlinear, sign, etc.)
+- ✓ Easier to test and debug
+- ✓ Can add symbolic optimization later without breaking API
+- ✓ With 20k samples, performance is still reasonable
 
 **2. Parser Choice (CONFIRMED: Peggy)**
 
@@ -658,13 +693,15 @@ neofermi/
 
 Even if starting simple, this structure allows growth.
 
-**4. Sample Count Strategy (REFINED)**
+**4. Sample Count Strategy (REVISED)**
 
-Follow Squiggle's approach:
-- **Default: 1000 samples** (not 10,000) for reasonable speed
-- Make it configurable
-- Use symbolic when possible to avoid sampling entirely
-- For mobile: could reduce to 500-1000 (still reasonable accuracy)
+**Decision: 20,000 samples**
+- Higher than Squiggle's 1000 for better accuracy
+- Closer to SimpleFermi's 200k but optimized for web
+- ~0.7% sampling error vs 3% for 1k samples
+- Modern mobile devices can handle it
+- Make it configurable in settings
+- Could add adaptive sampling later if needed (detect device capability)
 
 **5. Development Workflow**
 
