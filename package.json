@@ -1,0 +1,59 @@
+{
+  "name": "neofermi",
+  "version": "0.1.0",
+  "description": "A mobile-friendly, web-based DSL for order of magnitude calculations with Monte Carlo uncertainty propagation",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json}\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "fermi-estimation",
+    "monte-carlo",
+    "uncertainty",
+    "units",
+    "dimensional-analysis",
+    "probability"
+  ],
+  "author": "Alex Alemi <alexalemi@gmail.com>",
+  "license": "MIT",
+  "packageManager": "pnpm@10.27.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "jstat": "^1.9.6",
+    "mathjs": "^14.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "@vitest/ui": "^2.1.8",
+    "eslint": "^9.18.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  }
+}
