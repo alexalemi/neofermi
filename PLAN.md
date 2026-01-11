@@ -549,4 +549,197 @@ The project will be successful if it:
 
 ---
 
+## Deep Dive: Squiggle Architecture Analysis
+
+After examining the [Squiggle repository](https://github.com/quantified-uncertainty/squiggle), here are key insights that inform our implementation:
+
+### Squiggle's Tech Stack (Confirmed)
+
+**Monorepo Structure:**
+- **pnpm** workspaces with **Turbo** for build orchestration
+- Separated into `packages/` (public), `apps/` (Next.js sites), `internal-packages/` (utilities)
+- Core language: `@quri/squiggle-lang`, Components: `@quri/squiggle-components`
+
+**Core Dependencies:**
+- **Peggy** (v4.2.0) - PEG parser generator (successor to PEG.js)
+- **jStat** (v1.9.6) - Statistical distributions (same library we identified!)
+- **TypeScript** - 93.8% of codebase
+- **React** - For visualization components
+- **Immutable** - For data structures
+- **d3-format** - Number formatting
+
+### Three Distribution Formats
+
+Squiggle uses a **hybrid approach** with three internal formats:
+
+1. **Symbolic** - Mathematical representations (e.g., Normal(μ, σ))
+   - Pros: Fast, exact, small memory footprint
+   - Cons: Limited to analytically tractable operations
+   - Use: Simple distributions, basic arithmetic where possible
+
+2. **Sample Set** - Monte Carlo particles
+   - Pros: Handles arbitrary operations, supports correlations
+   - Cons: Slower, approximate, memory intensive
+   - Use: Complex operations, default for most user-created distributions
+   - **Default: 1000 samples** (configurable)
+
+3. **Point Set** - Coordinate pairs `{xs: [...], ys: [...]}`
+   - Pros: Accurate for complex shapes, can represent any distribution
+   - Cons: More memory than symbolic, doesn't support correlations
+   - Use: Results of numerical operations, visualization
+
+**Key Insight**: Start with symbolic when possible, fall back to Monte Carlo when needed, convert to point set for display. This is more sophisticated than our initial plan of "always use particles."
+
+### Parser Architecture
+
+- **Peggy grammar** in `src/ast/peggyParser.peggy`
+- Build script: `peggy --cache --format es ./src/ast/peggyParser.peggy`
+- ES module output, cached for faster rebuilds
+- TypeScript throughout
+
+### What This Means for NeoFermi
+
+**1. Distribution Strategy (REVISED)**
+
+Instead of "always use particles," we should implement:
+
+```typescript
+type DistFormat =
+  | { type: 'symbolic', dist: SymbolicDist }      // e.g., Normal(0, 1)
+  | { type: 'samples', particles: number[] }       // Monte Carlo
+  | { type: 'points', xs: number[], ys: number[] } // PDF coordinates
+
+class Quantity {
+  constructor(
+    public value: DistFormat | number,
+    public unit: Unit
+  ) {}
+
+  // Operations try to stay symbolic, fall back to sampling
+  add(other: Quantity): Quantity {
+    if (isSymbolic(this) && isSymbolic(other)) {
+      return symbolicAdd(this, other)  // if tractable
+    }
+    return sampleAdd(this, other)  // fall back to MC
+  }
+}
+```
+
+**Benefits:**
+- Fast for simple cases (most unit conversions, basic arithmetic)
+- Accurate for complex nonlinear operations
+- Smaller memory footprint
+- Better UX (instant results for simple expressions)
+
+**2. Parser Choice (CONFIRMED: Peggy)**
+
+Squiggle's use of Peggy validates our parser choice. Benefits:
+- Active development (vs. Ohm which is less active)
+- Direct TypeScript integration
+- Excellent error reporting
+- Caching for fast rebuilds
+
+**3. Monorepo Structure**
+
+Consider organizing like Squiggle:
+
+```
+neofermi/
+├── packages/
+│   ├── neofermi-lang/      # Core parser & engine (like @quri/squiggle-lang)
+│   ├── neofermi-components/ # React visualization (like @quri/squiggle-components)
+│   └── neofermi-ui/         # Shared UI components
+├── apps/
+│   ├── docs/                # Documentation site
+│   └── playground/          # Web interface
+└── internal-packages/
+    └── content/             # Examples, tutorials
+```
+
+Even if starting simple, this structure allows growth.
+
+**4. Sample Count Strategy (REFINED)**
+
+Follow Squiggle's approach:
+- **Default: 1000 samples** (not 10,000) for reasonable speed
+- Make it configurable
+- Use symbolic when possible to avoid sampling entirely
+- For mobile: could reduce to 500-1000 (still reasonable accuracy)
+
+**5. Development Workflow**
+
+Adopt Squiggle's tools:
+- **pnpm** - Faster, more efficient than npm
+- **Turbo** - Only if we go monorepo route
+- **Changesets** - For versioning if publishing to npm
+
+### Updated Phase 1 Implementation
+
+Based on Squiggle analysis, Phase 1 should be:
+
+1. **Setup** (revised)
+   - TypeScript with pnpm
+   - Peggy parser (not Ohm)
+   - jStat for statistical primitives
+   - mathjs for units
+
+2. **Core Distribution Engine**
+   - Implement 3-format system:
+     - Symbolic: Normal, LogNormal, Uniform, Beta (common cases)
+     - Samples: Fallback for complex operations
+     - Points: For visualization and complex shapes
+   - Smart operation selection (symbolic first, samples as fallback)
+
+3. **Quantity Class** (updated)
+   - Value can be scalar, symbolic dist, samples, or points
+   - Unit tracking via mathjs
+   - Arithmetic tries to preserve symbolic form
+
+4. **SimpleFermi API** (same)
+   - Port distribution constructors: `plusminus()`, `to()`, `lognormal()`, etc.
+   - These return symbolic when possible, samples when needed
+
+### Key Differences from Squiggle
+
+NeoFermi should differ in these ways:
+
+1. **Units are first-class** - Squiggle doesn't have built-in dimensional analysis
+2. **Fermi-specific API** - `sigfig()`, `db()`, `percent()` not in Squiggle
+3. **Physical constants** - CODATA library built-in
+4. **Mobile-first** - Squiggle is desktop-focused
+5. **Simpler scope** - No Bayesian inference, just forward uncertainty propagation
+
+### Questions Answered
+
+✓ **Parser**: Peggy (confirmed by Squiggle)
+✓ **Stats library**: jStat (confirmed by Squiggle)
+✓ **Sample count**: 1000 default (matches Squiggle)
+✓ **Distribution strategy**: Hybrid symbolic/sampling (inspired by Squiggle)
+✓ **Monorepo**: Optional, but good structure for growth
+
+### New Questions from Squiggle Analysis
+
+1. **ReasonML/ReScript?** Squiggle was originally ReasonML → JavaScript
+   - For us: Stick with TypeScript (more accessible, better ecosystem)
+
+2. **Web Workers?** Squiggle uses them for async computation
+   - For us: Consider for Phase 5 (performance optimization)
+
+3. **KDE for visualization?** Squiggle uses Kernel Density Estimation
+   - For us: Worth considering vs. histograms for smooth curves
+
+4. **Immutable data structures?** Squiggle uses Immutable.js
+   - For us: Maybe not necessary initially, add if needed
+
+### Recommended Reading
+
+- [Squiggle Technical Overview](https://www.lesswrong.com/posts/Drs8XNr52Ybqa57v5/squiggle-technical-overview)
+- [Three Formats of Distributions](https://www.squiggle-language.com/docs/Discussions/Three-Formats-Of-Distributions)
+- [Squiggle Repo](https://github.com/quantified-uncertainty/squiggle)
+- [@quri/squiggle-lang on npm](https://www.npmjs.com/package/@quri/squiggle-lang)
+
+---
+
 *This plan is a living document. Update as implementation progresses and new challenges/opportunities emerge.*
+
+*Last updated: 2026-01-11 - Added Squiggle architecture deep dive*
