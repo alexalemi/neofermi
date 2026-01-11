@@ -3,170 +3,280 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>NeoFermi - Mobile Console</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>NeoFermi</title>
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
     }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
       background: #1e1e1e;
       color: #d4d4d4;
-      height: 100vh;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
     }
 
     header {
       background: #252525;
-      padding: 12px 16px;
+      padding: 16px;
       border-bottom: 1px solid #3e3e3e;
       flex-shrink: 0;
     }
 
     h1 {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 600;
       color: #ffffff;
+      margin-bottom: 4px;
     }
 
     .subtitle {
-      font-size: 12px;
+      font-size: 13px;
       color: #888;
-      margin-top: 4px;
     }
 
     #output {
       flex: 1;
       overflow-y: auto;
       padding: 16px;
-      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-      font-size: 14px;
-      line-height: 1.6;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.5;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
 
     .output-line {
-      margin-bottom: 12px;
-      padding: 8px;
-      border-radius: 4px;
+      margin-bottom: 16px;
     }
 
-    .input-line {
+    .input-echo {
       color: #4ec9b0;
+      font-weight: 500;
+      margin-bottom: 8px;
     }
 
-    .result-line {
+    .result {
       color: #ce9178;
-      padding-left: 20px;
+      padding: 12px;
+      background: rgba(206, 145, 120, 0.1);
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
-    .error-line {
+    .error {
       color: #f48771;
-      background: rgba(244, 135, 113, 0.1);
-      padding: 8px;
+      background: rgba(244, 135, 113, 0.15);
+      padding: 12px;
+      border-radius: 6px;
       border-left: 3px solid #f48771;
     }
 
-    .help-line {
+    .help {
       color: #608b4e;
-      font-style: italic;
-    }
-
-    .input-container {
-      background: #252525;
-      border-top: 1px solid #3e3e3e;
-      padding: 12px 16px;
-      flex-shrink: 0;
-    }
-
-    #input {
-      width: 100%;
-      background: #1e1e1e;
-      border: 1px solid #3e3e3e;
-      border-radius: 4px;
-      color: #d4d4d4;
+      font-size: 12px;
+      line-height: 1.6;
       padding: 12px;
-      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-      font-size: 16px;
-      outline: none;
-    }
-
-    #input:focus {
-      border-color: #007acc;
+      background: rgba(96, 139, 78, 0.1);
+      border-radius: 6px;
     }
 
     .examples {
       background: #2d2d2d;
-      padding: 12px;
-      margin: 8px 0;
-      border-radius: 4px;
+      padding: 16px;
+      margin-bottom: 16px;
+      border-radius: 8px;
       border-left: 3px solid #007acc;
     }
 
     .examples h3 {
       font-size: 14px;
       color: #4ec9b0;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
+      font-weight: 600;
     }
 
-    .examples code {
-      display: block;
+    .example-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .example-item:active {
+      background: rgba(0, 122, 204, 0.2);
+    }
+
+    .example-code {
+      flex: 1;
       color: #ce9178;
       font-size: 13px;
-      margin: 4px 0;
-      padding: 4px 8px;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 3px;
     }
 
-    .stat {
-      color: #9cdcfe;
+    .example-tap {
+      color: #888;
+      font-size: 11px;
+    }
+
+    .input-area {
+      background: #252525;
+      border-top: 1px solid #3e3e3e;
+      padding: 12px;
+      flex-shrink: 0;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #input {
+      flex: 1;
+      background: #1e1e1e;
+      border: 1px solid #3e3e3e;
+      border-radius: 8px;
+      color: #d4d4d4;
+      padding: 14px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 16px;
+      outline: none;
+      touch-action: manipulation;
+    }
+
+    #input:focus {
+      border-color: #007acc;
+      background: #2a2a2a;
+    }
+
+    #run-btn {
+      background: #007acc;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 20px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      flex-shrink: 0;
+      touch-action: manipulation;
+    }
+
+    #run-btn:active {
+      background: #005a9e;
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .quick-actions::-webkit-scrollbar {
+      display: none;
+    }
+
+    .quick-btn {
+      background: #3e3e3e;
+      color: #d4d4d4;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
       font-size: 12px;
-      margin-left: 8px;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+      flex-shrink: 0;
+    }
+
+    .quick-btn:active {
+      background: #4e4e4e;
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>🔬 NeoFermi Console</h1>
+    <h1>🔬 NeoFermi</h1>
     <div class="subtitle">Monte Carlo uncertainty calculator</div>
   </header>
 
   <div id="output">
     <div class="examples">
-      <h3>Try these examples:</h3>
-      <code>to(10, 100, 'meters')</code>
-      <code>lognormal(1, 1000, 'kg')</code>
-      <code>outof(7, 10)</code>
-      <code>normal(-10, 10, 'celsius')</code>
-      <code>uniform(0, 100)</code>
+      <h3>Tap to try:</h3>
+      <div class="example-item" data-code="to(10, 100, 'meters')">
+        <div class="example-code">to(10, 100, 'meters')</div>
+        <div class="example-tap">▶</div>
+      </div>
+      <div class="example-item" data-code="lognormal(1, 1000, 'kg')">
+        <div class="example-code">lognormal(1, 1000, 'kg')</div>
+        <div class="example-tap">▶</div>
+      </div>
+      <div class="example-item" data-code="outof(7, 10)">
+        <div class="example-code">outof(7, 10)</div>
+        <div class="example-tap">▶</div>
+      </div>
+      <div class="example-item" data-code="normal(-10, 10, 'celsius')">
+        <div class="example-code">normal(-10, 10, 'celsius')</div>
+        <div class="example-tap">▶</div>
+      </div>
     </div>
-    <div class="help-line">Type an expression and press Enter. Type 'help' for more info.</div>
   </div>
 
-  <div class="input-container">
-    <input type="text" id="input" placeholder="to(10, 100, 'meters')" autocomplete="off" autocapitalize="off" autocorrect="off">
+  <div class="input-area">
+    <div class="input-row">
+      <input type="text" id="input" placeholder="Enter expression..."
+             autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <button id="run-btn">Run</button>
+    </div>
+    <div class="quick-actions">
+      <button class="quick-btn" data-action="help">Help</button>
+      <button class="quick-btn" data-action="clear">Clear</button>
+      <button class="quick-btn" data-action=".mean()">Mean</button>
+      <button class="quick-btn" data-action=".median()">Median</button>
+      <button class="quick-btn" data-action=".percentile(0.95)">P95</button>
+    </div>
   </div>
 
   <script type="module">
     import * as neofermi from './src/index.js'
 
-    // Make neofermi available globally for REPL
     window.neofermi = neofermi
     const { to, lognormal, normal, uniform, outof, gamma, plusminus, percent, db, Quantity } = neofermi
 
     const outputDiv = document.getElementById('output')
     const inputEl = document.getElementById('input')
+    const runBtn = document.getElementById('run-btn')
 
     function addOutput(content, className) {
       const div = document.createElement('div')
       div.className = `output-line ${className}`
-      div.textContent = content
+      if (typeof content === 'string') {
+        div.textContent = content
+      } else {
+        div.appendChild(content)
+      }
       outputDiv.appendChild(div)
       outputDiv.scrollTop = outputDiv.scrollHeight
     }
@@ -185,11 +295,11 @@
         const p95 = q.percentile(0.95)
         const std = q.std()
 
-        return `Mean: ${mean.toExponential(3)} ${q.unit}
-  Median: ${median.toExponential(3)}
-  [P5, P95]: [${p5.toExponential(3)}, ${p95.toExponential(3)}]
-  Std: ${std.toExponential(3)}
-  Samples: ${q.sampleCount}`
+        return `Mean:    ${mean.toExponential(3)} ${q.unit}
+Median:  ${median.toExponential(3)}
+[5%-95%] [${p5.toExponential(3)}, ${p95.toExponential(3)}]
+StdDev:  ${std.toExponential(3)}
+Samples: ${q.sampleCount}`
       }
 
       return q.toString()
@@ -197,7 +307,6 @@
 
     function evaluate(code) {
       try {
-        // Create a safe eval context with our functions
         const result = new Function('to', 'lognormal', 'normal', 'uniform', 'outof', 'gamma', 'plusminus', 'percent', 'db', 'Quantity', `
           "use strict";
           return ${code};
@@ -212,31 +321,45 @@
     function handleInput(code) {
       if (!code.trim()) return
 
-      addOutput(`> ${code}`, 'input-line')
+      // Echo input
+      const echo = document.createElement('div')
+      echo.className = 'input-echo'
+      echo.textContent = `> ${code}`
+      addOutput(echo, '')
 
       if (code.toLowerCase() === 'help') {
-        addOutput(`
-NeoFermi Console - Available functions:
+        const helpText = `Available functions (20k samples):
 
-Core distributions (20,000 samples):
-  to(low, high, 'unit')        - Smart choice (lognormal if both positive)
-  lognormal(low, high, 'unit') - For positive multiplicative quantities
-  normal(low, high, 'unit')    - For values that can be negative
-  uniform(low, high, 'unit')   - Flat distribution
-  outof(successes, total)      - Beta for proportions (0-1)
-  gamma(shape, scale, 'unit')  - For counts and rates
+to(low, high, 'unit')
+  Smart: lognormal if positive, else normal
 
-Convenience:
-  plusminus(mean, std, 'unit') - Normal with mean ± std
-  percent(pct)                 - Percentage error (±10%)
-  db(decibels)                 - Order of magnitude (10dB = 10x)
+lognormal(low, high, 'unit')
+  For positive multiplicative quantities
 
-Examples:
-  to(10, 100, 'meters')
-  lognormal(1, 1000, 'kg').mean()
-  outof(7, 10)
-  normal(-10, 10, 'celsius').median()
-        `.trim(), 'help-line')
+normal(low, high, 'unit')
+  For values that can be negative
+
+uniform(low, high, 'unit')
+  Flat distribution
+
+outof(successes, total)
+  Beta distribution for proportions
+
+gamma(shape, scale, 'unit')
+  For counts and rates
+
+plusminus(mean, std, 'unit')
+  Normal with mean ± std
+
+percent(pct)
+  Percentage error (±10%)
+
+db(decibels)
+  Order of magnitude (10dB = 10x)
+
+Methods: .mean() .median() .std()
+         .percentile(p) .to('unit')`
+        addOutput(helpText, 'help')
         return
       }
 
@@ -249,22 +372,54 @@ Examples:
 
       if (success) {
         const formatted = formatQuantity(result)
-        addOutput(formatted, 'result-line')
+        addOutput(formatted, 'result')
       } else {
-        addOutput(`Error: ${error}`, 'error-line')
+        addOutput(`Error: ${error}`, 'error')
       }
     }
 
-    inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const code = inputEl.value
+    // Run button
+    runBtn.addEventListener('click', () => {
+      const code = inputEl.value
+      if (code.trim()) {
         handleInput(code)
         inputEl.value = ''
+        inputEl.blur() // Hide keyboard on mobile
       }
     })
 
-    // Focus input on load
-    setTimeout(() => inputEl.focus(), 100)
+    // Enter key
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        runBtn.click()
+      }
+    })
+
+    // Example items
+    document.querySelectorAll('.example-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const code = item.dataset.code
+        inputEl.value = code
+        runBtn.click()
+      })
+    })
+
+    // Quick action buttons
+    document.querySelectorAll('.quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action
+        if (action === 'help') {
+          handleInput('help')
+        } else if (action === 'clear') {
+          handleInput('clear')
+        } else {
+          // Append method to current input
+          inputEl.value += action
+          inputEl.focus()
+        }
+      })
+    })
   </script>
 </body>
 </html>
