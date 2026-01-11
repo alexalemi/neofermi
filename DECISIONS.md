@@ -55,6 +55,7 @@ This document tracks the key technical decisions made during the planning and im
   - Free, reliable, git-based deployment
   - Perfect for open source project
   - Easy CI/CD with GitHub Actions
+  - **Custom domain** (to be set up later)
 - **Static HTML/JS/CSS** output from Vite
 - **Client-side only** - all computation in browser
 
@@ -93,6 +94,59 @@ This document tracks the key technical decisions made during the planning and im
   - Focus on core functionality first
 - **CodeMirror** or **Monaco** for code editing (decide during Phase 4)
 
+## Distribution Function Priorities
+
+**Core distributions for Phase 1** (2026-01-11):
+
+These are the essential distributions, listed in priority order:
+
+1. **LogNormal** - DEFAULT for positive quantities
+   - `lognormal(low, high, unit?)` - explicit log normal
+   - `to(low, high, unit?)` - **defaults to lognormal** when both args positive
+   - Most physical quantities are positive and multiplicative
+   - Handles orders of magnitude naturally
+   - Used by: `sigfig()`, `percent()`, `db()`
+
+2. **Normal** - For general ranges (can be negative)
+   - `normal(left, right, unit?)` - explicit normal
+   - `plusminus(mean, std, unit?)` - normal with mean ± std
+   - Used when values can be negative or centered
+
+3. **Uniform** - For unknown distributions
+   - `uniform(low, high, unit?)` - flat prior
+   - Maximum entropy when only bounds known
+   - Simple and interpretable
+
+4. **Beta** - For proportions/probabilities
+   - `outof(successes, total)` - beta distribution for proportions
+   - Natural for counts: "7 out of 10"
+   - `against(part, other)` - alternative phrasing
+   - Confined to [0, 1] automatically
+
+5. **Gamma** - For counts/rates
+   - `gamma(shape, scale, unit?)` - for count data
+   - Natural for positive continuous values from counting
+   - Alternative to lognormal for some use cases
+
+**Rationale for lognormal as default:**
+- Most Fermi estimates involve positive quantities (mass, distance, time, etc.)
+- Multiplicative processes → lognormal is natural
+- Handles orders of magnitude gracefully (10x, 100x, etc.)
+- SimpleFermi uses this approach and it works well
+- Better than normal for "1 to 1000" type estimates
+
+**Implementation note:**
+```typescript
+// to() chooses based on sign of arguments
+function to(low: number, high: number, unit?: string) {
+  if (low > 0 && high > 0) {
+    return lognormal(low, high, unit)  // DEFAULT
+  } else {
+    return normal(low, high, unit)
+  }
+}
+```
+
 ## Deferred Decisions
 
 These decisions will be made during implementation:
@@ -101,6 +155,7 @@ These decisions will be made during implementation:
 - [ ] Exact data structure for particles (Float64Array vs number[])
 - [ ] Caching strategy for expensive operations
 - [ ] Error handling approach
+- [ ] Custom domain name (deferred until ready to deploy)
 
 ### Phase 2 (Parser)
 - [ ] Exact grammar syntax details
@@ -255,6 +310,9 @@ These are goals, not hard limits. Optimize after measuring.
 | 2026-01-11 | mathjs for units | Comprehensive, well-maintained |
 | 2026-01-11 | jStat for distributions | Same as Squiggle, proven |
 | 2026-01-11 | Simple structure (not monorepo) | Start simple, refactor later |
+| 2026-01-11 | LogNormal as default | Most Fermi estimates are positive/multiplicative |
+| 2026-01-11 | Core distributions: lognormal, normal, uniform, beta, gamma | Covers key use cases |
+| 2026-01-11 | Custom domain (deferred) | Will set up when ready to deploy |
 
 ---
 

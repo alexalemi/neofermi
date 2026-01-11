@@ -182,17 +182,22 @@ A mobile-friendly, web-based domain-specific language for order of magnitude cal
    - toString/display methods with proper precision
 
 3. **Distribution functions** (port from SimpleFermi)
-   - **All create 20,000 samples by default:**
-   - `plusminus(mean, std, unit?)` - normal distribution
-   - `to(low, high, unit?)` - lognormal or normal
-   - `lognormal(low, high, unit?)` - for positive quantities
-   - `normal(left, right, unit?)` - for general ranges
-   - `outof(part, whole)` - beta distribution (proportions)
-   - `sigfig(string, unit?)` - uniform based on significant figures
-   - `percent(pct)` - multiplicative error
-   - `db(decibels)` - decibel-based multiplicative error
-   - `uniform(left, right, unit?)` - uniform distribution
-   - `data(values, weights?)` - bootstrap sampling
+   - **All create 20,000 samples by default**
+   - **Core distributions (Phase 1 priority):**
+     1. `lognormal(low, high, unit?)` - **DEFAULT** for positive quantities
+     2. `normal(left, right, unit?)` - for general ranges (can be negative)
+     3. `uniform(low, high, unit?)` - flat prior when only bounds known
+     4. `outof(successes, total)` - **beta distribution** for proportions
+     5. `gamma(shape, scale, unit?)` - for counts/rates
+   - **Convenience functions (built on core):**
+     - `to(low, high, unit?)` - smart choice: **lognormal if both positive**, else normal
+     - `plusminus(mean, std, unit?)` - normal distribution with mean ± std
+     - `sigfig(string, unit?)` - uniform based on significant figures
+     - `percent(pct)` - multiplicative error (lognormal-based)
+     - `db(decibels)` - decibel-based multiplicative error (lognormal-based)
+     - `against(part, other)` - alternative phrasing for beta
+   - **Data-based (Phase 2+):**
+     - `data(values, weights?)` - bootstrap sampling from data
 
 4. **Physical constants library**
    - Port CODATA constants from SimpleFermi
@@ -206,6 +211,15 @@ A mobile-friendly, web-based domain-specific language for order of magnitude cal
    - Edge cases (division by zero, negative logs, etc.)
 
 **Deliverable**: `npm` package `neofermi` that can be imported and used programmatically
+
+**Distribution Implementation Priority:**
+1. LogNormal (most important - default for positive values)
+2. Normal (general purpose)
+3. Uniform (simple baseline)
+4. Beta (proportions via `outof()`)
+5. Gamma (counts/rates)
+
+All convenience functions can wait until core 5 are working.
 
 ### Phase 2: Language & Parser
 **Goal**: Domain-specific syntax for natural expression of fermi estimates
@@ -259,7 +273,7 @@ A mobile-friendly, web-based domain-specific language for order of magnitude cal
 1. **Static site setup**
    - Vite build targeting GitHub Pages
    - Deploy to `gh-pages` branch via GitHub Actions
-   - Custom domain: `neofermi.alexalemi.com` (optional)
+   - Custom domain setup (to be configured later)
    - Service worker for offline support
 
 2. **Basic UI framework**
