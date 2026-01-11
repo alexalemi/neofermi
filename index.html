@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NeoFermi - Mobile Console</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      background: #252525;
+      padding: 12px 16px;
+      border-bottom: 1px solid #3e3e3e;
+      flex-shrink: 0;
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    #output {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .output-line {
+      margin-bottom: 12px;
+      padding: 8px;
+      border-radius: 4px;
+    }
+
+    .input-line {
+      color: #4ec9b0;
+    }
+
+    .result-line {
+      color: #ce9178;
+      padding-left: 20px;
+    }
+
+    .error-line {
+      color: #f48771;
+      background: rgba(244, 135, 113, 0.1);
+      padding: 8px;
+      border-left: 3px solid #f48771;
+    }
+
+    .help-line {
+      color: #608b4e;
+      font-style: italic;
+    }
+
+    .input-container {
+      background: #252525;
+      border-top: 1px solid #3e3e3e;
+      padding: 12px 16px;
+      flex-shrink: 0;
+    }
+
+    #input {
+      width: 100%;
+      background: #1e1e1e;
+      border: 1px solid #3e3e3e;
+      border-radius: 4px;
+      color: #d4d4d4;
+      padding: 12px;
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      font-size: 16px;
+      outline: none;
+    }
+
+    #input:focus {
+      border-color: #007acc;
+    }
+
+    .examples {
+      background: #2d2d2d;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 4px;
+      border-left: 3px solid #007acc;
+    }
+
+    .examples h3 {
+      font-size: 14px;
+      color: #4ec9b0;
+      margin-bottom: 8px;
+    }
+
+    .examples code {
+      display: block;
+      color: #ce9178;
+      font-size: 13px;
+      margin: 4px 0;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 3px;
+    }
+
+    .stat {
+      color: #9cdcfe;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🔬 NeoFermi Console</h1>
+    <div class="subtitle">Monte Carlo uncertainty calculator</div>
+  </header>
+
+  <div id="output">
+    <div class="examples">
+      <h3>Try these examples:</h3>
+      <code>to(10, 100, 'meters')</code>
+      <code>lognormal(1, 1000, 'kg')</code>
+      <code>outof(7, 10)</code>
+      <code>normal(-10, 10, 'celsius')</code>
+      <code>uniform(0, 100)</code>
+    </div>
+    <div class="help-line">Type an expression and press Enter. Type 'help' for more info.</div>
+  </div>
+
+  <div class="input-container">
+    <input type="text" id="input" placeholder="to(10, 100, 'meters')" autocomplete="off" autocapitalize="off" autocorrect="off">
+  </div>
+
+  <script type="module">
+    import * as neofermi from './src/index.js'
+
+    // Make neofermi available globally for REPL
+    window.neofermi = neofermi
+    const { to, lognormal, normal, uniform, outof, gamma, plusminus, percent, db, Quantity } = neofermi
+
+    const outputDiv = document.getElementById('output')
+    const inputEl = document.getElementById('input')
+
+    function addOutput(content, className) {
+      const div = document.createElement('div')
+      div.className = `output-line ${className}`
+      div.textContent = content
+      outputDiv.appendChild(div)
+      outputDiv.scrollTop = outputDiv.scrollHeight
+    }
+
+    function formatQuantity(q) {
+      if (!q || typeof q !== 'object') return String(q)
+
+      if (q.isScalar && q.isScalar()) {
+        return `${q.value} ${q.unit.toString()}`
+      }
+
+      if (q.isDistribution && q.isDistribution()) {
+        const mean = q.mean()
+        const median = q.median()
+        const p5 = q.percentile(0.05)
+        const p95 = q.percentile(0.95)
+        const std = q.std()
+
+        return `Mean: ${mean.toExponential(3)} ${q.unit}
+  Median: ${median.toExponential(3)}
+  [P5, P95]: [${p5.toExponential(3)}, ${p95.toExponential(3)}]
+  Std: ${std.toExponential(3)}
+  Samples: ${q.sampleCount}`
+      }
+
+      return q.toString()
+    }
+
+    function evaluate(code) {
+      try {
+        // Create a safe eval context with our functions
+        const result = new Function('to', 'lognormal', 'normal', 'uniform', 'outof', 'gamma', 'plusminus', 'percent', 'db', 'Quantity', `
+          "use strict";
+          return ${code};
+        `)(to, lognormal, normal, uniform, outof, gamma, plusminus, percent, db, Quantity)
+
+        return { success: true, result }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    }
+
+    function handleInput(code) {
+      if (!code.trim()) return
+
+      addOutput(`> ${code}`, 'input-line')
+
+      if (code.toLowerCase() === 'help') {
+        addOutput(`
+NeoFermi Console - Available functions:
+
+Core distributions (20,000 samples):
+  to(low, high, 'unit')        - Smart choice (lognormal if both positive)
+  lognormal(low, high, 'unit') - For positive multiplicative quantities
+  normal(low, high, 'unit')    - For values that can be negative
+  uniform(low, high, 'unit')   - Flat distribution
+  outof(successes, total)      - Beta for proportions (0-1)
+  gamma(shape, scale, 'unit')  - For counts and rates
+
+Convenience:
+  plusminus(mean, std, 'unit') - Normal with mean ± std
+  percent(pct)                 - Percentage error (±10%)
+  db(decibels)                 - Order of magnitude (10dB = 10x)
+
+Examples:
+  to(10, 100, 'meters')
+  lognormal(1, 1000, 'kg').mean()
+  outof(7, 10)
+  normal(-10, 10, 'celsius').median()
+        `.trim(), 'help-line')
+        return
+      }
+
+      if (code.toLowerCase() === 'clear') {
+        outputDiv.innerHTML = ''
+        return
+      }
+
+      const { success, result, error } = evaluate(code)
+
+      if (success) {
+        const formatted = formatQuantity(result)
+        addOutput(formatted, 'result-line')
+      } else {
+        addOutput(`Error: ${error}`, 'error-line')
+      }
+    }
+
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const code = inputEl.value
+        handleInput(code)
+        inputEl.value = ''
+      }
+    })
+
+    // Focus input on load
+    setTimeout(() => inputEl.focus(), 100)
+  </script>
+</body>
+</html>

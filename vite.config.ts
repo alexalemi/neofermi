@@ -2,15 +2,16 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 
 export default defineConfig({
+  base: '/neofermi/', // GitHub Pages base path
   build: {
-    lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
-      name: 'NeoFermi',
-      fileName: 'index',
-      formats: ['es']
-    },
+    outDir: 'dist',
     sourcemap: true,
-    target: 'es2020'
+    target: 'es2020',
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html')
+      }
+    }
   },
   test: {
     globals: true,

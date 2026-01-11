@@ -6,7 +6,6 @@
 
 import { Quantity } from '../core/Quantity.js'
 import { DEFAULT_SAMPLE_COUNT } from '../config.js'
-import { rand } from '../utils/math.js'
 
 /**
  * Generate beta-distributed random samples using accept-reject method

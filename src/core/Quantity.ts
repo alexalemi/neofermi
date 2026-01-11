@@ -6,7 +6,7 @@
  * - A distribution represented by particles (e.g., lognormal(10, 100, 'meters'))
  */
 
-import { unit, Unit, type MathType } from 'mathjs'
+import { unit, Unit } from 'mathjs'
 
 export type Value = number | number[]
 
@@ -210,6 +210,7 @@ export class Quantity {
     const aParticles = this.toParticles()
 
     // Calculate resulting unit
+    // @ts-ignore - mathjs types are incorrect, pow() accepts number
     const resultUnit = this.unit.pow(exponent)
 
     // If scalar, return scalar
