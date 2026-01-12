@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>NeoFermi</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #252525;
+      padding: 16px;
+      border-bottom: 1px solid #3e3e3e;
+      flex-shrink: 0;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #888;
+    }
+
+    #output {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+
+    .output-line {
+      margin-bottom: 16px;
+    }
+
+    .input-echo {
+      color: #4ec9b0;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .result {
+      color: #ce9178;
+      padding: 12px;
+      background: rgba(206, 145, 120, 0.1);
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .error {
+      color: #f48771;
+      background: rgba(244, 135, 113, 0.15);
+      padding: 12px;
+      border-radius: 6px;
+      border-left: 3px solid #f48771;
+    }
+
+    .help {
+      color: #608b4e;
+      font-size: 12px;
+      line-height: 1.6;
+      padding: 12px;
+      background: rgba(96, 139, 78, 0.1);
+      border-radius: 6px;
+    }
+
+    .examples {
+      background: #2d2d2d;
+      padding: 16px;
+      margin-bottom: 16px;
+      border-radius: 8px;
+      border-left: 3px solid #007acc;
+    }
+
+    .examples h3 {
+      font-size: 14px;
+      color: #4ec9b0;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .example-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .example-item:active {
+      background: rgba(0, 122, 204, 0.2);
+    }
+
+    .example-code {
+      flex: 1;
+      color: #ce9178;
+      font-size: 13px;
+    }
+
+    .example-tap {
+      color: #888;
+      font-size: 11px;
+    }
+
+    .input-area {
+      background: #252525;
+      border-top: 1px solid #3e3e3e;
+      padding: 12px;
+      flex-shrink: 0;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #input {
+      flex: 1;
+      background: #1e1e1e;
+      border: 1px solid #3e3e3e;
+      border-radius: 8px;
+      color: #d4d4d4;
+      padding: 14px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 16px;
+      outline: none;
+      touch-action: manipulation;
+    }
+
+    #input:focus {
+      border-color: #007acc;
+      background: #2a2a2a;
+    }
+
+    #run-btn {
+      background: #007acc;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 20px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      flex-shrink: 0;
+      touch-action: manipulation;
+    }
+
+    #run-btn:active {
+      background: #005a9e;
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .quick-actions::-webkit-scrollbar {
+      display: none;
+    }
+
+    .quick-btn {
+      background: #3e3e3e;
+      color: #d4d4d4;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+      flex-shrink: 0;
+    }
+
+    .quick-btn:active {
+      background: #4e4e4e;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🔬 NeoFermi</h1>
+    <div class="subtitle">Monte Carlo uncertainty calculator</div>
+  </header>
+
+  <div id="output">
+    <div class="examples">
+      <h3>Tap to try:</h3>
+      <div class="example-item" data-code="10 to 100 meters">
+        <div class="example-code">10 to 100 meters</div>
+        <div class="example-tap">▶</div>
+      </div>
+      <div class="example-item" data-code="1 to 1000 kg">
+        <div class="example-code">1 to 1000 kg</div>
+        <div class="example-tap">▶</div>
+      </div>
+      <div class="example-item" data-code="outof(7, 10)">
+        <div class="example-code">outof(7, 10)</div>
+        <div class="example-tap">▶</div>
+      </div>
+      <div class="example-item" data-code="100 meters as feet">
+        <div class="example-code">100 meters as feet</div>
+        <div class="example-tap">▶</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-area">
+    <div class="input-row">
+      <input type="text" id="input" placeholder="Enter expression..."
+             autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <button id="run-btn">Run</button>
+    </div>
+    <div class="quick-actions">
+      <button class="quick-btn" data-action="help">Help</button>
+      <button class="quick-btn" data-action="clear">Clear</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as neofermi from './src/index.js'
+    import { parse, Evaluator } from './src/parser/index.js'
+
+    window.neofermi = neofermi
+    const evaluator = new Evaluator()
+
+    const outputDiv = document.getElementById('output')
+    const inputEl = document.getElementById('input')
+    const runBtn = document.getElementById('run-btn')
+
+    function addOutput(content, className) {
+      const div = document.createElement('div')
+      div.className = `output-line ${className}`
+      if (typeof content === 'string') {
+        div.textContent = content
+      } else {
+        div.appendChild(content)
+      }
+      outputDiv.appendChild(div)
+      outputDiv.scrollTop = outputDiv.scrollHeight
+    }
+
+    function formatQuantity(q) {
+      if (!q || typeof q !== 'object') return String(q)
+
+      if (q.isScalar && q.isScalar()) {
+        return `${q.value} ${q.unit.toString()}`
+      }
+
+      if (q.isDistribution && q.isDistribution()) {
+        const mean = q.mean()
+        const median = q.median()
+        const p5 = q.percentile(0.05)
+        const p95 = q.percentile(0.95)
+        const std = q.std()
+
+        return `Mean:    ${mean.toExponential(3)} ${q.unit}
+Median:  ${median.toExponential(3)}
+[5%-95%] [${p5.toExponential(3)}, ${p95.toExponential(3)}]
+StdDev:  ${std.toExponential(3)}
+Samples: ${q.sampleCount}`
+      }
+
+      return q.toString()
+    }
+
+    function evaluate(code) {
+      try {
+        const result = parse(code, evaluator)
+        return { success: true, result }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    }
+
+    function handleInput(code) {
+      if (!code.trim()) return
+
+      // Echo input
+      const echo = document.createElement('div')
+      echo.className = 'input-echo'
+      echo.textContent = `> ${code}`
+      addOutput(echo, '')
+
+      if (code.toLowerCase() === 'help') {
+        const helpText = `NeoFermi DSL (20k samples)
+
+Range syntax:
+  1 to 10              Unitless range
+  1 to 10 meters       Range with unit
+  5 ft to 10 m         Mixed units
+  10 m as feet         Unit conversion
+
+Arithmetic:
+  x = 10 + 5          Assignment
+  x * 2               Multiply
+  x / 2               Divide
+  x ^ 2               Power
+
+Functions:
+  lognormal(low, high)  For positive values
+  normal(low, high)     For any values
+  uniform(low, high)    Flat distribution
+  outof(7, 10)          Beta (proportions)
+  gamma(shape, scale)   Counts and rates
+
+Comments: # like this
+
+Units: meters, kg, celsius, etc.
+Custom: 'widgets
+
+Type 'clear' to clear output`
+        addOutput(helpText, 'help')
+        return
+      }
+
+      if (code.toLowerCase() === 'clear') {
+        outputDiv.innerHTML = ''
+        return
+      }
+
+      const { success, result, error } = evaluate(code)
+
+      if (success) {
+        const formatted = formatQuantity(result)
+        addOutput(formatted, 'result')
+      } else {
+        addOutput(`Error: ${error}`, 'error')
+      }
+    }
+
+    // Run button
+    runBtn.addEventListener('click', () => {
+      const code = inputEl.value
+      if (code.trim()) {
+        handleInput(code)
+        inputEl.value = ''
+        inputEl.blur() // Hide keyboard on mobile
+      }
+    })
+
+    // Enter key
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        runBtn.click()
+      }
+    })
+
+    // Example items
+    document.querySelectorAll('.example-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const code = item.dataset.code
+        inputEl.value = code
+        runBtn.click()
+      })
+    })
+
+    // Quick action buttons
+    document.querySelectorAll('.quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action
+        if (action === 'help') {
+          handleInput('help')
+        } else if (action === 'clear') {
+          handleInput('clear')
+        }
+      })
+    })
+  </script>
+</body>
+</html>
