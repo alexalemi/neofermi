@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 
 export default defineConfig({
-  base: '/neofermi/', // GitHub Pages base path
+  base: '/neofermi/', // GitHub Pages base path (change to '/' when using custom domain)
   build: {
     outDir: 'dist',
     sourcemap: true,
