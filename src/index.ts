@@ -23,3 +23,7 @@ export { to, percent, db } from './distributions/convenience.js'
 
 // Utility functions
 export { erf, erfinv, factor, randn, rand } from './utils/math.js'
+
+// Parser
+export { parse, parseToAST, isValidSyntax, Evaluator, EvaluationError } from './parser/index.js'
+export type { ASTNode } from './parser/ast.js'

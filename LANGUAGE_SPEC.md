@@ -80,19 +80,41 @@ Comment     = '#' [^\n]* '\n'
 
 The `to` operator creates a distribution between two values.
 
-**Trailing unit applies to BOTH bounds:**
+**Rule 1: Trailing unit (after range) applies to BOTH bounds**
 ```
-1 to 10 m        # to(1, 10, 'meters')
-0 to 100         # to(0, 100) - unitless
--10 to 10 celsius # to(-10, 10, 'celsius')
-```
-
-**Individual units in ranges NOT allowed (for simplicity):**
-```
-1 m to 10 m      # SYNTAX ERROR - use: 1 to 10 m
+1 to 10 m              # [1m, 10m]
+-10 to 10 celsius      # [-10°C, 10°C]
 ```
 
-**Rationale:** Matches the API `to(low, high, unit?)` and avoids ambiguity.
+**Rule 2: Both sides with explicit units - PREFER RIGHT side**
+```
+5 ft to 10 m           # [1.524m, 10m] - converts left to right's unit
+1 m to 10 m            # [1m, 10m] - both same unit
+```
+
+**Rule 3: Explicit trailing conversion wins over everything**
+```
+5 ft to 10 m as cm     # [152.4cm, 1000cm] - converts both to cm
+```
+
+**Rule 4: Mixed unit/unitless is ERROR**
+```
+1 m to 10              # ERROR: Cannot mix units and unitless
+1 to 10 m              # OK: Trailing unit applies to both
+```
+
+**Rule 5: Both unitless is OK**
+```
+1 to 10                # Unitless range
+```
+
+**Precedence for result unit:**
+1. Explicit trailing conversion (`as`/`->`) - highest priority
+2. Trailing unit suffix (after the range)
+3. Right side's unit (if both sides have units)
+4. Error if mismatch
+
+**Rationale:** Trailing unit is intuitive, right-preference makes sense (the "target" is usually on the right), and no implicit assumptions about mixed unit/unitless.
 
 ### Units
 
