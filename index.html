@@ -225,20 +225,20 @@
   <div id="output">
     <div class="examples">
       <h3>Tap to try:</h3>
-      <div class="example-item" data-code="to(10, 100, 'meters')">
-        <div class="example-code">to(10, 100, 'meters')</div>
+      <div class="example-item" data-code="10 to 100 meters">
+        <div class="example-code">10 to 100 meters</div>
         <div class="example-tap">▶</div>
       </div>
-      <div class="example-item" data-code="lognormal(1, 1000, 'kg')">
-        <div class="example-code">lognormal(1, 1000, 'kg')</div>
+      <div class="example-item" data-code="1 to 1000 kg">
+        <div class="example-code">1 to 1000 kg</div>
         <div class="example-tap">▶</div>
       </div>
       <div class="example-item" data-code="outof(7, 10)">
         <div class="example-code">outof(7, 10)</div>
         <div class="example-tap">▶</div>
       </div>
-      <div class="example-item" data-code="normal(-10, 10, 'celsius')">
-        <div class="example-code">normal(-10, 10, 'celsius')</div>
+      <div class="example-item" data-code="100 meters as feet">
+        <div class="example-code">100 meters as feet</div>
         <div class="example-tap">▶</div>
       </div>
     </div>
@@ -253,17 +253,15 @@
     <div class="quick-actions">
       <button class="quick-btn" data-action="help">Help</button>
       <button class="quick-btn" data-action="clear">Clear</button>
-      <button class="quick-btn" data-action=".mean()">Mean</button>
-      <button class="quick-btn" data-action=".median()">Median</button>
-      <button class="quick-btn" data-action=".percentile(0.95)">P95</button>
     </div>
   </div>
 
   <script type="module">
     import * as neofermi from './src/index.js'
+    import { parse, Evaluator } from './src/parser/index.js'
 
     window.neofermi = neofermi
-    const { to, lognormal, normal, uniform, outof, gamma, plusminus, percent, db, Quantity } = neofermi
+    const evaluator = new Evaluator()
 
     const outputDiv = document.getElementById('output')
     const inputEl = document.getElementById('input')
@@ -307,11 +305,7 @@ Samples: ${q.sampleCount}`
 
     function evaluate(code) {
       try {
-        const result = new Function('to', 'lognormal', 'normal', 'uniform', 'outof', 'gamma', 'plusminus', 'percent', 'db', 'Quantity', `
-          "use strict";
-          return ${code};
-        `)(to, lognormal, normal, uniform, outof, gamma, plusminus, percent, db, Quantity)
-
+        const result = parse(code, evaluator)
         return { success: true, result }
       } catch (error) {
         return { success: false, error: error.message }
@@ -328,37 +322,33 @@ Samples: ${q.sampleCount}`
       addOutput(echo, '')
 
       if (code.toLowerCase() === 'help') {
-        const helpText = `Available functions (20k samples):
+        const helpText = `NeoFermi DSL (20k samples)
 
-to(low, high, 'unit')
-  Smart: lognormal if positive, else normal
+Range syntax:
+  1 to 10              Unitless range
+  1 to 10 meters       Range with unit
+  5 ft to 10 m         Mixed units
+  10 m as feet         Unit conversion
 
-lognormal(low, high, 'unit')
-  For positive multiplicative quantities
+Arithmetic:
+  x = 10 + 5          Assignment
+  x * 2               Multiply
+  x / 2               Divide
+  x ^ 2               Power
 
-normal(low, high, 'unit')
-  For values that can be negative
+Functions:
+  lognormal(low, high)  For positive values
+  normal(low, high)     For any values
+  uniform(low, high)    Flat distribution
+  outof(7, 10)          Beta (proportions)
+  gamma(shape, scale)   Counts and rates
 
-uniform(low, high, 'unit')
-  Flat distribution
+Comments: # like this
 
-outof(successes, total)
-  Beta distribution for proportions
+Units: meters, kg, celsius, etc.
+Custom: 'widgets
 
-gamma(shape, scale, 'unit')
-  For counts and rates
-
-plusminus(mean, std, 'unit')
-  Normal with mean ± std
-
-percent(pct)
-  Percentage error (±10%)
-
-db(decibels)
-  Order of magnitude (10dB = 10x)
-
-Methods: .mean() .median() .std()
-         .percentile(p) .to('unit')`
+Type 'clear' to clear output`
         addOutput(helpText, 'help')
         return
       }
@@ -413,10 +403,6 @@ Methods: .mean() .median() .std()
           handleInput('help')
         } else if (action === 'clear') {
           handleInput('clear')
-        } else {
-          // Append method to current input
-          inputEl.value += action
-          inputEl.focus()
         }
       })
     })
