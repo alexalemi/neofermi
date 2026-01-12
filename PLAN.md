@@ -162,8 +162,10 @@ A mobile-friendly, web-based domain-specific language for order of magnitude cal
 
 ## Implementation Phases
 
-### Phase 1: Core Engine (MVP)
+### Phase 1: Core Engine (MVP) ✅ COMPLETED
 **Goal**: Basic uncertainty + units calculator working in Node.js
+
+**Status**: Completed 2026-01-11
 
 **Target**: Working programmatic library with 20k-sample Monte Carlo
 
@@ -221,30 +223,48 @@ A mobile-friendly, web-based domain-specific language for order of magnitude cal
 
 All convenience functions can wait until core 5 are working.
 
-### Phase 2: Language & Parser
+### Phase 2: Language & Parser ✅ COMPLETED
 **Goal**: Domain-specific syntax for natural expression of fermi estimates
 
-1. **Grammar design** (using Ohm)
-   - Literals: `3.14`, `1.0e6`, `2 +/- 0.5`
+**Status**: Completed 2026-01-12
+
+1. **Grammar design** ✅
+   - Literals: `3.14`, `1.5e10` (scientific notation)
    - Units: `3 meters`, `5 kg`, `10 m/s^2`
-   - Distributions: `[10 to 100]`, `sigfig("1.0")`, `7 outof 10`
-   - Operators: `+`, `-`, `*`, `/`, `^`
-   - Functions: `sqrt()`, `log()`, `exp()`, etc.
-   - Variables: `x = 3 meters; y = x^2`
-   - Unit conversions: `x to km`, `y in kg`
+   - Custom units: `'widgets` (tick syntax)
+   - Ranges: `10 to 100 meters`, `5 ft to 10 m`
+   - Operators: `+`, `-`, `*`, `/`, `^` (and `**`)
+   - Functions: `lognormal()`, `normal()`, `outof()`, etc.
+   - Variables: `x = 3 meters`, `y = x^2`
+   - Unit conversions: `x as km`, `x -> km`
    - Comments: `# this is a comment`
+   - Parentheses for grouping
 
-2. **Parser implementation**
-   - Ohm grammar file
-   - Semantic actions for evaluation
-   - Error messages and recovery
+2. **Parser implementation** ✅
+   - Peggy PEG grammar (src/parser/grammar.peggy)
+   - AST node types (src/parser/ast.ts)
+   - Evaluator with semantic actions (src/parser/evaluator.ts)
+   - Public API (src/parser/index.ts)
+   - 33 comprehensive tests (all passing)
+   - Proper operator precedence
+   - Error messages with location info
 
-3. **REPL for testing**
-   - Node.js command-line interface
-   - Read-eval-print loop for interactive testing
-   - History and multiline support
+3. **Web console integration** ✅
+   - Integrated parser into existing web UI
+   - Updated examples to use DSL syntax
+   - Help text shows DSL syntax
+   - Works on mobile and desktop
 
-**Deliverable**: Working REPL that can parse and evaluate Fermi expressions
+**Deliverable**: Working parser with DSL syntax integrated into web console
+
+**Key Features**:
+- Range operator with smart unit handling
+- Unit conversion with `as` and `->` operators
+- Variable assignment and reuse
+- Function calls for distributions
+- Arithmetic with proper precedence
+- Custom units with tick syntax
+- Python-style comments
 
 ### Phase 3: Visualization
 **Goal**: Beautiful, informative displays of uncertainty
