@@ -136,13 +136,22 @@ export class Evaluator {
     const leftVal = left.isScalar() ? (left.value as number) : left.mean()
     const rightVal = right.isScalar() ? (right.value as number) : right.mean()
 
-    // Determine result unit based on spec rules
+    // Check if left/right have explicit units
+    const leftHasUnit = left.unit && left.unit.toString() !== ''
+    const rightHasUnit = right.unit && right.unit.toString() !== ''
+
+    // Determine trailing unit from the range syntax
     const trailingUnit = node.unit ? this.evaluateUnit(node.unit) : null
 
-    // Rule 1: Explicit trailing conversion
-    if (trailingUnit) {
-      const leftConverted = left.unit ? left.to(trailingUnit) : new Quantity(leftVal, trailingUnit)
-      const rightConverted = right.unit
+    // Rule 1: Trailing unit applies to both (when operands are unitless)
+    if (trailingUnit && !leftHasUnit && !rightHasUnit) {
+      return distributions.to(leftVal, rightVal, trailingUnit)
+    }
+
+    // Rule 2: Trailing unit with explicit conversion (operands may have units)
+    if (trailingUnit && (leftHasUnit || rightHasUnit)) {
+      const leftConverted = leftHasUnit ? left.to(trailingUnit) : new Quantity(leftVal, trailingUnit)
+      const rightConverted = rightHasUnit
         ? right.to(trailingUnit)
         : new Quantity(rightVal, trailingUnit)
       return distributions.to(
@@ -152,8 +161,8 @@ export class Evaluator {
       )
     }
 
-    // Rule 2: Both have units - prefer right
-    if (left.unit.toString() && right.unit.toString()) {
+    // Rule 3: Both operands have units - prefer right side's unit
+    if (leftHasUnit && rightHasUnit) {
       // Check compatibility
       if (!left.unit.equalBase(right.unit)) {
         throw new EvaluationError(
@@ -169,21 +178,22 @@ export class Evaluator {
       )
     }
 
-    // Rule 3: Only left has unit
-    if (left.unit.toString() && !right.unit.toString()) {
+    // Rule 4: Only left has unit - error
+    if (leftHasUnit && !rightHasUnit) {
       throw new EvaluationError(
         'Cannot mix units and unitless in range. Use trailing unit: "1 to 10 m" not "1 m to 10"'
       )
     }
 
-    // Rule 4: Only right has unit
-    if (!left.unit.toString() && right.unit.toString()) {
-      throw new EvaluationError(
-        'Cannot mix unitless and units in range. Use trailing unit: "1 to 10 m" not "1 to 10 m"'
-      )
+    // Rule 5: Only right has unit - treat as trailing unit
+    // This handles: 1 to 10 meters (parses as 1, to, 10 meters)
+    // We treat it like: 1 to 10, with trailing unit meters
+    if (!leftHasUnit && rightHasUnit) {
+      const targetUnit = right.unit.toString()
+      return distributions.to(leftVal, rightVal, targetUnit)
     }
 
-    // Rule 5: Both unitless
+    // Rule 6: Both unitless (no trailing unit either)
     return distributions.to(leftVal, rightVal)
   }
 

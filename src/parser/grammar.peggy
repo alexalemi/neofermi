@@ -159,7 +159,7 @@ SimpleUnit
 
 // Identifiers (returns string, not node)
 IdentifierName
-  = !ReservedWord $([a-zA-Z_][a-zA-Z0-9_]*)
+  = !ReservedWord [a-zA-Z_][a-zA-Z0-9_]* { return text() }
 
 Identifier
   = name:IdentifierName {
