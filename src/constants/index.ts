@@ -455,6 +455,74 @@ export const calorie = new Quantity(4184, 'J')
 export const kcal = calorie
 
 // ============================================
+// Economic Constants (2024 estimates)
+// ============================================
+
+/** US GDP (2024, nominal, in USD) */
+export const us_gdp = plusminus(28.8e12, 0.5e12)
+
+/** World GDP (2024, nominal, in USD) */
+export const world_gdp = plusminus(105e12, 5e12)
+
+/** US median household income (2024, in USD) */
+export const us_median_income = plusminus(80000, 5000)
+
+/** US federal minimum wage (per hour, in USD) */
+export const us_minimum_wage = new Quantity(7.25)
+
+/** US national debt (2024, in USD) */
+export const us_national_debt = plusminus(35e12, 1e12)
+
+/** S&P 500 total market cap (2024, in USD) */
+export const sp500_market_cap = plusminus(50e12, 5e12)
+
+/** Bitcoin market cap (2024, highly variable, in USD) */
+export const bitcoin_market_cap = lognormal(0.5e12, 2e12)
+
+// ============================================
+// Computing Constants (2024 estimates)
+// ============================================
+
+/** Moore's law doubling time (historically ~18-24 months) */
+export const moores_law_doubling = plusminus(20, 4, 'month')
+
+/** Cost per GB of SSD storage (2024, in USD) */
+export const cost_per_gb_ssd = plusminus(0.08, 0.02)
+
+/** Cost per GB of HDD storage (2024, in USD) */
+export const cost_per_gb_hdd = plusminus(0.02, 0.005)
+
+/** Cost per GB of cloud storage per month (2024, in USD) */
+export const cost_per_gb_cloud = plusminus(0.02, 0.01)
+
+/** Transistors in a modern CPU (2024, high-end) */
+export const cpu_transistors = lognormal(10e9, 100e9)
+
+/** Transistors in a modern GPU (2024, high-end) */
+export const gpu_transistors = lognormal(50e9, 200e9)
+
+/** Global internet users (2024) */
+export const internet_users = plusminus(5.4e9, 0.2e9)
+
+/** Google searches per day (2024 estimate) */
+export const google_searches_per_day = plusminus(8.5e9, 1e9)
+
+/** Global data created per day (2024, in bytes) */
+export const data_created_per_day = lognormal(300e18, 500e18)
+
+/** Average smartphone storage (2024, in bytes) */
+export const smartphone_storage = lognormal(64e9, 256e9)
+
+/** Global email traffic per day (2024) */
+export const emails_per_day = plusminus(350e9, 50e9)
+
+/** Average webpage size (2024, in bytes) */
+export const webpage_size = plusminus(2.5e6, 1e6)
+
+/** Speed of light latency per km (in seconds) */
+export const fiber_latency_per_km = new Quantity(5e-6, 's')
+
+// ============================================
 // Export all constants as a map for easy access
 // ============================================
 
@@ -521,6 +589,14 @@ export const constants: Record<string, Quantity> = {
   energy_density_hydrogen, energy_density_lithium_battery,
   energy_density_tnt, energy_density_uranium,
   calorie, kcal,
+  // Economic
+  us_gdp, world_gdp, us_median_income, us_minimum_wage,
+  us_national_debt, sp500_market_cap, bitcoin_market_cap,
+  // Computing
+  moores_law_doubling, cost_per_gb_ssd, cost_per_gb_hdd, cost_per_gb_cloud,
+  cpu_transistors, gpu_transistors, internet_users, google_searches_per_day,
+  data_created_per_day, smartphone_storage, emails_per_day, webpage_size,
+  fiber_latency_per_km,
 }
 
 export default constants

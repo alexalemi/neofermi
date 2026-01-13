@@ -486,6 +486,8 @@
     <div class="header-actions">
       <button class="header-btn" id="help-btn">Help</button>
       <button class="header-btn" id="share-btn">Share</button>
+      <button class="header-btn" id="import-btn">Import</button>
+      <input type="file" id="import-file" accept=".json,.md,.txt" style="display:none">
       <div class="export-dropdown">
         <button class="header-btn" id="export-btn">Export</button>
         <div class="export-menu" id="export-menu">
@@ -570,7 +572,10 @@ area = x * y</pre>
 normal(-10, 10)      # Any values
 uniform(0, 1)        # Flat distribution
 outof(7, 10)         # Beta for proportions
-gamma(2, 5)          # Counts and rates</pre>
+gamma(2, 5)          # Shape/scale parameters
+poisson(5)           # Count data (events)
+exponential(0.5)     # Waiting times (rate)
+binomial(10, 0.5)    # n trials, p success</pre>
 
         <h4>Operators &amp; Comments</h4>
         <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>^</code> &nbsp; <code># comment</code>
@@ -584,6 +589,14 @@ M_earth, R_earth     # Earth (with uncertainty)
 M_sun, R_sun, L_sun  # Solar
 year, month, day     # Time (year/month are distributions)
 AU, ly, pc           # Distances</pre>
+
+        <h4>Keyboard Shortcuts</h4>
+        <pre>Shift+Enter          # Run current cell
+Ctrl/Cmd+Enter       # Run all cells
+Ctrl/Cmd+S           # Export as JSON
+Ctrl/Cmd+O           # Import file
+Ctrl/Cmd+N           # New cell
+Escape               # Unfocus cell</pre>
       </div>
     </div>
   </div>
@@ -1289,6 +1302,103 @@ Median: ${medianFmt} ${unit}
     }
 
     // =====================
+    // Import
+    // =====================
+
+    function importNotebook(file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const content = e.target.result
+        const ext = file.name.split('.').pop().toLowerCase()
+
+        let codes = []
+        try {
+          if (ext === 'json') {
+            codes = importFromJSON(content)
+          } else if (ext === 'md') {
+            codes = importFromMarkdown(content)
+          } else {
+            codes = importFromText(content)
+          }
+        } catch (err) {
+          setStatus(`Import error: ${err.message}`)
+          return
+        }
+
+        if (codes.length === 0) {
+          setStatus('No code found in file')
+          return
+        }
+
+        // Clear existing and create new cells
+        cells = []
+        cellsContainer.innerHTML = ''
+        evaluator.reset()
+
+        codes.forEach(code => createCell(code))
+        examplesBanner.style.display = 'none'
+        runAllCells()
+        setStatus(`Imported ${codes.length} cell${codes.length > 1 ? 's' : ''}`)
+      }
+      reader.readAsText(file)
+    }
+
+    function importFromJSON(content) {
+      const data = JSON.parse(content)
+      if (Array.isArray(data)) {
+        // Could be [{code: ...}, ...] or ["code", "code", ...]
+        return data.map(item => typeof item === 'string' ? item : item.code).filter(Boolean)
+      }
+      return []
+    }
+
+    function importFromMarkdown(content) {
+      // Extract code from ```neofermi or ``` blocks
+      const codeBlockRegex = /```(?:neofermi)?\s*\n([\s\S]*?)```/g
+      const codes = []
+      let match
+      while ((match = codeBlockRegex.exec(content)) !== null) {
+        const code = match[1].trim()
+        if (code) codes.push(code)
+      }
+      return codes
+    }
+
+    function importFromText(content) {
+      // Split by blank lines or [n] markers
+      const lines = content.split('\n')
+      const codes = []
+      let currentCode = []
+
+      for (const line of lines) {
+        // Check for cell marker like [1], [2], etc.
+        if (/^\s*\[\d+\]/.test(line)) {
+          if (currentCode.length > 0) {
+            codes.push(currentCode.join('\n').trim())
+            currentCode = []
+          }
+          // Extract code after the marker
+          const code = line.replace(/^\s*\[\d+\]\s*/, '')
+          if (code) currentCode.push(code)
+        } else if (line.trim().startsWith('=>') || line.trim().startsWith('Error:')) {
+          // Skip result lines
+          continue
+        } else if (line.trim() === '' && currentCode.length > 0) {
+          codes.push(currentCode.join('\n').trim())
+          currentCode = []
+        } else if (line.trim()) {
+          currentCode.push(line)
+        }
+      }
+
+      if (currentCode.length > 0) {
+        codes.push(currentCode.join('\n').trim())
+      }
+
+      return codes.filter(c => c)
+    }
+
+    // =====================
     // Status
     // =====================
 
@@ -1318,6 +1428,22 @@ Median: ${medianFmt} ${unit}
     document.getElementById('run-all-btn').addEventListener('click', runAllCells)
     document.getElementById('clear-btn').addEventListener('click', clearNotebook)
     document.getElementById('share-btn').addEventListener('click', shareNotebook)
+
+    // Import
+    const importBtn = document.getElementById('import-btn')
+    const importFile = document.getElementById('import-file')
+
+    importBtn.addEventListener('click', () => {
+      importFile.click()
+    })
+
+    importFile.addEventListener('change', (e) => {
+      const file = e.target.files[0]
+      if (file) {
+        importNotebook(file)
+        importFile.value = '' // Reset for next import
+      }
+    })
 
     // Export dropdown
     const exportBtn = document.getElementById('export-btn')
@@ -1389,6 +1515,49 @@ Median: ${medianFmt} ${unit}
         runCell(targetCell.id)
         examplesBanner.style.display = 'none'
       })
+    })
+
+    // =====================
+    // Keyboard Shortcuts
+    // =====================
+
+    document.addEventListener('keydown', (e) => {
+      // Ctrl/Cmd + Enter: Run all cells
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        runAllCells()
+        return
+      }
+
+      // Ctrl/Cmd + S: Export as JSON
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        exportNotebook('json')
+        return
+      }
+
+      // Ctrl/Cmd + O: Import
+      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+        e.preventDefault()
+        importFile.click()
+        return
+      }
+
+      // Ctrl/Cmd + N: New cell
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault()
+        const cell = createCell()
+        setTimeout(() => {
+          document.querySelector(`#cell-${cell.id} .cell-input`)?.focus()
+        }, 50)
+        return
+      }
+
+      // Escape: Blur current input
+      if (e.key === 'Escape') {
+        document.activeElement?.blur()
+        return
+      }
     })
 
     // =====================

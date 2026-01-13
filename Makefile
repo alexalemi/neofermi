@@ -1,7 +1,7 @@
 # NeoFermi Makefile
 # Build the library, CLI binary, and render example outputs
 
-.PHONY: all build parser lib cli examples clean test help
+.PHONY: all build parser lib cli examples clean test help package publish
 
 # Default target
 all: build examples
@@ -77,6 +77,19 @@ install:
 dev:
 	pnpm dev
 
+# Build npm package (library + types + CLI)
+package: parser lib cli
+	@echo "Building TypeScript declarations..."
+	pnpm build:types
+	@echo "Creating package tarball..."
+	pnpm pack
+	@echo "Package created: neofermi-$$(node -p "require('./package.json').version").tgz"
+
+# Publish to npm (runs tests first)
+publish: test package
+	@echo "Publishing to npm..."
+	pnpm publish --access public
+
 # Help
 help:
 	@echo "NeoFermi Build System"
@@ -97,4 +110,6 @@ help:
 	@echo "  distclean  - Remove all generated files including node_modules"
 	@echo "  install    - Install dependencies"
 	@echo "  dev        - Start development server"
+	@echo "  package    - Build npm package tarball"
+	@echo "  publish    - Publish to npm (runs tests first)"
 	@echo "  help       - Show this help"

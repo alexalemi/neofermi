@@ -484,3 +484,25 @@ export function createUnit(value: number, unitStr: string): Unit {
   // Nothing worked, try original and let mathjs throw the error
   return mathjsUnit(value, normalized)
 }
+
+/**
+ * Get all known unit alias names for autocomplete and error suggestions
+ */
+export function getKnownUnitNames(): string[] {
+  // Common mathjs base units + our aliases
+  const baseUnits = [
+    'meter', 'm', 'kilometer', 'km', 'centimeter', 'cm', 'millimeter', 'mm',
+    'inch', 'foot', 'yard', 'mile', 'lightyear',
+    'second', 'minute', 'hour', 'day', 'week', 'month', 'year',
+    'gram', 'g', 'kilogram', 'kg', 'pound', 'ounce', 'ton',
+    'liter', 'gallon', 'quart', 'pint', 'cup',
+    'joule', 'J', 'calorie', 'watt', 'W', 'kilowatt', 'horsepower',
+    'newton', 'N', 'pascal', 'Pa', 'bar', 'atmosphere', 'psi',
+    'kelvin', 'K', 'celsius', 'fahrenheit',
+    'ampere', 'A', 'volt', 'V', 'ohm', 'farad', 'coulomb', 'C',
+    'hertz', 'Hz', 'radian', 'degree', 'steradian',
+    'mole', 'mol', 'candela', 'lumen', 'lux',
+    'byte', 'bit', 'AU', 'parsec'
+  ]
+  return [...new Set([...Object.keys(UNIT_ALIASES), ...baseUnits])]
+}

@@ -9,7 +9,60 @@ import { Quantity } from '../core/Quantity.js'
 import * as distributions from '../distributions/index.js'
 import * as mathFunctions from '../functions/index.js'
 import * as physicalConstants from '../constants/index.js'
-import { createUnit } from '../core/unitUtils.js'
+import { createUnit, getKnownUnitNames } from '../core/unitUtils.js'
+
+/**
+ * Calculate Levenshtein distance between two strings
+ */
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = []
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i]
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j
+  }
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1]
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        )
+      }
+    }
+  }
+  return matrix[b.length][a.length]
+}
+
+/**
+ * Find similar strings from a list of candidates
+ * Returns up to 3 suggestions with distance <= 3
+ */
+function findSimilar(target: string, candidates: string[], maxDistance = 3): string[] {
+  const targetLower = target.toLowerCase()
+  const scored = candidates
+    .map(c => ({
+      name: c,
+      distance: levenshteinDistance(targetLower, c.toLowerCase())
+    }))
+    .filter(s => s.distance <= maxDistance && s.distance > 0)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 3)
+  return scored.map(s => s.name)
+}
+
+/**
+ * Format a suggestion message
+ */
+function formatSuggestion(suggestions: string[]): string {
+  if (suggestions.length === 0) return ''
+  if (suggestions.length === 1) return `. Did you mean '${suggestions[0]}'?`
+  return `. Did you mean ${suggestions.slice(0, -1).map(s => `'${s}'`).join(', ')} or '${suggestions[suggestions.length - 1]}'?`
+}
 
 export class EvaluationError extends Error {
   location?: SourceLocation
@@ -49,6 +102,7 @@ export class Evaluator {
   private variables: Map<string, Quantity> = new Map()
   private functions: Map<string, Function> = new Map()
   private userFunctions: Map<string, UserFunction> = new Map()
+  private customUnits: Map<string, Quantity> = new Map()
 
   constructor() {
     // Register distribution functions
@@ -61,6 +115,9 @@ export class Evaluator {
     this.functions.set('plusminus', distributions.plusminus)
     this.functions.set('percent', distributions.percent)
     this.functions.set('db', distributions.db)
+    this.functions.set('poisson', distributions.poisson)
+    this.functions.set('exponential', distributions.exponential)
+    this.functions.set('binomial', distributions.binomial)
 
     // Register math functions (these take Quantity objects)
     this.registerMathFunctions()
@@ -164,6 +221,15 @@ export class Evaluator {
         this.variables.set(node.name, value)
         return value
 
+      case 'UnitDef':
+        // Define a custom unit: 1 'widget = 5 kg
+        const unitValue = this.evaluate(node.value)
+        if (!unitValue) {
+          throw new EvaluationError('Unit definition value evaluated to null')
+        }
+        this.customUnits.set(node.unitName, unitValue)
+        return unitValue
+
       case 'FunctionDef':
         // Store user-defined function
         this.userFunctions.set(node.name, {
@@ -232,7 +298,16 @@ export class Evaluator {
         try {
           return new Quantity(1, node.name)
         } catch {
-          throw new EvaluationError(`Undefined variable: ${node.name}`, (node as any).location)
+          // Suggest similar variable/constant names
+          const allNames = [
+            ...this.variables.keys(),
+            ...Object.keys(physicalConstants.constants)
+          ]
+          const suggestions = findSimilar(node.name, allNames)
+          throw new EvaluationError(
+            `Undefined variable: ${node.name}${formatSuggestion(suggestions)}`,
+            (node as any).location
+          )
         }
 
       default:
@@ -588,7 +663,13 @@ export class Evaluator {
 
     const func = this.functions.get(node.name)
     if (!func) {
-      throw new EvaluationError(`Unknown function: ${node.name}`, (node as any).location)
+      // Suggest similar function names
+      const allFunctions = [...this.functions.keys(), ...this.userFunctions.keys()]
+      const suggestions = findSimilar(node.name, allFunctions)
+      throw new EvaluationError(
+        `Unknown function: ${node.name}${formatSuggestion(suggestions)}`,
+        (node as any).location
+      )
     }
 
     const args = node.args.map((arg) => {
@@ -671,6 +752,17 @@ export class Evaluator {
   }
 
   private evaluateNumber(node: ASTNode & { type: 'Number' }): Quantity {
+    // Check if this is a custom unit that we've defined
+    if (node.unit?.custom && node.unit?.name) {
+      const customUnitDef = this.customUnits.get(node.unit.name)
+      if (customUnitDef) {
+        // Multiply the value by the custom unit definition
+        // e.g., if 1 'widget = 5 kg, then 10 'widgets = 10 * 5 kg
+        return customUnitDef.multiply(new Quantity(node.value))
+      }
+      // Custom unit not defined - it's just a label
+    }
+
     const unitStr = node.unit ? this.evaluateUnit(node.unit) : undefined
     return new Quantity(node.value, unitStr)
   }
@@ -781,8 +873,11 @@ export class Evaluator {
         try {
           createUnit(1, unitNode.name)
         } catch {
+          // Suggest similar unit names
+          const suggestions = findSimilar(unitNode.name, getKnownUnitNames())
+          const suggestionText = formatSuggestion(suggestions)
           throw new EvaluationError(
-            `Unknown unit: ${unitNode.name}. Use '${unitNode.name} for custom units.`
+            `Unknown unit: ${unitNode.name}${suggestionText || `. Use '${unitNode.name} for custom units.`}`
           )
         }
       }
@@ -808,6 +903,7 @@ export class Evaluator {
   reset(): void {
     this.variables.clear()
     this.userFunctions.clear()
+    this.customUnits.clear()
     // Re-register physical constants after reset
     this.registerPhysicalConstants()
   }
@@ -815,5 +911,10 @@ export class Evaluator {
   // Get user-defined function
   getUserFunction(name: string): UserFunction | undefined {
     return this.userFunctions.get(name)
+  }
+
+  // Get custom unit definition
+  getCustomUnit(name: string): Quantity | undefined {
+    return this.customUnits.get(name)
   }
 }

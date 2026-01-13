@@ -11,6 +11,7 @@ export interface SourceLocation {
 export type ASTNode =
   | ProgramNode
   | AssignmentNode
+  | UnitDefNode
   | FunctionDefNode
   | LetBindingNode
   | IfExprNode
@@ -39,6 +40,12 @@ export interface ProgramNode {
 export interface AssignmentNode {
   type: 'Assignment'
   name: string
+  value: ASTNode
+}
+
+export interface UnitDefNode {
+  type: 'UnitDef'
+  unitName: string
   value: ASTNode
 }
 

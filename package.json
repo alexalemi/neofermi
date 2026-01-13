@@ -17,13 +17,16 @@
   },
   "files": [
     "dist",
-    "bin"
+    "bin",
+    "README.md"
   ],
   "scripts": {
     "dev": "vite",
     "parser:build": "peggy --format es --output src/parser/generated.js src/parser/grammar.peggy",
     "prebuild": "pnpm parser:build",
     "build": "tsc && vite build",
+    "build:types": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm build && pnpm build:types",
     "build:cli": "node scripts/build-cli.js",
     "notebook": "node --import tsx src/cli/index.ts",
     "preview": "vite preview",

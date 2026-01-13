@@ -17,6 +17,10 @@ export { normal, plusminus } from './distributions/normal.js'
 export { uniform } from './distributions/uniform.js'
 export { outof, against, beta } from './distributions/beta.js'
 export { gamma } from './distributions/gamma.js'
+export { poisson } from './distributions/poisson.js'
+export { exponential, exponentialMean } from './distributions/exponential.js'
+export { binomial } from './distributions/binomial.js'
+export { weighted } from './distributions/weighted.js'
 
 // Convenience functions
 export { to, percent, db } from './distributions/convenience.js'
@@ -84,8 +88,24 @@ export {
   sigma, stefan_boltzmann, b, wien_displacement, epsilon0, mu0, R, gas_constant,
   // Astronomical
   AU, ly, pc, M_sun, R_sun, L_sun, M_earth, R_earth, M_moon, solar_constant,
+  // Planetary
+  M_mercury, M_venus, M_mars, M_jupiter, M_saturn, M_uranus, M_neptune,
+  R_mercury, R_venus, R_mars, R_jupiter, R_saturn, R_uranus, R_neptune,
   // Time
   year, yr, month, day, hour, hr, minute, min, week,
+  seconds_per_year, seconds_per_day, days_per_year,
+  // Population & Geography
+  world_population, us_population, earth_surface_area,
+  // Material densities
+  rho_steel, rho_aluminum, rho_concrete, rho_wood, rho_air, rho_copper, rho_gold,
+  // Energy densities
+  energy_density_gasoline, energy_density_uranium,
+  // Human/Biology
+  human_lifespan, human_basal_power,
+  // Economic
+  us_gdp, world_gdp, us_median_income,
+  // Computing
+  cpu_transistors, internet_users, google_searches_per_day,
   // Everyday
   atm, T0, rho_water,
 } from './constants/index.js'

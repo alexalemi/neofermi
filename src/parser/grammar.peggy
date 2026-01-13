@@ -22,9 +22,16 @@ StatementList
   / _ { return [] }
 
 Statement
-  = FunctionDef
+  = UnitDef
+  / FunctionDef
   / Assignment
   / Expression
+
+// Unit definition: 1 'widget = 5 kg (defines custom unit in terms of base units)
+UnitDef
+  = "1" _ "'" unitName:IdentifierName _ "=" _ value:Expression {
+      return node('UnitDef', { unitName, value })
+    }
 
 // Function definition: f(x) = x^2 or f(x, y) = x + y
 FunctionDef
