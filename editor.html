@@ -7,6 +7,30 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>NeoFermi Editor</title>
   <link rel="stylesheet" href="./src/editor/styles.css">
+  <!-- MathJax Configuration -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true,
+        processEnvironments: true,
+        tags: 'ams'
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+        ignoreHtmlClass: 'neofermi-result'
+      },
+      startup: {
+        ready: () => {
+          MathJax.startup.defaultReady();
+          window.MathJaxReady = true;
+          console.log('MathJax initialized');
+        }
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
   <header class="editor-header">
@@ -76,6 +100,15 @@ x -> km              # Alternative syntax</pre>
         <pre>c, h, G, k           # Physics constants
 M_earth, R_earth     # Earth properties
 world_population     # Demographics</pre>
+
+        <h4>LaTeX Math</h4>
+        <p>Write LaTeX equations inline with <code>$...$</code> or as display blocks with <code>$$...$$</code>:</p>
+        <pre>Inline: $E = mc^2$
+Display: $$\int_0^\infty e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$</pre>
+        <p>Standard LaTeX environments are also supported:</p>
+        <pre>\begin{equation}
+  F = G \frac{m_1 m_2}{r^2}
+\end{equation}</pre>
 
         <h4>Keyboard Shortcuts</h4>
         <pre>Ctrl/Cmd+S           # Share (copy link)

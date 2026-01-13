@@ -30,6 +30,7 @@ export function processMarkdown(content: string): ProcessedDocument {
   // Track block index by source position to ensure stable IDs across renders
   const blockIdMap = new Map<number, string>()
   let blockCounter = 0
+  let inlineCounter = 0
 
   const md = new MarkdownIt({
     html: true,
@@ -89,7 +90,7 @@ export function processMarkdown(content: string): ProcessedDocument {
 
   while ((match = inlineRegex.exec(content)) !== null) {
     const varName = match[1]
-    const exprId = `inline-${exprCounter++}`
+    const exprId = `inline-${inlineCounter++}`
     expressions.push({
       id: exprId,
       type: 'inline',

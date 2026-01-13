@@ -7,7 +7,39 @@
 
 import { createDotplotCanvas, createHistogramCanvas } from '../visualization/index.js'
 
+// Declare MathJax types for TypeScript
+declare global {
+  interface Window {
+    MathJax?: {
+      typesetPromise?: (elements?: HTMLElement[]) => Promise<void>
+      texReset?: () => void
+      typesetClear?: (elements?: HTMLElement[]) => void
+    }
+    MathJaxReady?: boolean
+  }
+}
+
 export type VizType = 'dotplot' | 'histogram'
+
+/**
+ * Typeset math expressions in the container using MathJax
+ */
+export async function typesetMath(container: HTMLElement): Promise<void> {
+  if (!window.MathJaxReady || !window.MathJax?.typesetPromise) {
+    return
+  }
+
+  try {
+    // Clear any previously typeset math in this container
+    if (window.MathJax.typesetClear) {
+      window.MathJax.typesetClear([container])
+    }
+    // Typeset the container
+    await window.MathJax.typesetPromise([container])
+  } catch (err) {
+    console.warn('MathJax typesetting error:', err)
+  }
+}
 
 /**
  * Render visualizations for all nf-viz placeholders in the container

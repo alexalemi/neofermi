@@ -7,7 +7,7 @@
 import { createEditor, setVimMode } from './codemirror-setup.js'
 import { processMarkdown } from './markdown-processor.js'
 import { evaluateExpressions } from './expression-evaluator.js'
-import { renderVisualizations, VizType } from './preview-renderer.js'
+import { renderVisualizations, typesetMath, VizType } from './preview-renderer.js'
 import type { EditorView } from '@codemirror/view'
 
 // Constants
@@ -45,6 +45,14 @@ piano_tuners = pianos * tunings_per_year / tunings_per_tuner
 \`\`\`
 
 There are approximately \${piano_tuners} piano tuners in Chicago.
+
+## LaTeX Math
+
+You can also write LaTeX equations: $E = mc^2$
+
+Or display equations:
+
+$$\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
 `
 
 // State
@@ -110,7 +118,7 @@ function onContentChange(content: string) {
   }, DEBOUNCE_MS)
 }
 
-function updatePreview(content: string) {
+async function updatePreview(content: string) {
   setStatus('Evaluating...')
 
   try {
@@ -126,6 +134,9 @@ function updatePreview(content: string) {
 
     // Render visualizations
     renderVisualizations(previewContent, vizType)
+
+    // Typeset any LaTeX math expressions
+    await typesetMath(previewContent)
 
     setStatus('Ready')
   } catch (err) {
