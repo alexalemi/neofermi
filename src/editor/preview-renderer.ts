@@ -49,7 +49,7 @@ export function renderVisualizations(
   vizType: VizType,
   options: { width?: number; height?: number } = {}
 ): void {
-  const width = options.width || 280
+  const width = options.width || 200
   const height = options.height || 105
 
   const vizElements = container.querySelectorAll('.nf-viz')
@@ -81,6 +81,7 @@ export function renderVisualizations(
       height,
       numDots: 20,
       numBins: 25,
+      dotRadius: 6, // Larger dots create wider bins for better stacking
       dotColor: '#4ec9b0',
       barColor: '#4ec9b0',
       axisLabel: unit, // Show unit as axis label
