@@ -12,6 +12,130 @@ import { normalizeUnitWithScale } from './unitUtils.js'
 
 export type Value = number | number[]
 
+/**
+ * Result of simplifying a unit, including any scale factor from prefix cancellation.
+ */
+interface SimplifiedUnit {
+  unitStr: string
+  scaleFactor: number  // Multiply values by this when prefixes cancel
+}
+
+/**
+ * Simplify a mathjs Unit to a canonical string representation.
+ * Combines units with matching bases (e.g., m * m^-1 -> dimensionless)
+ * and formats as "num / denom" when there are negative powers.
+ *
+ * Returns a scale factor to adjust numeric values when prefixes with
+ * different magnitudes cancel (e.g., km/m -> scale by 1000).
+ */
+function simplifyUnit(unitObj: Unit): SimplifiedUnit {
+  // Handle case where mathjs returns a number (fully cancelled)
+  if (typeof unitObj === 'number') {
+    return { unitStr: '', scaleFactor: 1 }
+  }
+
+  // Access the internal units array
+  // Each element has: { unit: { name }, prefix: { name, value }, power }
+  const units = (unitObj as any).units as Array<{
+    unit: { name: string }
+    prefix: { name: string; value: number }
+    power: number
+  }>
+
+  if (!units || units.length === 0) {
+    return { unitStr: '', scaleFactor: 1 }
+  }
+
+  // Group units by BASE name (ignoring prefix) and sum their powers
+  // Track all prefix contributions for scale factor calculation
+  const powers = new Map<string, {
+    power: number
+    prefixName: string  // Use the first prefix encountered for output
+    prefixValue: number // First prefix value
+    contributions: Array<{ prefixValue: number; power: number }>
+  }>()
+
+  for (const u of units) {
+    const baseName = u.unit.name  // e.g., 'm' for both 'mm' and 'm'
+
+    const existing = powers.get(baseName)
+    if (existing) {
+      existing.power += u.power
+      existing.contributions.push({ prefixValue: u.prefix.value, power: u.power })
+    } else {
+      powers.set(baseName, {
+        power: u.power,
+        prefixName: u.prefix.name,
+        prefixValue: u.prefix.value,
+        contributions: [{ prefixValue: u.prefix.value, power: u.power }]
+      })
+    }
+  }
+
+  // Calculate scale factor from prefix differences
+  // When units cancel but have different prefixes, we need to adjust the value
+  let scaleFactor = 1
+  for (const [, { power, prefixValue, contributions }] of powers) {
+    if (power === 0 && contributions.length > 1) {
+      // Units cancelled - compute the net prefix effect
+      // e.g., km/m: (1000)^1 * (1)^-1 = 1000
+      for (const c of contributions) {
+        scaleFactor *= Math.pow(c.prefixValue, c.power)
+      }
+    } else if (power !== 0) {
+      // Units didn't fully cancel - use the first prefix for output
+      // but adjust for any prefix differences that were combined
+      // The output will use prefixValue^power, so we need to account
+      // for contributions that differ from this
+      const outputPrefixContrib = Math.pow(prefixValue, power)
+      let actualContrib = 1
+      for (const c of contributions) {
+        actualContrib *= Math.pow(c.prefixValue, c.power)
+      }
+      scaleFactor *= actualContrib / outputPrefixContrib
+    }
+  }
+
+  // Separate into numerator (positive powers) and denominator (negative powers)
+  const numerator: string[] = []
+  const denominator: string[] = []
+
+  for (const [baseName, { power, prefixName }] of powers) {
+    if (power === 0) continue
+
+    const fullName = prefixName + baseName
+
+    if (power > 0) {
+      if (power === 1) {
+        numerator.push(fullName)
+      } else {
+        numerator.push(`${fullName}^${power}`)
+      }
+    } else {
+      const absPower = Math.abs(power)
+      if (absPower === 1) {
+        denominator.push(fullName)
+      } else {
+        denominator.push(`${fullName}^${absPower}`)
+      }
+    }
+  }
+
+  // Build the final string
+  let unitStr: string
+  if (numerator.length === 0 && denominator.length === 0) {
+    unitStr = '' // dimensionless
+  } else if (denominator.length === 0) {
+    unitStr = numerator.join(' ')
+  } else if (numerator.length === 0) {
+    unitStr = `1 / ${denominator.join(' ')}`
+  } else {
+    unitStr = `${numerator.join(' ')} / ${denominator.join(' ')}`
+  }
+
+  return { unitStr, scaleFactor }
+}
+
 export class Quantity {
   readonly value: Value
   readonly unit: Unit
@@ -177,12 +301,13 @@ export class Quantity {
     const aParticles = this.toParticles()
     const bParticles = other.toParticles()
 
-    // Calculate resulting unit
+    // Calculate resulting unit and simplify
     const resultUnit = this.unit.multiply(other.unit)
+    const { unitStr, scaleFactor } = simplifyUnit(resultUnit)
 
     // If both are scalars, return scalar
     if (aParticles.length === 1 && bParticles.length === 1) {
-      return new Quantity(aParticles[0] * bParticles[0], resultUnit.toString())
+      return new Quantity(aParticles[0] * bParticles[0] * scaleFactor, unitStr)
     }
 
     // Otherwise, element-wise multiplication
@@ -192,33 +317,23 @@ export class Quantity {
     for (let i = 0; i < maxLength; i++) {
       const a = aParticles[i % aParticles.length]
       const b = bParticles[i % bParticles.length]
-      result[i] = a * b
+      result[i] = a * b * scaleFactor
     }
 
-    return new Quantity(result, resultUnit.toString())
+    return new Quantity(result, unitStr)
   }
 
   divide(other: Quantity): Quantity {
     const aParticles = this.toParticles()
     const bParticles = other.toParticles()
 
-    // Calculate resulting unit
+    // Calculate resulting unit and simplify (e.g., m*s/m -> s)
     const resultUnit = this.unit.divide(other.unit)
-
-    // mathjs returns a number when units cancel, or a Unit otherwise
-    // Simplify dimensionless units (e.g., m/m -> '')
-    let unitStr: string
-    if (typeof resultUnit === 'number') {
-      // Units cancelled completely
-      unitStr = ''
-    } else {
-      // Check if dimensionless (all dimensions are 0)
-      unitStr = resultUnit.equalBase(unit('')) ? '' : resultUnit.toString()
-    }
+    const { unitStr, scaleFactor } = simplifyUnit(resultUnit as Unit)
 
     // If both are scalars, return scalar
     if (aParticles.length === 1 && bParticles.length === 1) {
-      return new Quantity(aParticles[0] / bParticles[0], unitStr)
+      return new Quantity(aParticles[0] / bParticles[0] * scaleFactor, unitStr)
     }
 
     // Otherwise, element-wise division
@@ -228,7 +343,7 @@ export class Quantity {
     for (let i = 0; i < maxLength; i++) {
       const a = aParticles[i % aParticles.length]
       const b = bParticles[i % bParticles.length]
-      result[i] = a / b
+      result[i] = a / b * scaleFactor
     }
 
     return new Quantity(result, unitStr)
