@@ -723,6 +723,12 @@ export class Evaluator {
       return unitNode.name
     }
 
+    // Reciprocal unit (e.g., /mile or per mile)
+    if (unitNode.type === 'reciprocal' && unitNode.denominator) {
+      const denom = this.evaluateUnit(unitNode.denominator)
+      return `1/${denom}`
+    }
+
     // Compound unit (e.g., kg/m^3)
     if (unitNode.numerator && unitNode.denominator) {
       const num = this.evaluateUnit(unitNode.numerator)

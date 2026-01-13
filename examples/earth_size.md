@@ -13,7 +13,6 @@ The Earth has 24 time zones (one for each hour). The continental US spans about 
 The continental US is roughly 2000-3000 miles wide:
 
 ```
-mile = 5280 feet
 us_width = 2000 to 3000 mile
 ```
 
@@ -38,7 +37,7 @@ earth_circumference = timezone_width * num_timezones
 ### Convert to Kilometers
 
 ```
-earth_circumference_km = earth_circumference / mile * (1.6 km)
+earth_circumference as km
 ```
 
 ## Result

@@ -234,12 +234,22 @@ ArgumentList
 
 // Numbers with optional units
 Number
-  = value:NumericLiteral unit:(_ Unit)? {
+  = value:NumericLiteral unit:(_ UnitWithReciprocal)? {
       return node('Number', {
         value: parseFloat(value),
         unit: unit ? unit[1] : null
       })
     }
+
+// Unit that can start with / or "per" for reciprocals
+UnitWithReciprocal
+  = ("/" / "per" _) denominator:UnitWithPower {
+      return node('Unit', {
+        type: 'reciprocal',
+        denominator
+      })
+    }
+  / Unit
 
 NumericLiteral
   = [0-9]+ ("." [0-9]+)? ([eE] [+-]? [0-9]+)? {
@@ -293,7 +303,7 @@ Identifier
     }
 
 ReservedWord
-  = ("to" / "as" / "thru" / "pm" / "of" / "against" / "let" / "in" / "if" / "then" / "else") ![a-zA-Z0-9_]
+  = ("to" / "as" / "thru" / "pm" / "of" / "against" / "let" / "in" / "if" / "then" / "else" / "per") ![a-zA-Z0-9_]
 
 // Whitespace and comments
 _
