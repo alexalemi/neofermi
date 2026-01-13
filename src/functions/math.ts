@@ -540,6 +540,239 @@ export function crps_resolution(dist: Quantity, observation: Quantity): Quantity
   return new Quantity(resolution, unit)
 }
 
+/**
+ * Internal helper to compute log-CRPS components.
+ * Computes CRPS on log-transformed values, useful when relative errors matter.
+ * Returns { reliability, resolution } where logCRPS = reliability - resolution
+ */
+function logcrpsComponents(dist: Quantity, observation: Quantity): {
+  reliability: number | number[]
+  resolution: number
+} {
+  if (!dist.unit.equalBase(observation.unit)) {
+    throw new Error(
+      `logcrps functions require arguments with compatible units, got ${dist.unit} and ${observation.unit}`
+    )
+  }
+
+  const particles = dist.toParticles()
+  const n = particles.length
+
+  // Check for non-positive values
+  for (let i = 0; i < n; i++) {
+    if (particles[i] <= 0) {
+      throw new Error(`logcrps() requires all positive values, got ${particles[i]} in forecast distribution`)
+    }
+  }
+
+  // Log-transform and sort particles
+  const logParticles = particles.map(x => Math.log(x))
+  const sorted = logParticles.slice().sort((a, b) => a - b)
+
+  // Compute E|log(X) - log(X')| using sorted samples
+  let pairwiseSum = 0
+  for (let i = 0; i < n; i++) {
+    pairwiseSum += (2 * i - n + 1) * sorted[i]
+  }
+  const giniMeanDiff = (2 / (n * n)) * pairwiseSum
+  const resolution = 0.5 * giniMeanDiff
+
+  // Handle observation
+  const obsParticles = observation.toParticles()
+
+  for (let j = 0; j < obsParticles.length; j++) {
+    if (obsParticles[j] <= 0) {
+      throw new Error(`logcrps() requires all positive values, got ${obsParticles[j]} in observation`)
+    }
+  }
+
+  if (obsParticles.length === 1) {
+    const logY = Math.log(obsParticles[0])
+    let absSum = 0
+    for (let i = 0; i < n; i++) {
+      absSum += Math.abs(sorted[i] - logY)
+    }
+    return { reliability: absSum / n, resolution }
+  }
+
+  // Distribution observation
+  const reliabilities: number[] = new Array(obsParticles.length)
+  for (let j = 0; j < obsParticles.length; j++) {
+    const logY = Math.log(obsParticles[j])
+    let absSum = 0
+    for (let i = 0; i < n; i++) {
+      absSum += Math.abs(sorted[i] - logY)
+    }
+    reliabilities[j] = absSum / n
+  }
+  return { reliability: reliabilities, resolution }
+}
+
+/**
+ * Compute log-CRPS for a distribution against an observation.
+ *
+ * This computes CRPS on log-transformed values, making the score sensitive to
+ * relative errors rather than absolute errors. Useful for lognormal distributions
+ * or when multiplicative errors matter more than additive ones.
+ *
+ * logCRPS = E|log(X) - log(y)| - 0.5 * E|log(X) - log(X')|
+ *
+ * @param dist - The forecast distribution (must be positive)
+ * @param observation - The observed value (must be positive)
+ * @returns Log-CRPS score (dimensionless)
+ */
+export function logcrps(dist: Quantity, observation: Quantity): Quantity {
+  const { reliability, resolution } = logcrpsComponents(dist, observation)
+  if (typeof reliability === 'number') {
+    return new Quantity(reliability - resolution, '')
+  }
+  return new Quantity(reliability.map(r => r - resolution), '')
+}
+
+/**
+ * Compute the reliability component of log-CRPS: E|log(X) - log(y)|
+ *
+ * @param dist - The forecast distribution (must be positive)
+ * @param observation - The observed value (must be positive)
+ * @returns Reliability term (dimensionless)
+ */
+export function logcrps_reliability(dist: Quantity, observation: Quantity): Quantity {
+  const { reliability } = logcrpsComponents(dist, observation)
+  if (typeof reliability === 'number') {
+    return new Quantity(reliability, '')
+  }
+  return new Quantity(reliability, '')
+}
+
+/**
+ * Compute the resolution component of log-CRPS: 0.5 * E|log(X) - log(X')|
+ *
+ * @param dist - The forecast distribution (must be positive)
+ * @param observation - The observed value (unused, for API consistency)
+ * @returns Resolution term (dimensionless)
+ */
+export function logcrps_resolution(dist: Quantity, observation: Quantity): Quantity {
+  const { resolution } = logcrpsComponents(dist, observation)
+  return new Quantity(resolution, '')
+}
+
+/**
+ * Internal helper to compute dB-CRPS components.
+ * Computes CRPS on dB-transformed values (10 * log10), useful for power ratios.
+ * Returns { reliability, resolution } where dbCRPS = reliability - resolution
+ */
+function dbcrpsComponents(dist: Quantity, observation: Quantity): {
+  reliability: number | number[]
+  resolution: number
+} {
+  if (!dist.unit.equalBase(observation.unit)) {
+    throw new Error(
+      `dbcrps functions require arguments with compatible units, got ${dist.unit} and ${observation.unit}`
+    )
+  }
+
+  const particles = dist.toParticles()
+  const n = particles.length
+
+  // Check for non-positive values
+  for (let i = 0; i < n; i++) {
+    if (particles[i] <= 0) {
+      throw new Error(`dbcrps() requires all positive values, got ${particles[i]} in forecast distribution`)
+    }
+  }
+
+  // dB-transform (10 * log10) and sort particles
+  const dbParticles = particles.map(x => 10 * Math.log10(x))
+  const sorted = dbParticles.slice().sort((a, b) => a - b)
+
+  // Compute E|dB(X) - dB(X')| using sorted samples
+  let pairwiseSum = 0
+  for (let i = 0; i < n; i++) {
+    pairwiseSum += (2 * i - n + 1) * sorted[i]
+  }
+  const giniMeanDiff = (2 / (n * n)) * pairwiseSum
+  const resolution = 0.5 * giniMeanDiff
+
+  // Handle observation
+  const obsParticles = observation.toParticles()
+
+  for (let j = 0; j < obsParticles.length; j++) {
+    if (obsParticles[j] <= 0) {
+      throw new Error(`dbcrps() requires all positive values, got ${obsParticles[j]} in observation`)
+    }
+  }
+
+  if (obsParticles.length === 1) {
+    const dbY = 10 * Math.log10(obsParticles[0])
+    let absSum = 0
+    for (let i = 0; i < n; i++) {
+      absSum += Math.abs(sorted[i] - dbY)
+    }
+    return { reliability: absSum / n, resolution }
+  }
+
+  // Distribution observation
+  const reliabilities: number[] = new Array(obsParticles.length)
+  for (let j = 0; j < obsParticles.length; j++) {
+    const dbY = 10 * Math.log10(obsParticles[j])
+    let absSum = 0
+    for (let i = 0; i < n; i++) {
+      absSum += Math.abs(sorted[i] - dbY)
+    }
+    reliabilities[j] = absSum / n
+  }
+  return { reliability: reliabilities, resolution }
+}
+
+/**
+ * Compute dB-CRPS for a distribution against an observation.
+ *
+ * This computes CRPS on dB-transformed values (10 * log10), making the score
+ * sensitive to decibel-scale errors. Useful for power ratios, signal levels,
+ * and other quantities naturally expressed in dB.
+ *
+ * dbCRPS = E|dB(X) - dB(y)| - 0.5 * E|dB(X) - dB(X')|
+ * where dB(x) = 10 * log10(x)
+ *
+ * @param dist - The forecast distribution (must be positive)
+ * @param observation - The observed value (must be positive)
+ * @returns dB-CRPS score in dB units
+ */
+export function dbcrps(dist: Quantity, observation: Quantity): Quantity {
+  const { reliability, resolution } = dbcrpsComponents(dist, observation)
+  if (typeof reliability === 'number') {
+    return new Quantity(reliability - resolution, 'dB')
+  }
+  return new Quantity(reliability.map(r => r - resolution), 'dB')
+}
+
+/**
+ * Compute the reliability component of dB-CRPS: E|dB(X) - dB(y)|
+ *
+ * @param dist - The forecast distribution (must be positive)
+ * @param observation - The observed value (must be positive)
+ * @returns Reliability term in dB
+ */
+export function dbcrps_reliability(dist: Quantity, observation: Quantity): Quantity {
+  const { reliability } = dbcrpsComponents(dist, observation)
+  if (typeof reliability === 'number') {
+    return new Quantity(reliability, 'dB')
+  }
+  return new Quantity(reliability, 'dB')
+}
+
+/**
+ * Compute the resolution component of dB-CRPS: 0.5 * E|dB(X) - dB(X')|
+ *
+ * @param dist - The forecast distribution (must be positive)
+ * @param observation - The observed value (unused, for API consistency)
+ * @returns Resolution term in dB
+ */
+export function dbcrps_resolution(dist: Quantity, observation: Quantity): Quantity {
+  const { resolution } = dbcrpsComponents(dist, observation)
+  return new Quantity(resolution, 'dB')
+}
+
 // ============================================
 // Clamp function
 // ============================================

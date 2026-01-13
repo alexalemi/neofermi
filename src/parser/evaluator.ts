@@ -34,7 +34,9 @@ const MATH_FUNCTIONS = new Set([
   'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
   'min', 'max', 'hypot', 'clamp',
   'quantile', 'percentile', 'p5', 'p10', 'p25', 'median', 'p75', 'p90', 'p95', 'p99',
-  'mean', 'std', 'crps', 'crps_reliability', 'crps_resolution'
+  'mean', 'std', 'crps', 'crps_reliability', 'crps_resolution',
+  'logcrps', 'logcrps_reliability', 'logcrps_resolution',
+  'dbcrps', 'dbcrps_reliability', 'dbcrps_resolution'
 ])
 
 // User-defined function storage
@@ -129,6 +131,12 @@ export class Evaluator {
     this.functions.set('crps', mathFunctions.crps)
     this.functions.set('crps_reliability', mathFunctions.crps_reliability)
     this.functions.set('crps_resolution', mathFunctions.crps_resolution)
+    this.functions.set('logcrps', mathFunctions.logcrps)
+    this.functions.set('logcrps_reliability', mathFunctions.logcrps_reliability)
+    this.functions.set('logcrps_resolution', mathFunctions.logcrps_resolution)
+    this.functions.set('dbcrps', mathFunctions.dbcrps)
+    this.functions.set('dbcrps_reliability', mathFunctions.dbcrps_reliability)
+    this.functions.set('dbcrps_resolution', mathFunctions.dbcrps_resolution)
   }
 
   private registerPhysicalConstants(): void {
