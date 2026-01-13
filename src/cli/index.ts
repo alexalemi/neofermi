@@ -8,7 +8,11 @@ import { program } from 'commander'
 import { resolve, basename, dirname } from 'path'
 import { stat, writeFile, mkdir } from 'fs/promises'
 import { createInterface } from 'readline'
-import open from 'open'
+// Dynamic import for ESM-only package (needed for CJS bundle compatibility)
+const openBrowser = async (url: string) => {
+  const open = (await import('open')).default
+  return open(url)
+}
 import { createServer, wrapInStaticHtml } from './server.js'
 import { watchFiles, findMostRecentMdFile } from './watcher.js'
 import { processMarkdown } from './processor.js'
@@ -75,7 +79,7 @@ const state: NotebookState = {
   html: '<p>No markdown file loaded</p>',
 }
 
-async function runStatic(inputPath: string, outputPath: string) {
+async function runStatic(inputPath: string, outputPath: string, darkMode: boolean) {
   const resolvedInput = resolve(inputPath)
   const resolvedOutput = resolve(outputPath)
 
@@ -89,7 +93,7 @@ async function runStatic(inputPath: string, outputPath: string) {
     console.log(`Processing: ${resolvedInput}`)
     const html = await processMarkdown(resolvedInput)
     const title = basename(resolvedInput, '.md')
-    const fullHtml = wrapInStaticHtml(html, title)
+    const fullHtml = wrapInStaticHtml(html, title, darkMode)
 
     // Ensure output directory exists
     await mkdir(dirname(resolvedOutput), { recursive: true })
@@ -106,9 +110,10 @@ async function runStatic(inputPath: string, outputPath: string) {
   }
 }
 
-async function runServer(inputPath: string, options: { port: string; open: boolean }) {
+async function runServer(inputPath: string, options: { port: string; host: string; open: boolean }) {
   const resolvedPath = resolve(inputPath)
   const port = parseInt(options.port, 10)
+  const host = options.host
 
   try {
     const stats = await stat(resolvedPath)
@@ -134,7 +139,7 @@ async function runServer(inputPath: string, options: { port: string; open: boole
     }
 
     // Create server
-    const { notifyReload, start } = createServer(port, () => ({
+    const { notifyReload, start } = createServer(port, host, () => ({
       html: state.html,
       title: state.currentFile ? basename(state.currentFile, '.md') : 'NeoFermi Notebook',
     }))
@@ -150,12 +155,16 @@ async function runServer(inputPath: string, options: { port: string; open: boole
 
     // Start server
     start()
-    const url = `http://localhost:${port}`
+    const displayHost = host === '0.0.0.0' ? 'localhost' : host
+    const url = `http://${displayHost}:${port}`
     console.log(`\nNeoFermi Notebook running at ${url}`)
+    if (host === '0.0.0.0') {
+      console.log(`  (accessible on all network interfaces)`)
+    }
     console.log('Watching for changes... (Ctrl+C to stop)\n')
 
     if (options.open) {
-      await open(url)
+      await openBrowser(url)
     }
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -254,11 +263,11 @@ async function runRepl() {
   })
 }
 
-async function run(inputPath: string | undefined, options: { port: string; open: boolean; output?: string; repl?: boolean }) {
+async function run(inputPath: string | undefined, options: { port: string; host: string; open: boolean; output?: string; repl?: boolean; dark?: boolean }) {
   if (options.repl) {
     await runRepl()
   } else if (options.output && inputPath) {
-    await runStatic(inputPath, options.output)
+    await runStatic(inputPath, options.output, options.dark ?? false)
   } else if (inputPath) {
     await runServer(inputPath, options)
   } else {
@@ -272,7 +281,9 @@ program
   .description('NeoFermi notebook server - live markdown with calculations')
   .argument('[path]', 'Markdown file or directory to serve')
   .option('-p, --port <number>', 'Port number', '3000')
+  .option('-H, --host <address>', 'Host to bind to (use 0.0.0.0 for all interfaces)', 'localhost')
   .option('-o, --output <file>', 'Render to static HTML file instead of serving')
+  .option('-d, --dark', 'Use dark mode theme (default is light mode)')
   .option('-r, --repl', 'Start interactive REPL mode')
   .option('--no-open', 'Do not open browser automatically')
   .action(run)

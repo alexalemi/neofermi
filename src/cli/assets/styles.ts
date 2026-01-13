@@ -2,7 +2,189 @@
  * CSS styles for NeoFermi notebooks
  */
 
-export function getStyles(): string {
+export function getStyles(darkMode: boolean = false): string {
+  if (darkMode) {
+    return getDarkStyles()
+  }
+  return getLightStyles()
+}
+
+function getLightStyles(): string {
+  return `
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #ffffff;
+  color: #24292f;
+  line-height: 1.6;
+  padding: 20px;
+}
+
+.neofermi-notebook {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  color: #1f2328;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+h1 { font-size: 2em; border-bottom: 1px solid #d1d9e0; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; }
+h3 { font-size: 1.25em; }
+
+p {
+  margin: 1em 0;
+}
+
+a {
+  color: #0969da;
+}
+
+ul, ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+blockquote {
+  border-left: 4px solid #0969da;
+  padding-left: 1em;
+  margin: 1em 0;
+  color: #656d76;
+}
+
+/* Code blocks (non-NeoFermi) */
+pre {
+  background: #f6f8fa;
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+code {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+p code, li code {
+  background: #f6f8fa;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* NeoFermi cells */
+.nf-cell {
+  background: #f6f8fa;
+  border-radius: 8px;
+  margin: 1em 0;
+  border: 1px solid #d1d9e0;
+  overflow: hidden;
+}
+
+.nf-code {
+  background: #eef1f4;
+  margin: 0;
+  padding: 12px;
+  border-bottom: 1px solid #d1d9e0;
+  border-radius: 0;
+}
+
+.nf-code code {
+  color: #953800;
+}
+
+.nf-result {
+  padding: 12px;
+  background: rgba(9, 105, 218, 0.04);
+}
+
+.nf-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nf-stat {
+  font-size: 0.9em;
+}
+
+.nf-stat strong {
+  color: #0969da;
+}
+
+.nf-scalar {
+  color: #0969da;
+  font-weight: 500;
+}
+
+.nf-dim {
+  color: #656d76;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+.nf-error {
+  padding: 12px;
+  background: rgba(207, 34, 46, 0.08);
+  color: #cf222e;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.85em;
+}
+
+.nf-viz {
+  padding: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.nf-viz canvas {
+  border-radius: 4px;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  width: 100%;
+}
+
+th, td {
+  border: 1px solid #d1d9e0;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+th {
+  background: #f6f8fa;
+  font-weight: 600;
+}
+
+/* Horizontal rule */
+hr {
+  border: none;
+  border-top: 1px solid #d1d9e0;
+  margin: 2em 0;
+}
+
+/* Images */
+img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+`
+}
+
+function getDarkStyles(): string {
   return `
 * {
   margin: 0;

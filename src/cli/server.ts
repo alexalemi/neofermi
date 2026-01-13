@@ -18,7 +18,7 @@ type SSEStream = {
   close: () => void
 }
 
-export function createServer(port: number, getNotebook: () => NotebookData) {
+export function createServer(port: number, host: string, getNotebook: () => NotebookData) {
   const app = new Hono()
   const clients: Set<SSEStream> = new Set()
 
@@ -78,7 +78,7 @@ export function createServer(port: number, getNotebook: () => NotebookData) {
   }
 
   function start() {
-    serve({ fetch: app.fetch, port })
+    serve({ fetch: app.fetch, port, hostname: host })
   }
 
   return { app, notifyReload, start }
@@ -118,16 +118,17 @@ function escapeHtml(str: string): string {
 /**
  * Wrap content in standalone HTML (no live reload, for static export)
  */
-export function wrapInStaticHtml(content: string, title: string): string {
+export function wrapInStaticHtml(content: string, title: string, darkMode: boolean = false): string {
+  const highlightTheme = darkMode ? 'github-dark' : 'github'
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)} - NeoFermi Notebook</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${highlightTheme}.min.css">
   <style>
-${getStyles()}
+${getStyles(darkMode)}
   </style>
 </head>
 <body>
@@ -135,7 +136,7 @@ ${getStyles()}
 ${content}
   </article>
   <script type="module">
-${getStaticClientScript()}
+${getStaticClientScript(darkMode)}
   </script>
 </body>
 </html>`
@@ -144,7 +145,14 @@ ${getStaticClientScript()}
 /**
  * Minimal client script for static pages (just visualization, no SSE)
  */
-function getStaticClientScript(): string {
+function getStaticClientScript(darkMode: boolean): string {
+  // Theme colors
+  const bgColor = darkMode ? '#1a1a2e' : '#f8f9fa'
+  const dotColor = darkMode ? 'rgba(99, 102, 241, 0.85)' : 'rgba(37, 99, 235, 0.8)'
+  const axisColor = darkMode ? '#555' : '#ccc'
+  const labelColor = darkMode ? '#999' : '#666'
+  const unitColor = darkMode ? '#777' : '#888'
+
   return `
 // Nice number for tick marks (1, 2, 5, 10, 20, 50, etc.)
 function niceNum(x, round) {
@@ -235,7 +243,7 @@ function renderDotplots() {
     const axisHeight = 20;
 
     // Background
-    ctx.fillStyle = '#1a1a2e';
+    ctx.fillStyle = '${bgColor}';
     ctx.fillRect(0, 0, width, height);
 
     const useLog = min > 0 && max > 0 && (max / min) > 100;
@@ -258,7 +266,7 @@ function renderDotplots() {
 
     // Draw stacked dots from bottom up, all dots in a bin share the same X
     const baseY = height - axisHeight - dotRadius - 2;
-    ctx.fillStyle = 'rgba(99, 102, 241, 0.85)';
+    ctx.fillStyle = '${dotColor}';
     bins.forEach((dots, binIndex) => {
       const x = binIndex * binWidth; // Use bin center, not individual x
       dots.forEach((v, i) => {
@@ -273,7 +281,7 @@ function renderDotplots() {
 
     // Draw axis line
     const axisY = height - axisHeight;
-    ctx.strokeStyle = '#555';
+    ctx.strokeStyle = '${axisColor}';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(padding, axisY);
@@ -281,7 +289,7 @@ function renderDotplots() {
     ctx.stroke();
 
     // Draw ticks and labels
-    ctx.fillStyle = '#999';
+    ctx.fillStyle = '${labelColor}';
     ctx.font = '10px -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ticks.forEach(tick => {
@@ -297,7 +305,7 @@ function renderDotplots() {
 
     // Unit label on right
     if (unit) {
-      ctx.fillStyle = '#777';
+      ctx.fillStyle = '${unitColor}';
       ctx.textAlign = 'right';
       ctx.fillText(unit, width - 5, axisY + 14);
     }
