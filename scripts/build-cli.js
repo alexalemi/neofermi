@@ -27,9 +27,6 @@ async function buildCli() {
         // Node.js built-ins that shouldn't be bundled
         'fsevents',
       ],
-      banner: {
-        js: '#!/usr/bin/env node',
-      },
       // Handle __dirname for ESM
       define: {
         'import.meta.url': 'import.meta.url',
