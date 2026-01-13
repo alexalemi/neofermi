@@ -10,8 +10,31 @@ import { syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@code
 import { tags } from '@lezer/highlight'
 import { vim } from '@replit/codemirror-vim'
 
-// Compartment for dynamically toggling vim mode
+// Compartments for dynamically reconfigurable options
 const vimCompartment = new Compartment()
+const lineNumbersCompartment = new Compartment()
+const lineWrappingCompartment = new Compartment()
+const tabSizeCompartment = new Compartment()
+const fontSizeCompartment = new Compartment()
+
+/**
+ * Editor configuration options (exposed in settings modal)
+ */
+export interface EditorConfig {
+  lineNumbers: boolean
+  lineWrapping: boolean
+  tabSize: number
+  fontSize: number
+  vim: boolean
+}
+
+export const DEFAULT_CONFIG: EditorConfig = {
+  lineNumbers: true,
+  lineWrapping: true,
+  tabSize: 2,
+  fontSize: 14,
+  vim: false,
+}
 
 /**
  * Theme-agnostic base styles for CodeMirror
@@ -46,8 +69,14 @@ const highlightStyle = HighlightStyle.define([
   { tag: tags.quote, fontStyle: 'italic' },
 ])
 
-export interface EditorOptions {
-  vimMode?: boolean
+/**
+ * Create a font size theme extension
+ */
+function fontSizeTheme(size: number): Extension {
+  return EditorView.theme({
+    '.cm-content': { fontSize: `${size}px` },
+    '.cm-gutters': { fontSize: `${size}px` },
+  })
 }
 
 /**
@@ -57,7 +86,7 @@ export function createEditor(
   parent: HTMLElement,
   initialContent: string,
   onChange: (content: string) => void,
-  options: EditorOptions = {}
+  config: EditorConfig = DEFAULT_CONFIG
 ): EditorView {
   const updateListener = EditorView.updateListener.of((update) => {
     if (update.docChanged) {
@@ -66,7 +95,13 @@ export function createEditor(
   })
 
   const extensions: Extension[] = [
-    lineNumbers(),
+    // Compartmentalized options (can be reconfigured at runtime)
+    lineNumbersCompartment.of(config.lineNumbers ? lineNumbers() : []),
+    lineWrappingCompartment.of(config.lineWrapping ? EditorView.lineWrapping : []),
+    tabSizeCompartment.of(EditorState.tabSize.of(config.tabSize)),
+    fontSizeCompartment.of(fontSizeTheme(config.fontSize)),
+    vimCompartment.of(config.vim ? vim() : []),
+    // Static extensions
     highlightActiveLine(),
     highlightActiveLineGutter(),
     history(),
@@ -79,9 +114,6 @@ export function createEditor(
       ...historyKeymap,
     ]),
     updateListener,
-    EditorView.lineWrapping,
-    // Vim mode compartment - can be toggled dynamically
-    vimCompartment.of(options.vimMode ? vim() : []),
   ]
 
   const state = EditorState.create({
@@ -96,11 +128,17 @@ export function createEditor(
 }
 
 /**
- * Toggle vim mode on/off
+ * Apply editor configuration (reconfigures all compartments)
  */
-export function setVimMode(view: EditorView, enabled: boolean): void {
+export function applyConfig(view: EditorView, config: EditorConfig): void {
   view.dispatch({
-    effects: vimCompartment.reconfigure(enabled ? vim() : [])
+    effects: [
+      lineNumbersCompartment.reconfigure(config.lineNumbers ? lineNumbers() : []),
+      lineWrappingCompartment.reconfigure(config.lineWrapping ? EditorView.lineWrapping : []),
+      tabSizeCompartment.reconfigure(EditorState.tabSize.of(config.tabSize)),
+      fontSizeCompartment.reconfigure(fontSizeTheme(config.fontSize)),
+      vimCompartment.reconfigure(config.vim ? vim() : []),
+    ],
   })
 }
 

@@ -145,8 +145,7 @@ async function runServer(inputPath: string, options: { port: string; host: strin
     }))
 
     // Watch for changes
-    const watchPattern = isDirectory ? resolvedPath : resolvedPath
-    watchFiles(watchPattern, async (changedPath) => {
+    await watchFiles(resolvedPath, async (changedPath) => {
       console.log(`Changed: ${changedPath}`)
       state.currentFile = changedPath
       state.html = await processMarkdown(changedPath)

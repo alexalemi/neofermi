@@ -9,21 +9,49 @@ import { join } from 'path'
 /**
  * Watch a file or directory for markdown file changes
  */
-export function watchFiles(path: string, onFileChange: (filePath: string) => void) {
-  // Determine if path is a file or directory
+export async function watchFiles(path: string, onFileChange: (filePath: string) => void) {
   const isMarkdownFile = path.endsWith('.md')
 
-  const watchPattern = isMarkdownFile ? path : join(path, '**/*.md')
+  // For directories, find all .md files and watch them explicitly
+  // (glob patterns don't work reliably with polling)
+  let filesToWatch: string[]
+  if (isMarkdownFile) {
+    filesToWatch = [path]
+  } else {
+    filesToWatch = await findMdFilesRecursive(path)
+    console.log(`Found ${filesToWatch.length} markdown files to watch`)
+  }
 
-  const watcher = chokidar.watch(watchPattern, {
+  const watcher = chokidar.watch(filesToWatch, {
     ignored: /(^|[\/\\])\../, // Ignore dotfiles
     persistent: true,
     ignoreInitial: true,
+    usePolling: true,
+    interval: 300,
     awaitWriteFinish: {
       stabilityThreshold: 100,
       pollInterval: 50,
     },
   })
+
+  // For directories, also watch for new .md files
+  if (!isMarkdownFile) {
+    const dirWatcher = chokidar.watch(path, {
+      ignored: /(^|[\/\\])\../,
+      persistent: true,
+      ignoreInitial: true,
+      usePolling: true,
+      interval: 1000,
+      depth: 10,
+    })
+    dirWatcher.on('add', (addedPath) => {
+      if (addedPath.endsWith('.md')) {
+        console.log(`New file detected: ${addedPath}`)
+        watcher.add(addedPath)
+        onFileChange(addedPath)
+      }
+    })
+  }
 
   watcher
     .on('change', (changedPath) => {
@@ -31,13 +59,11 @@ export function watchFiles(path: string, onFileChange: (filePath: string) => voi
         onFileChange(changedPath)
       }
     })
-    .on('add', (addedPath) => {
-      if (addedPath.endsWith('.md')) {
-        onFileChange(addedPath)
-      }
-    })
     .on('error', (error) => {
       console.error('Watcher error:', error)
+    })
+    .on('ready', () => {
+      console.log('Watcher ready')
     })
 
   return watcher

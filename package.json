@@ -28,6 +28,7 @@
     "build:types": "tsc -p tsconfig.build.json",
     "prepublishOnly": "bun run build && bun run build:types",
     "build:cli": "node scripts/build-cli.js",
+    "build:cli:watch": "node scripts/build-cli.js --watch",
     "notebook": "node --import tsx src/cli/index.ts",
     "preview": "vite preview",
     "test": "vitest",

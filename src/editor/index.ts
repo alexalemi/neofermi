@@ -4,7 +4,8 @@
  * A live-updating markdown editor with embedded neofermi expression support.
  */
 
-import { createEditor, setVimMode } from './codemirror-setup.js'
+import { createEditor, applyConfig, DEFAULT_CONFIG } from './codemirror-setup.js'
+import type { EditorConfig } from './codemirror-setup.js'
 import { processMarkdown } from './markdown-processor.js'
 import { evaluateExpressions } from './expression-evaluator.js'
 import { renderVisualizations, typesetMath, VizType } from './preview-renderer.js'
@@ -13,7 +14,7 @@ import type { EditorView } from '@codemirror/view'
 // Constants
 const STORAGE_KEY = 'neofermi-editor'
 const THEME_KEY = 'neofermi-theme'
-const VIM_KEY = 'neofermi-vim'
+const SETTINGS_KEY = 'neofermi-settings'
 const DEBOUNCE_MS = 400
 
 const DEFAULT_CONTENT = `# NeoFermi Editor
@@ -59,7 +60,7 @@ $$\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
 let editorView: EditorView
 let vizType: VizType = 'dotplot'
 let currentTheme: 'light' | 'dark' = 'light'
-let vimEnabled = false
+let currentConfig: EditorConfig = { ...DEFAULT_CONFIG }
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 // DOM Elements
@@ -76,14 +77,14 @@ function init() {
   // Load and apply saved theme
   loadTheme()
 
-  // Load vim mode preference
-  loadVimMode()
+  // Load editor config (vim, font size, etc.)
+  loadConfig()
 
   // Load content: URL hash > localStorage > default
   const content = loadFromHash() || loadFromStorage() || DEFAULT_CONTENT
 
-  // Initialize CodeMirror with vim mode if enabled
-  editorView = createEditor(editorPane, content, onContentChange, { vimMode: vimEnabled })
+  // Initialize CodeMirror with config
+  editorView = createEditor(editorPane, content, onContentChange, currentConfig)
 
   // Initial render
   updatePreview(content)
@@ -92,8 +93,8 @@ function init() {
   setupResizer()
   setupVizToggle()
   setupThemeToggle()
-  setupVimToggle()
   setupModals()
+  setupSettingsModal()
   setupKeyboardShortcuts()
   setupExport()
   setupShare()
@@ -357,35 +358,103 @@ function setupThemeToggle() {
 }
 
 // =====================
-// Vim Mode Toggle
+// Editor Config / Settings
 // =====================
 
-function loadVimMode() {
-  const saved = localStorage.getItem(VIM_KEY)
-  vimEnabled = saved === 'true'
-  applyVimMode()
-}
-
-function applyVimMode() {
-  const vimBtn = document.getElementById('vim-btn')
-  if (vimBtn) {
-    vimBtn.textContent = vimEnabled ? 'Vim: On' : 'Vim: Off'
-    vimBtn.classList.toggle('active', vimEnabled)
+function loadConfig() {
+  try {
+    const saved = localStorage.getItem(SETTINGS_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      currentConfig = { ...DEFAULT_CONFIG, ...parsed }
+    }
+  } catch {
+    // Use defaults on parse error
   }
 }
 
-function toggleVimMode() {
-  vimEnabled = !vimEnabled
-  setVimMode(editorView, vimEnabled)
-  applyVimMode()
-  localStorage.setItem(VIM_KEY, String(vimEnabled))
-  setStatus(vimEnabled ? 'Vim mode enabled' : 'Vim mode disabled')
+function saveConfig() {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(currentConfig, null, 2))
+  } catch {
+    // Ignore storage errors
+  }
 }
 
-function setupVimToggle() {
-  const vimBtn = document.getElementById('vim-btn')
-  if (vimBtn) {
-    vimBtn.addEventListener('click', toggleVimMode)
+function setupSettingsModal() {
+  const settingsModal = document.getElementById('settings-modal')!
+  const settingsBtn = document.getElementById('settings-btn')!
+  const closeSettings = document.getElementById('close-settings')!
+  const settingsJson = document.getElementById('settings-json') as HTMLTextAreaElement
+  const settingsError = document.getElementById('settings-error')!
+  const applyBtn = document.getElementById('apply-settings')!
+  const resetBtn = document.getElementById('reset-settings')!
+
+  // Open modal
+  settingsBtn.addEventListener('click', () => {
+    settingsJson.value = JSON.stringify(currentConfig, null, 2)
+    settingsError.textContent = ''
+    settingsModal.classList.add('visible')
+  })
+
+  // Close modal
+  closeSettings.addEventListener('click', () => {
+    settingsModal.classList.remove('visible')
+  })
+
+  settingsModal.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).classList.contains('modal-overlay')) {
+      settingsModal.classList.remove('visible')
+    }
+  })
+
+  // Apply settings
+  applyBtn.addEventListener('click', () => {
+    // TODO: User implements validation logic here
+    // This function should parse the JSON, validate it, and return
+    // either the parsed config or an error message.
+    const result = validateAndParseConfig(settingsJson.value)
+
+    if (result.error) {
+      settingsError.textContent = result.error
+      return
+    }
+
+    currentConfig = result.config!
+    applyConfig(editorView, currentConfig)
+    saveConfig()
+    settingsError.textContent = ''
+    settingsModal.classList.remove('visible')
+    setStatus('Settings applied')
+  })
+
+  // Reset to defaults
+  resetBtn.addEventListener('click', () => {
+    currentConfig = { ...DEFAULT_CONFIG }
+    settingsJson.value = JSON.stringify(currentConfig, null, 2)
+    applyConfig(editorView, currentConfig)
+    saveConfig()
+    settingsError.textContent = ''
+    setStatus('Settings reset')
+  })
+}
+
+/**
+ * Validate and parse the config JSON.
+ * TODO: Implement your preferred validation/error display logic here.
+ */
+function validateAndParseConfig(jsonStr: string): { config?: EditorConfig; error?: string } {
+  // Your validation logic goes here. Consider:
+  // - Does the JSON parse correctly?
+  // - Are the types correct (booleans for lineNumbers, numbers for fontSize)?
+  // - Are values in reasonable ranges (fontSize > 0, tabSize 1-8)?
+  // Return { config: parsedConfig } on success, or { error: "message" } on failure.
+
+  try {
+    const parsed = JSON.parse(jsonStr)
+    return { config: { ...DEFAULT_CONFIG, ...parsed } }
+  } catch {
+    return { error: 'Invalid JSON' }
   }
 }
 
@@ -436,6 +505,7 @@ function setupKeyboardShortcuts() {
     // Escape: Close modals
     if (e.key === 'Escape') {
       document.getElementById('help-modal')?.classList.remove('visible')
+      document.getElementById('settings-modal')?.classList.remove('visible')
     }
   })
 }

@@ -46,7 +46,7 @@
         <button class="header-btn active" data-viz="dotplot">Dots</button>
         <button class="header-btn" data-viz="histogram">Hist</button>
       </div>
-      <button class="header-btn" id="vim-btn" title="Toggle vim keybindings">Vim: Off</button>
+      <button class="header-btn" id="settings-btn" title="Editor settings">⚙</button>
       <button class="header-btn" id="theme-btn" title="Toggle light/dark mode">Light</button>
     </div>
   </header>
@@ -113,6 +113,25 @@ Display: $$\int_0^\infty e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$</pre>
         <h4>Keyboard Shortcuts</h4>
         <pre>Ctrl/Cmd+S           # Share (copy link)
 Ctrl/Cmd+E           # Export as markdown</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Editor Settings</h2>
+        <button class="modal-close" id="close-settings">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Edit CodeMirror settings as JSON:</p>
+        <textarea id="settings-json" rows="10" spellcheck="false"></textarea>
+        <p class="settings-error" id="settings-error"></p>
+        <div class="settings-actions">
+          <button class="header-btn" id="apply-settings">Apply</button>
+          <button class="header-btn" id="reset-settings">Reset</button>
+        </div>
       </div>
     </div>
   </div>
