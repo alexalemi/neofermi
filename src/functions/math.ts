@@ -334,6 +334,103 @@ export function hypot(a: Quantity, b: Quantity): Quantity {
 }
 
 // ============================================
+// Statistical Functions for Distributions
+// ============================================
+
+/**
+ * Get a specific percentile from a distribution
+ * quantile(dist, 0.95) returns the 95th percentile
+ */
+export function quantile(q: Quantity, p: Quantity): Quantity {
+  const pVal = p.isScalar() ? (p.value as number) : p.mean()
+  if (pVal < 0 || pVal > 1) {
+    throw new Error(`quantile() probability must be between 0 and 1, got ${pVal}`)
+  }
+  const result = q.percentile(pVal)
+  return new Quantity(result, q.unit.toString())
+}
+
+/**
+ * Alias for quantile
+ */
+export function percentile(q: Quantity, p: Quantity): Quantity {
+  return quantile(q, p)
+}
+
+/**
+ * Get the 5th percentile (low end of 90% CI)
+ */
+export function p5(q: Quantity): Quantity {
+  return new Quantity(q.percentile(0.05), q.unit.toString())
+}
+
+/**
+ * Get the 10th percentile
+ */
+export function p10(q: Quantity): Quantity {
+  return new Quantity(q.percentile(0.10), q.unit.toString())
+}
+
+/**
+ * Get the 25th percentile (first quartile)
+ */
+export function p25(q: Quantity): Quantity {
+  return new Quantity(q.percentile(0.25), q.unit.toString())
+}
+
+/**
+ * Get the 50th percentile (median)
+ */
+export function median(q: Quantity): Quantity {
+  return new Quantity(q.percentile(0.50), q.unit.toString())
+}
+
+/**
+ * Get the 75th percentile (third quartile)
+ */
+export function p75(q: Quantity): Quantity {
+  return new Quantity(q.percentile(0.75), q.unit.toString())
+}
+
+/**
+ * Get the 90th percentile
+ */
+export function p90(q: Quantity): Quantity {
+  return new Quantity(q.percentile(0.90), q.unit.toString())
+}
+
+/**
+ * Get the 95th percentile (high end of 90% CI)
+ */
+export function p95(q: Quantity): Quantity {
+  return new Quantity(q.percentile(0.95), q.unit.toString())
+}
+
+/**
+ * Get the 99th percentile
+ */
+export function p99(q: Quantity): Quantity {
+  return new Quantity(q.percentile(0.99), q.unit.toString())
+}
+
+/**
+ * Get the mean of a distribution
+ */
+export function mean(q: Quantity): Quantity {
+  return new Quantity(q.mean(), q.unit.toString())
+}
+
+/**
+ * Get the standard deviation of a distribution
+ */
+export function std(q: Quantity): Quantity {
+  const particles = q.toParticles()
+  const m = q.mean()
+  const variance = particles.reduce((sum, x) => sum + (x - m) ** 2, 0) / particles.length
+  return new Quantity(Math.sqrt(variance), q.unit.toString())
+}
+
+// ============================================
 // Clamp function
 // ============================================
 

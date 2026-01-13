@@ -32,7 +32,9 @@ const MATH_FUNCTIONS = new Set([
   'log', 'ln', 'log10', 'log2', 'log1p',
   'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2',
   'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
-  'min', 'max', 'hypot', 'clamp'
+  'min', 'max', 'hypot', 'clamp',
+  'quantile', 'percentile', 'p5', 'p10', 'p25', 'median', 'p75', 'p90', 'p95', 'p99',
+  'mean', 'std'
 ])
 
 // User-defined function storage
@@ -110,6 +112,20 @@ export class Evaluator {
     this.functions.set('max', mathFunctions.max)
     this.functions.set('hypot', mathFunctions.hypot)
     this.functions.set('clamp', mathFunctions.clamp)
+
+    // Statistical functions for distributions
+    this.functions.set('quantile', mathFunctions.quantile)
+    this.functions.set('percentile', mathFunctions.percentile)
+    this.functions.set('p5', mathFunctions.p5)
+    this.functions.set('p10', mathFunctions.p10)
+    this.functions.set('p25', mathFunctions.p25)
+    this.functions.set('median', mathFunctions.median)
+    this.functions.set('p75', mathFunctions.p75)
+    this.functions.set('p90', mathFunctions.p90)
+    this.functions.set('p95', mathFunctions.p95)
+    this.functions.set('p99', mathFunctions.p99)
+    this.functions.set('mean', mathFunctions.mean)
+    this.functions.set('std', mathFunctions.std)
   }
 
   private registerPhysicalConstants(): void {
