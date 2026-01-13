@@ -43,10 +43,11 @@ function renderVisualizations() {
 }
 
 function renderDotplot(quantiles, min, max, unit) {
-  const width = 300;
+  const width = 400;
   const height = 80;
-  const padding = 10;
-  const dotRadius = 3;
+  const padding = 12;
+  const dotRadius = 4;
+  const axisHeight = 15;
 
   const canvas = document.createElement('canvas');
   const dpr = window.devicePixelRatio || 1;
@@ -59,7 +60,6 @@ function renderDotplot(quantiles, min, max, unit) {
   ctx.scale(dpr, dpr);
 
   // Determine if log scale
-  const range = max - min;
   const useLog = min > 0 && max > 0 && (max / min) > 100;
 
   function scale(v) {
@@ -69,26 +69,35 @@ function renderDotplot(quantiles, min, max, unit) {
       const logV = Math.log10(v);
       return padding + ((logV - logMin) / (logMax - logMin)) * (width - 2 * padding);
     }
-    return padding + ((v - min) / range) * (width - 2 * padding);
+    return padding + ((v - min) / (max - min)) * (width - 2 * padding);
   }
 
-  // Draw dots
+  // Bin dots by X position to stack them
+  const binWidth = dotRadius * 2.2;
+  const bins = new Map();
+  quantiles.forEach(v => {
+    const x = scale(v);
+    const binIndex = Math.round(x / binWidth);
+    if (!bins.has(binIndex)) bins.set(binIndex, []);
+    bins.get(binIndex).push({ x, v });
+  });
+
+  // Draw stacked dots from bottom up
+  const baseY = height - axisHeight - dotRadius - 2;
   ctx.fillStyle = '#4ec9b0';
-  const numDots = quantiles.length;
-  const dotSpacing = (height - 2 * padding - 20) / Math.ceil(Math.sqrt(numDots));
-
-  quantiles.forEach((val, i) => {
-    const x = scale(val);
-    const row = Math.floor(i / 10);
-    const y = padding + row * dotSpacing + dotRadius;
-
-    ctx.beginPath();
-    ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
-    ctx.fill();
+  bins.forEach(dots => {
+    dots.forEach((dot, i) => {
+      const y = baseY - i * (dotRadius * 2.2);
+      if (y > dotRadius) {
+        ctx.beginPath();
+        ctx.arc(dot.x, y, dotRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
   });
 
   // Draw axis
-  const axisY = height - 15;
+  const axisY = height - axisHeight + 2;
   ctx.strokeStyle = '#666';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -98,11 +107,11 @@ function renderDotplot(quantiles, min, max, unit) {
 
   // Draw axis labels
   ctx.fillStyle = '#888';
-  ctx.font = '9px -apple-system, sans-serif';
+  ctx.font = '10px -apple-system, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(formatAxisNum(min), padding, axisY + 10);
+  ctx.fillText(formatAxisNum(min), padding, axisY + 11);
   ctx.textAlign = 'right';
-  ctx.fillText(formatAxisNum(max), width - padding, axisY + 10);
+  ctx.fillText(formatAxisNum(max), width - padding, axisY + 11);
 
   return canvas;
 }

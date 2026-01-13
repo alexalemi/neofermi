@@ -156,36 +156,85 @@ function renderDotplots() {
 
     if (samples.length === 0) return;
 
+    const dpr = window.devicePixelRatio || 1;
+    const displayWidth = el.clientWidth || 400;
+    const displayHeight = 80;
+
     const canvas = document.createElement('canvas');
-    canvas.width = el.clientWidth || 400;
-    canvas.height = 60;
-    canvas.style.width = '100%';
-    canvas.style.height = '60px';
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
     el.appendChild(canvas);
 
     const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
-    const dotRadius = 4;
-    const padding = dotRadius + 2;
+    ctx.scale(dpr, dpr);
 
+    const width = displayWidth;
+    const height = displayHeight;
+    const dotRadius = 4;
+    const padding = dotRadius + 4;
+    const axisHeight = 15;
+
+    // Background
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, width, height);
 
-    const useLog = max / min > 100;
+    const useLog = min > 0 && max > 0 && (max / min) > 100;
     const toX = useLog
       ? v => padding + ((Math.log10(v) - Math.log10(min)) / (Math.log10(max) - Math.log10(min))) * (width - 2 * padding)
       : v => padding + ((v - min) / (max - min)) * (width - 2 * padding);
 
-    ctx.fillStyle = 'rgba(99, 102, 241, 0.8)';
+    // Bin dots by X position to stack them
+    const binWidth = dotRadius * 2.2;
+    const bins = new Map();
     samples.forEach(v => {
       const x = toX(v);
-      const y = height / 2;
-      ctx.beginPath();
-      ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
-      ctx.fill();
+      const binIndex = Math.round(x / binWidth);
+      if (!bins.has(binIndex)) bins.set(binIndex, []);
+      bins.get(binIndex).push({ x, v });
     });
+
+    // Draw stacked dots from bottom up
+    const baseY = height - axisHeight - dotRadius - 2;
+    ctx.fillStyle = 'rgba(99, 102, 241, 0.85)';
+    bins.forEach(dots => {
+      dots.forEach((dot, i) => {
+        const y = baseY - i * (dotRadius * 2.2);
+        if (y > dotRadius) {
+          ctx.beginPath();
+          ctx.arc(dot.x, y, dotRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    });
+
+    // Draw axis
+    const axisY = height - axisHeight + 2;
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding, axisY);
+    ctx.lineTo(width - padding, axisY);
+    ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#888';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(formatNum(min), padding, axisY + 11);
+    ctx.textAlign = 'right';
+    ctx.fillText(formatNum(max), width - padding, axisY + 11);
   });
+}
+
+function formatNum(n) {
+  if (n === 0) return '0';
+  const abs = Math.abs(n);
+  if (abs >= 10000 || abs < 0.01) return n.toExponential(1);
+  if (abs >= 100) return n.toFixed(0);
+  if (abs >= 1) return n.toFixed(1);
+  return n.toPrecision(2);
 }
 
 renderDotplots();

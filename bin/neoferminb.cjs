@@ -7691,10 +7691,11 @@ function renderVisualizations() {
 }
 
 function renderDotplot(quantiles, min, max, unit) {
-  const width = 300;
+  const width = 400;
   const height = 80;
-  const padding = 10;
-  const dotRadius = 3;
+  const padding = 12;
+  const dotRadius = 4;
+  const axisHeight = 15;
 
   const canvas = document.createElement('canvas');
   const dpr = window.devicePixelRatio || 1;
@@ -7707,7 +7708,6 @@ function renderDotplot(quantiles, min, max, unit) {
   ctx.scale(dpr, dpr);
 
   // Determine if log scale
-  const range = max - min;
   const useLog = min > 0 && max > 0 && (max / min) > 100;
 
   function scale(v) {
@@ -7717,26 +7717,35 @@ function renderDotplot(quantiles, min, max, unit) {
       const logV = Math.log10(v);
       return padding + ((logV - logMin) / (logMax - logMin)) * (width - 2 * padding);
     }
-    return padding + ((v - min) / range) * (width - 2 * padding);
+    return padding + ((v - min) / (max - min)) * (width - 2 * padding);
   }
 
-  // Draw dots
+  // Bin dots by X position to stack them
+  const binWidth = dotRadius * 2.2;
+  const bins = new Map();
+  quantiles.forEach(v => {
+    const x = scale(v);
+    const binIndex = Math.round(x / binWidth);
+    if (!bins.has(binIndex)) bins.set(binIndex, []);
+    bins.get(binIndex).push({ x, v });
+  });
+
+  // Draw stacked dots from bottom up
+  const baseY = height - axisHeight - dotRadius - 2;
   ctx.fillStyle = '#4ec9b0';
-  const numDots = quantiles.length;
-  const dotSpacing = (height - 2 * padding - 20) / Math.ceil(Math.sqrt(numDots));
-
-  quantiles.forEach((val, i) => {
-    const x = scale(val);
-    const row = Math.floor(i / 10);
-    const y = padding + row * dotSpacing + dotRadius;
-
-    ctx.beginPath();
-    ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
-    ctx.fill();
+  bins.forEach(dots => {
+    dots.forEach((dot, i) => {
+      const y = baseY - i * (dotRadius * 2.2);
+      if (y > dotRadius) {
+        ctx.beginPath();
+        ctx.arc(dot.x, y, dotRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
   });
 
   // Draw axis
-  const axisY = height - 15;
+  const axisY = height - axisHeight + 2;
   ctx.strokeStyle = '#666';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -7746,11 +7755,11 @@ function renderDotplot(quantiles, min, max, unit) {
 
   // Draw axis labels
   ctx.fillStyle = '#888';
-  ctx.font = '9px -apple-system, sans-serif';
+  ctx.font = '10px -apple-system, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(formatAxisNum(min), padding, axisY + 10);
+  ctx.fillText(formatAxisNum(min), padding, axisY + 11);
   ctx.textAlign = 'right';
-  ctx.fillText(formatAxisNum(max), width - padding, axisY + 10);
+  ctx.fillText(formatAxisNum(max), width - padding, axisY + 11);
 
   return canvas;
 }
@@ -7878,36 +7887,85 @@ function renderDotplots() {
 
     if (samples.length === 0) return;
 
+    const dpr = window.devicePixelRatio || 1;
+    const displayWidth = el.clientWidth || 400;
+    const displayHeight = 80;
+
     const canvas = document.createElement('canvas');
-    canvas.width = el.clientWidth || 400;
-    canvas.height = 60;
-    canvas.style.width = '100%';
-    canvas.style.height = '60px';
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
     el.appendChild(canvas);
 
     const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
-    const dotRadius = 4;
-    const padding = dotRadius + 2;
+    ctx.scale(dpr, dpr);
 
+    const width = displayWidth;
+    const height = displayHeight;
+    const dotRadius = 4;
+    const padding = dotRadius + 4;
+    const axisHeight = 15;
+
+    // Background
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, width, height);
 
-    const useLog = max / min > 100;
+    const useLog = min > 0 && max > 0 && (max / min) > 100;
     const toX = useLog
       ? v => padding + ((Math.log10(v) - Math.log10(min)) / (Math.log10(max) - Math.log10(min))) * (width - 2 * padding)
       : v => padding + ((v - min) / (max - min)) * (width - 2 * padding);
 
-    ctx.fillStyle = 'rgba(99, 102, 241, 0.8)';
+    // Bin dots by X position to stack them
+    const binWidth = dotRadius * 2.2;
+    const bins = new Map();
     samples.forEach(v => {
       const x = toX(v);
-      const y = height / 2;
-      ctx.beginPath();
-      ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
-      ctx.fill();
+      const binIndex = Math.round(x / binWidth);
+      if (!bins.has(binIndex)) bins.set(binIndex, []);
+      bins.get(binIndex).push({ x, v });
     });
+
+    // Draw stacked dots from bottom up
+    const baseY = height - axisHeight - dotRadius - 2;
+    ctx.fillStyle = 'rgba(99, 102, 241, 0.85)';
+    bins.forEach(dots => {
+      dots.forEach((dot, i) => {
+        const y = baseY - i * (dotRadius * 2.2);
+        if (y > dotRadius) {
+          ctx.beginPath();
+          ctx.arc(dot.x, y, dotRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    });
+
+    // Draw axis
+    const axisY = height - axisHeight + 2;
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding, axisY);
+    ctx.lineTo(width - padding, axisY);
+    ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#888';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(formatNum(min), padding, axisY + 11);
+    ctx.textAlign = 'right';
+    ctx.fillText(formatNum(max), width - padding, axisY + 11);
   });
+}
+
+function formatNum(n) {
+  if (n === 0) return '0';
+  const abs = Math.abs(n);
+  if (abs >= 10000 || abs < 0.01) return n.toExponential(1);
+  if (abs >= 100) return n.toFixed(0);
+  if (abs >= 1) return n.toFixed(1);
+  return n.toPrecision(2);
 }
 
 renderDotplots();
@@ -43630,14 +43688,48 @@ function peg$parse(input, options) {
     return s0;
   }
   function peg$parseSimpleUnit() {
-    let s0, s1;
+    let s0, s1, s2, s3, s4, s5;
     s0 = peg$currPos;
     s1 = peg$parseIdentifierName();
     if (s1 !== peg$FAILED) {
-      peg$savedPos = s0;
-      s1 = peg$f49(s1);
+      s2 = peg$currPos;
+      peg$silentFails++;
+      s3 = peg$currPos;
+      s4 = peg$parse_();
+      if (input.charCodeAt(peg$currPos) === 61) {
+        s5 = peg$c2;
+        peg$currPos++;
+      } else {
+        s5 = peg$FAILED;
+        if (peg$silentFails === 0) {
+          peg$fail(peg$e2);
+        }
+      }
+      if (s5 !== peg$FAILED) {
+        s4 = [s4, s5];
+        s3 = s4;
+      } else {
+        peg$currPos = s3;
+        s3 = peg$FAILED;
+      }
+      peg$silentFails--;
+      if (s3 === peg$FAILED) {
+        s2 = void 0;
+      } else {
+        peg$currPos = s2;
+        s2 = peg$FAILED;
+      }
+      if (s2 !== peg$FAILED) {
+        peg$savedPos = s0;
+        s0 = peg$f49(s1);
+      } else {
+        peg$currPos = s0;
+        s0 = peg$FAILED;
+      }
+    } else {
+      peg$currPos = s0;
+      s0 = peg$FAILED;
     }
-    s0 = s1;
     return s0;
   }
   function peg$parseIdentifierName() {
