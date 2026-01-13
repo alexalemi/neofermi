@@ -7844,6 +7844,75 @@ ${getClientScript()}
 function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
+function wrapInStaticHtml(content3, title) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)} - NeoFermi Notebook</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <style>
+${getStyles()}
+  </style>
+</head>
+<body>
+  <article class="neofermi-notebook">
+${content3}
+  </article>
+  <script type="module">
+${getStaticClientScript()}
+  </script>
+</body>
+</html>`;
+}
+function getStaticClientScript() {
+  return `
+// Render quantile dotplot visualizations
+function renderDotplots() {
+  document.querySelectorAll('.nf-viz').forEach(el => {
+    const samples = JSON.parse(el.dataset.samples || '[]');
+    const unit = el.dataset.unit || '';
+    const min = parseFloat(el.dataset.min);
+    const max = parseFloat(el.dataset.max);
+
+    if (samples.length === 0) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = el.clientWidth || 400;
+    canvas.height = 60;
+    canvas.style.width = '100%';
+    canvas.style.height = '60px';
+    el.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const dotRadius = 4;
+    const padding = dotRadius + 2;
+
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, width, height);
+
+    const useLog = max / min > 100;
+    const toX = useLog
+      ? v => padding + ((Math.log10(v) - Math.log10(min)) / (Math.log10(max) - Math.log10(min))) * (width - 2 * padding)
+      : v => padding + ((v - min) / (max - min)) * (width - 2 * padding);
+
+    ctx.fillStyle = 'rgba(99, 102, 241, 0.8)';
+    samples.forEach(v => {
+      const x = toX(v);
+      const y = height / 2;
+      ctx.beginPath();
+      ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  });
+}
+
+renderDotplots();
+`;
+}
 
 // node_modules/.pnpm/chokidar@4.0.3/node_modules/chokidar/esm/index.js
 var import_fs2 = require("fs");
@@ -8574,9 +8643,9 @@ var NodeFsHandler = class {
     if (this.fsw.closed) {
       return;
     }
-    const dirname3 = sysPath.dirname(file);
+    const dirname4 = sysPath.dirname(file);
     const basename4 = sysPath.basename(file);
-    const parent = this.fsw._getWatchedDir(dirname3);
+    const parent = this.fsw._getWatchedDir(dirname4);
     let prevStats = stats;
     if (parent.has(basename4))
       return;
@@ -8603,7 +8672,7 @@ var NodeFsHandler = class {
             prevStats = newStats2;
           }
         } catch (error) {
-          this.fsw._remove(dirname3, basename4);
+          this.fsw._remove(dirname4, basename4);
         }
       } else if (parent.has(basename4)) {
         const at = newStats.atimeMs;
@@ -9997,9 +10066,9 @@ var VFile = class {
    * @returns {undefined}
    *   Nothing.
    */
-  set dirname(dirname3) {
+  set dirname(dirname4) {
     assertPath(this.basename, "dirname");
-    this.path = import_node_path2.default.join(dirname3 || "", this.basename);
+    this.path = import_node_path2.default.join(dirname4 || "", this.basename);
   }
   /**
    * Get the extname (including dot) (example: `'.js'`).
@@ -44117,7 +44186,32 @@ var state = {
   currentFile: null,
   html: "<p>No markdown file loaded</p>"
 };
-async function run2(inputPath, options) {
+async function runStatic(inputPath, outputPath) {
+  const resolvedInput = (0, import_path2.resolve)(inputPath);
+  const resolvedOutput = (0, import_path2.resolve)(outputPath);
+  try {
+    const stats = await (0, import_promises6.stat)(resolvedInput);
+    if (stats.isDirectory()) {
+      console.error("Error: Static output requires a single markdown file, not a directory");
+      process.exit(1);
+    }
+    console.log(`Processing: ${resolvedInput}`);
+    const html7 = await processMarkdown(resolvedInput);
+    const title = (0, import_path2.basename)(resolvedInput, ".md");
+    const fullHtml = wrapInStaticHtml(html7, title);
+    await (0, import_promises6.mkdir)((0, import_path2.dirname)(resolvedOutput), { recursive: true });
+    await (0, import_promises6.writeFile)(resolvedOutput, fullHtml, "utf-8");
+    console.log(`Written: ${resolvedOutput}`);
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      console.error(`Error: File not found: ${resolvedInput}`);
+    } else {
+      console.error(`Error: ${err.message}`);
+    }
+    process.exit(1);
+  }
+}
+async function runServer(inputPath, options) {
   const resolvedPath = (0, import_path2.resolve)(inputPath);
   const port = parseInt(options.port, 10);
   try {
@@ -44166,7 +44260,14 @@ NeoFermi Notebook running at ${url}`);
     process.exit(1);
   }
 }
-program.name("neoferminb").description("NeoFermi notebook server - live markdown with calculations").argument("[path]", "Markdown file or directory to serve", ".").option("-p, --port <number>", "Port number", "3000").option("--no-open", "Do not open browser automatically").action(run2);
+async function run2(inputPath, options) {
+  if (options.output) {
+    await runStatic(inputPath, options.output);
+  } else {
+    await runServer(inputPath, options);
+  }
+}
+program.name("neoferminb").description("NeoFermi notebook server - live markdown with calculations").argument("[path]", "Markdown file or directory to serve", ".").option("-p, --port <number>", "Port number", "3000").option("-o, --output <file>", "Render to static HTML file instead of serving").option("--no-open", "Do not open browser automatically").action(run2);
 program.parse();
 /*! Bundled license information:
 

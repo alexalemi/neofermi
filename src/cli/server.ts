@@ -114,3 +114,80 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 }
+
+/**
+ * Wrap content in standalone HTML (no live reload, for static export)
+ */
+export function wrapInStaticHtml(content: string, title: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)} - NeoFermi Notebook</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <style>
+${getStyles()}
+  </style>
+</head>
+<body>
+  <article class="neofermi-notebook">
+${content}
+  </article>
+  <script type="module">
+${getStaticClientScript()}
+  </script>
+</body>
+</html>`
+}
+
+/**
+ * Minimal client script for static pages (just visualization, no SSE)
+ */
+function getStaticClientScript(): string {
+  return `
+// Render quantile dotplot visualizations
+function renderDotplots() {
+  document.querySelectorAll('.nf-viz').forEach(el => {
+    const samples = JSON.parse(el.dataset.samples || '[]');
+    const unit = el.dataset.unit || '';
+    const min = parseFloat(el.dataset.min);
+    const max = parseFloat(el.dataset.max);
+
+    if (samples.length === 0) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = el.clientWidth || 400;
+    canvas.height = 60;
+    canvas.style.width = '100%';
+    canvas.style.height = '60px';
+    el.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const dotRadius = 4;
+    const padding = dotRadius + 2;
+
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, width, height);
+
+    const useLog = max / min > 100;
+    const toX = useLog
+      ? v => padding + ((Math.log10(v) - Math.log10(min)) / (Math.log10(max) - Math.log10(min))) * (width - 2 * padding)
+      : v => padding + ((v - min) / (max - min)) * (width - 2 * padding);
+
+    ctx.fillStyle = 'rgba(99, 102, 241, 0.8)';
+    samples.forEach(v => {
+      const x = toX(v);
+      const y = height / 2;
+      ctx.beginPath();
+      ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  });
+}
+
+renderDotplots();
+`
+}
