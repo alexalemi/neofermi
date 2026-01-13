@@ -83,6 +83,7 @@ export function renderVisualizations(
       numBins: 25,
       dotColor: '#4ec9b0',
       barColor: '#4ec9b0',
+      axisLabel: unit, // Show unit as axis label
     }
 
     let canvas: HTMLCanvasElement | null
