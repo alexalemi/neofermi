@@ -21,16 +21,15 @@ async function buildCli() {
       bundle: true,
       platform: 'node',
       target: 'node18',
-      outfile: resolve(projectRoot, 'bin/neoferminb.js'),
-      format: 'esm',
-      external: [
-        // Node.js built-ins that shouldn't be bundled
-        'fsevents',
-      ],
-      // Handle __dirname for ESM
-      define: {
-        'import.meta.url': 'import.meta.url',
+      outfile: resolve(projectRoot, 'bin/neoferminb.cjs'),
+      format: 'cjs',
+      banner: {
+        js: '#!/usr/bin/env node',
       },
+      external: [
+        'fsevents',
+        'open',
+      ],
       minify: false,
       sourcemap: true,
     })
