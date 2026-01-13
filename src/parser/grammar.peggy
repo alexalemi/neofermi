@@ -279,7 +279,7 @@ UnitWithPower
     }
 
 SimpleUnit
-  = name:IdentifierName {
+  = name:IdentifierName !(_ "=") {
       return node('Unit', { name, custom: false })
     }
 

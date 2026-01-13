@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>earth_size - NeoFermi Notebook</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <style>
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  line-height: 1.6;
+  padding: 20px;
+}
+
+.neofermi-notebook {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  color: #ffffff;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+h1 { font-size: 2em; border-bottom: 1px solid #3e3e3e; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; }
+h3 { font-size: 1.25em; }
+
+p {
+  margin: 1em 0;
+}
+
+a {
+  color: #4ec9b0;
+}
+
+ul, ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+blockquote {
+  border-left: 4px solid #4ec9b0;
+  padding-left: 1em;
+  margin: 1em 0;
+  color: #888;
+}
+
+/* Code blocks (non-NeoFermi) */
+pre {
+  background: #252525;
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+code {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+p code, li code {
+  background: #252525;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* NeoFermi cells */
+.nf-cell {
+  background: #252525;
+  border-radius: 8px;
+  margin: 1em 0;
+  border: 1px solid #3e3e3e;
+  overflow: hidden;
+}
+
+.nf-code {
+  background: #2d2d2d;
+  margin: 0;
+  padding: 12px;
+  border-bottom: 1px solid #3e3e3e;
+  border-radius: 0;
+}
+
+.nf-code code {
+  color: #ce9178;
+}
+
+.nf-result {
+  padding: 12px;
+  background: rgba(206, 145, 120, 0.08);
+}
+
+.nf-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nf-stat {
+  font-size: 0.9em;
+}
+
+.nf-stat strong {
+  color: #4ec9b0;
+}
+
+.nf-scalar {
+  color: #4ec9b0;
+  font-weight: 500;
+}
+
+.nf-dim {
+  color: #888;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+.nf-error {
+  padding: 12px;
+  background: rgba(244, 135, 113, 0.1);
+  color: #f48771;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.85em;
+}
+
+.nf-viz {
+  padding: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.nf-viz canvas {
+  border-radius: 4px;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  width: 100%;
+}
+
+th, td {
+  border: 1px solid #3e3e3e;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+th {
+  background: #2d2d2d;
+  font-weight: 600;
+}
+
+/* Horizontal rule */
+hr {
+  border: none;
+  border-top: 1px solid #3e3e3e;
+  margin: 2em 0;
+}
+
+/* Images */
+img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+  </style>
+</head>
+<body>
+  <article class="neofermi-notebook">
+<h1>Estimating the Earth's Circumference</h1>
+<p>A classic Fermi estimation using what we know about time zones and the United States.</p>
+<h2>What We Know</h2>
+<p>The Earth has 24 time zones (one for each hour). The continental US spans about 4 of these time zones (Eastern, Central, Mountain, Pacific). And we roughly know how wide the US is.</p>
+<h2>The Estimation</h2>
+<h3>US Width</h3>
+<p>The continental US is roughly 2000-3000 miles wide:</p>
+<div class="nf-cell">
+<pre class="nf-code"><code>mile = 5280 feet
+us_width = 2000 to 3000 mile</code></pre>
+<div class="nf-result"><div class="nf-stats">
+<span class="nf-stat">Mean: <strong>2500</strong> mile <span class="nf-dim">{length}</span></span>
+<span class="nf-stat">Median: 2456 mile</span>
+<span class="nf-stat">[68% CI]: [1999, 2996] mile</span>
+</div></div><div class="nf-viz" data-samples="[1451.7294854204647,1575.1562232898516,1647.2307906237206,1692.7057974061559,1732.9246979742063,1763.451068847134,1791.5312486313524,1818.8029905240478,1845.6875512431618,1868.8287028307445,1892.2103215311517,1913.1448048652483,1934.3451061280994,1954.1152946039929,1973.5448229607018,1990.4473485863189,2008.452110343989,2025.8027023214051,2043.2717990123797,2058.9474678192337,2073.483434693209,2088.6491487519897,2104.9227303170487,2118.4192802371617,2133.4747977975135,2148.3999688556846,2161.2986135951724,2173.54466112238,2187.572584084294,2200.074912401315,2213.599363006886,2226.8446922147473,2238.9629703781275,2251.9988678952313,2265.6701011798077,2279.432846257309,2290.118288219568,2301.7842446961276,2313.772259934289,2327.31231415771,2340.4298656270767,2353.309091707855,2365.863787332948,2376.9301882377467,2388.525416523717,2400.770018534381,2412.5469993004594,2424.683945650009,2437.786521630712,2450.54201025887,2461.6510748835317,2474.059156528132,2486.731979243232,2497.6699117945063,2509.706644836625,2521.075096522342,2533.2958710681237,2545.7892561344825,2560.730879151218,2574.2112586681096,2587.337914098691,2601.3948967308543,2615.2704146049773,2628.8196526364027,2642.216507217788,2656.5130013545822,2670.9505403748126,2687.104045638376,2701.5684321469607,2716.9884579591685,2733.5746701991266,2749.007938084656,2764.0234361567427,2781.3354040214263,2800.260392641855,2817.608904241171,2834.225660789939,2852.8541279700044,2872.9154351253915,2891.8958161042638,2910.4759829951427,2934.426966091969,2958.7629999902765,2983.968994397079,3007.436299246813,3031.8289993831104,3058.8035681098963,3093.0635057416725,3123.3065086590072,3156.737419029385,3193.20406995998,3235.1446896866782,3274.491306495389,3322.923148840102,3380.3814343555046,3439.9852033842153,3516.368193291197,3625.6298409635015,3773.68427342535,4124.46958032397]" data-unit="mile" data-min="1176.9169150607" data-max="5663.039307942845"></div>
+</div>
+<h3>Time Zone Width</h3>
+<p>The US spans about 4 time zones, so each time zone is:</p>
+<div class="nf-cell">
+<pre class="nf-code"><code>us_timezones = 3 to 5
+timezone_width = us_width / us_timezones</code></pre>
+<div class="nf-error">Error: Parse error at line 2, column 16: Expected &quot;#&quot;, &quot;'&quot;, &quot;(&quot;, &quot;**&quot;, &quot;+&quot;, &quot;-&quot;, &quot;-&gt;&quot;, &quot;/&quot;, &quot;^&quot;, &quot;as&quot;, &quot;if&quot;, &quot;let&quot;, &quot;{&quot;, [ \t\n\r], [*/], [0-9], [a-zA-Z_], or end of input but &quot;=&quot; found.</div>
+</div>
+<h3>Earth's Circumference</h3>
+<p>With 24 time zones around the Earth:</p>
+<div class="nf-cell">
+<pre class="nf-code"><code>num_timezones = 24
+earth_circumference = timezone_width * num_timezones</code></pre>
+<div class="nf-error">Error: Parse error at line 2, column 21: Expected &quot;#&quot;, &quot;'&quot;, &quot;(&quot;, &quot;**&quot;, &quot;+&quot;, &quot;+-&quot;, &quot;+/-&quot;, &quot;-&quot;, &quot;-&gt;&quot;, &quot;..&quot;, &quot;/&quot;, &quot;^&quot;, &quot;against&quot;, &quot;as&quot;, &quot;if&quot;, &quot;let&quot;, &quot;of&quot;, &quot;pm&quot;, &quot;thru&quot;, &quot;to&quot;, &quot;{&quot;, [ \t\n\r], [*/], [0-9], [a-zA-Z_], or end of input but &quot;=&quot; found.</div>
+</div>
+<h3>Convert to Kilometers</h3>
+<div class="nf-cell">
+<pre class="nf-code"><code>earth_circumference_km = earth_circumference / mile * (1.6 km)</code></pre>
+<div class="nf-error">Undefined variable: earth_circumference at line 1, column 26</div>
+</div>
+<h2>Result</h2>
+<p>The Earth's circumference is approximately <strong>${earth_circumference}</strong> or <strong>${earth_circumference_km}</strong>.</p>
+<p>The actual value is about 24,901 miles (40,075 km) - let's see how close our estimate is!</p>
+  </article>
+  <script type="module">
+
+// Render quantile dotplot visualizations
+function renderDotplots() {
+  document.querySelectorAll('.nf-viz').forEach(el => {
+    const samples = JSON.parse(el.dataset.samples || '[]');
+    const unit = el.dataset.unit || '';
+    const min = parseFloat(el.dataset.min);
+    const max = parseFloat(el.dataset.max);
+
+    if (samples.length === 0) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = el.clientWidth || 400;
+    canvas.height = 60;
+    canvas.style.width = '100%';
+    canvas.style.height = '60px';
+    el.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const dotRadius = 4;
+    const padding = dotRadius + 2;
+
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, width, height);
+
+    const useLog = max / min > 100;
+    const toX = useLog
+      ? v => padding + ((Math.log10(v) - Math.log10(min)) / (Math.log10(max) - Math.log10(min))) * (width - 2 * padding)
+      : v => padding + ((v - min) / (max - min)) * (width - 2 * padding);
+
+    ctx.fillStyle = 'rgba(99, 102, 241, 0.8)';
+    samples.forEach(v => {
+      const x = toX(v);
+      const y = height / 2;
+      ctx.beginPath();
+      ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  });
+}
+
+renderDotplots();
+
+  </script>
+</body>
+</html>
