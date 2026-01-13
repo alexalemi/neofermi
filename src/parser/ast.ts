@@ -12,6 +12,9 @@ export type ASTNode =
   | NormalNode
   | BetaOfNode
   | BetaAgainstNode
+  | WeightedSetNode
+  | PercentTwiddleNode
+  | DbTwiddleNode
   | ConversionNode
   | FunctionCallNode
   | NumberNode
@@ -74,6 +77,27 @@ export interface BetaAgainstNode {
   type: 'BetaAgainst'
   successes: ASTNode
   failures: ASTNode
+}
+
+export interface WeightedSetEntry {
+  value: number
+  weight: number
+}
+
+export interface WeightedSetNode {
+  type: 'WeightedSet'
+  entries: WeightedSetEntry[]
+  unit: UnitNode | null
+}
+
+export interface PercentTwiddleNode {
+  type: 'PercentTwiddle'
+  value: number
+}
+
+export interface DbTwiddleNode {
+  type: 'DbTwiddle'
+  value: number
 }
 
 export interface ConversionNode {

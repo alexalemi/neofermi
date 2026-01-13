@@ -47,11 +47,24 @@ export {
 // Physical constants
 export * as constants from './constants/index.js'
 export {
-  c, h, hbar, e, k, kB, NA, g,           // Exact constants
-  G, alpha, m_e, m_p, m_n, u, amu,       // Measured constants
-  a0, r_e, R_inf,                        // Atomic constants
-  sigma, b, epsilon0, mu0, R,            // Derived constants
-  AU, ly, pc, M_sun, R_sun, L_sun,       // Astronomical constants
-  M_earth, R_earth, M_moon,
-  atm, T0, rho_water,                    // Everyday constants
+  // Mathematical
+  e, euler, pi, tau, googol,
+  // SI Defining (exact)
+  c, speed_of_light, h, hbar, q, elementary_charge,
+  k, kB, boltzmann, NA, avogadro, g,
+  // Measured
+  G, alpha, m_e, m_p, m_n, u, amu,
+  a0, bohr_radius, r_e, classical_electron_radius, R_inf,
+  thomson_cross_section, planck_temperature,
+  // Magnetic moments
+  muon_magnetic_moment, proton_magnetic_moment,
+  electron_magnetic_moment, neutron_magnetic_moment,
+  // Derived
+  sigma, stefan_boltzmann, b, wien_displacement, epsilon0, mu0, R, gas_constant,
+  // Astronomical
+  AU, ly, pc, M_sun, R_sun, L_sun, M_earth, R_earth, M_moon, solar_constant,
+  // Time
+  year, yr, month, day, hour, hr, minute, min, week,
+  // Everyday
+  atm, T0, rho_water,
 } from './constants/index.js'

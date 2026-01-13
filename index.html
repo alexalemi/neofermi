@@ -416,7 +416,12 @@
 100 +- 5 kg          # Normal (mean ± sigma)
 100 pm 5 kg          # Normal (alternate)
 3 of 10              # Beta (3 successes, 10 trials)
-3 against 7          # Beta (3 wins, 7 losses)</pre>
+3 against 7          # Beta (3 wins, 7 losses)
+{365, 366} day       # Equal-weighted set
+{365: 303, 366: 97}  # Weighted set (dict-style)
+100 * 10%            # Twiddle by ±10%
+100 * 0db            # Twiddle by factor of 2
+100 * -10db          # Twiddle by order of magnitude</pre>
 
         <h4>Sig-Fig Numbers</h4>
         <pre>'3.14                # Uniform(3.135, 3.145)
@@ -450,6 +455,13 @@ gamma(2, 5)          # Counts and rates</pre>
 
         <h4>Custom Units</h4>
         <code>100 'widgets</code> (tick prefix for custom units)
+
+        <h4>Physical Constants</h4>
+        <pre>c, h, hbar, e, k, G  # Fundamentals
+M_earth, R_earth     # Earth (with uncertainty)
+M_sun, R_sun, L_sun  # Solar
+year, month, day     # Time (year/month are distributions)
+AU, ly, pc           # Distances</pre>
       </div>
     </div>
   </div>

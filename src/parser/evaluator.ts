@@ -83,6 +83,17 @@ export class Evaluator {
       case 'BetaAgainst':
         return this.evaluateBetaAgainst(node)
 
+      case 'WeightedSet':
+        return this.evaluateWeightedSet(node)
+
+      case 'PercentTwiddle':
+        return distributions.percent(node.value)
+
+      case 'DbTwiddle':
+        // Positive db = precise, negative db = uncertain
+        // -10db = order of magnitude, 10db = very precise
+        return distributions.db(node.value)
+
       case 'Conversion':
         return this.evaluateConversion(node)
 
@@ -300,6 +311,17 @@ export class Evaluator {
 
     // against(successes, failures) creates a beta distribution
     return distributions.against(successVal, failureVal)
+  }
+
+  private evaluateWeightedSet(node: ASTNode & { type: 'WeightedSet' }): Quantity {
+    // Extract values and weights from entries
+    const values = node.entries.map((e: { value: number; weight: number }) => e.value)
+    const weights = node.entries.map((e: { value: number; weight: number }) => e.weight)
+
+    // Get unit string if present
+    const unitStr = node.unit ? this.evaluateUnit(node.unit) : undefined
+
+    return distributions.weighted(values, weights, unitStr)
   }
 
   private evaluateConversion(node: ASTNode & { type: 'Conversion' }): Quantity {

@@ -103,7 +103,8 @@ Power
 
 // Unary operations
 Unary
-  = "-" _ value:Unary {
+  = DbTwiddle    // Match signed db before unary minus can grab the sign
+  / "-" _ value:Unary {
       return node('UnaryOp', { op: '-', value })
     }
   / Postfix
@@ -122,11 +123,46 @@ Conversion
 
 // Primary expressions
 Primary
-  = SigFigNumber
+  = WeightedSet
+  / SigFigNumber
+  / PercentTwiddle
   / Number
   / FunctionCall
   / Identifier
   / "(" _ expr:Expression _ ")" { return expr }
+
+// Twiddle operators: 5% means percent(5), 3db means db(3)
+PercentTwiddle
+  = value:NumericLiteral "%" {
+      return node('PercentTwiddle', { value: parseFloat(value) })
+    }
+
+DbTwiddle
+  = sign:"-"? value:NumericLiteral "db" {
+      return node('DbTwiddle', { value: sign ? -parseFloat(value) : parseFloat(value) })
+    }
+
+// Weighted set notation: {365, 366} or {365: 303, 366: 97}
+WeightedSet
+  = "{" _ entries:WeightedEntries _ "}" unit:(_ Unit)? {
+      return node('WeightedSet', {
+        entries,
+        unit: unit ? unit[1] : null
+      })
+    }
+
+WeightedEntries
+  = head:WeightedEntry tail:(_ "," _ WeightedEntry)* {
+      return [head, ...tail.map(t => t[3])]
+    }
+
+WeightedEntry
+  = value:NumericLiteral _ ":" _ weight:NumericLiteral {
+      return { value: parseFloat(value), weight: parseFloat(weight) }
+    }
+  / value:NumericLiteral {
+      return { value: parseFloat(value), weight: 1 }
+    }
 
 // Significant figure number: '3.14 means "about 3.14" with uncertainty from sig figs
 SigFigNumber

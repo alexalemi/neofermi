@@ -71,30 +71,30 @@ export function percent(
 }
 
 /**
- * Decibel-based error (multiplicative)
+ * Decibel-based precision (multiplicative twiddle factor)
  *
- * Creates a lognormal distribution for "order of magnitude" thinking.
- * - 10 dB = factor of 10 (one order of magnitude)
- * - 3 dB ≈ factor of 2
+ * Creates a lognormal distribution from 1/(1+10^(-x/10)) to (1+10^(-x/10)).
+ * Higher (positive) values = more precise. Lower (negative) = more uncertain.
+ * - -10 dB ≈ factor of 11 uncertainty (order of magnitude)
+ * - -3 dB ≈ factor of 3 uncertainty
+ * - 0 dB = factor of 2 uncertainty (baseline)
+ * - 10 dB ≈ factor of 1.1 (very precise)
  *
- * @param decibels - Uncertainty in decibels (default 1)
+ * @param decibels - Precision in decibels (positive = precise, negative = uncertain)
  * @param p - Confidence level (default 0.9)
  * @param n - Number of samples (default 20,000)
  * @returns Quantity with lognormal distribution (dimensionless)
- *
- * @example
- * ```ts
- * const estimate = new Quantity(100, 'meters')
- * const withError = estimate.multiply(db(10))  // "100, give or take an order of magnitude"
- * // Result: roughly 10 to 1000 meters
- * ```
  */
 export function db(
-  decibels: number = 1.0,
+  decibels: number = 0,
   p: number = DEFAULT_CONFIDENCE,
   n: number = DEFAULT_SAMPLE_COUNT
 ): Quantity {
-  const low = Math.pow(10, -decibels / 10.0)
-  const high = Math.pow(10, decibels / 10.0)
+  // Factor = 1 + 10^(-x/10)
+  // Range from 1/factor to factor
+  const factor = 1 + Math.pow(10, -decibels / 10.0)
+  const low = 1 / factor
+  const high = factor
+
   return lognormal(low, high, undefined, p, n)
 }
