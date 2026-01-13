@@ -431,22 +431,17 @@ export function std(q: Quantity): Quantity {
 }
 
 /**
- * Compute CRPS (Continuous Ranked Probability Score) for a distribution against an observation.
- *
- * CRPS measures the accuracy of a probabilistic forecast. Lower scores are better.
- * Score of 0 means the distribution is a perfect point mass at the observation.
- *
- * Uses the efficient O(n log n) sorted algorithm:
- * CRPS(F, y) = E|X - y| - 0.5 * E|X - X'|
- *
- * @param dist - The forecast distribution
- * @param observation - The observed value (scalar or distribution)
- * @returns CRPS score with same units as inputs
+ * Internal helper to compute CRPS components.
+ * Returns { reliability, resolution } where CRPS = reliability - resolution
  */
-export function crps(dist: Quantity, observation: Quantity): Quantity {
+function crpsComponents(dist: Quantity, observation: Quantity): {
+  reliability: number | number[]
+  resolution: number
+  unit: string
+} {
   if (!dist.unit.equalBase(observation.unit)) {
     throw new Error(
-      `crps() requires arguments with compatible units, got ${dist.unit} and ${observation.unit}`
+      `crps functions require arguments with compatible units, got ${dist.unit} and ${observation.unit}`
     )
   }
 
@@ -463,35 +458,86 @@ export function crps(dist: Quantity, observation: Quantity): Quantity {
   for (let i = 0; i < n; i++) {
     pairwiseSum += (2 * i - n + 1) * sorted[i]
   }
-  const expectedPairwiseDiff = (2 / (n * n)) * pairwiseSum
+  const giniMeanDiff = (2 / (n * n)) * pairwiseSum
+  const resolution = 0.5 * giniMeanDiff
 
   // Handle observation - could be scalar or distribution
   const obsParticles = observation.toParticles()
 
   if (obsParticles.length === 1) {
-    // Single observation - compute single CRPS value
     const y = obsParticles[0]
     let absSum = 0
     for (let i = 0; i < n; i++) {
       absSum += Math.abs(sorted[i] - y)
     }
-    const expectedAbsDiff = absSum / n
-    const score = expectedAbsDiff - 0.5 * expectedPairwiseDiff
-    return new Quantity(score, dist.unit.toString())
+    return { reliability: absSum / n, resolution, unit: dist.unit.toString() }
   }
 
-  // Distribution observation - compute CRPS for each observation particle
-  const results: number[] = new Array(obsParticles.length)
+  // Distribution observation - compute reliability for each observation particle
+  const reliabilities: number[] = new Array(obsParticles.length)
   for (let j = 0; j < obsParticles.length; j++) {
     const y = obsParticles[j]
     let absSum = 0
     for (let i = 0; i < n; i++) {
       absSum += Math.abs(sorted[i] - y)
     }
-    const expectedAbsDiff = absSum / n
-    results[j] = expectedAbsDiff - 0.5 * expectedPairwiseDiff
+    reliabilities[j] = absSum / n
   }
-  return new Quantity(results, dist.unit.toString())
+  return { reliability: reliabilities, resolution, unit: dist.unit.toString() }
+}
+
+/**
+ * Compute CRPS (Continuous Ranked Probability Score) for a distribution against an observation.
+ *
+ * CRPS measures the accuracy of a probabilistic forecast. Lower scores are better.
+ * Score of 0 means the distribution is a perfect point mass at the observation.
+ *
+ * CRPS = reliability - resolution = E|X - y| - 0.5 * E|X - X'|
+ *
+ * @param dist - The forecast distribution
+ * @param observation - The observed value (scalar or distribution)
+ * @returns CRPS score with same units as inputs
+ */
+export function crps(dist: Quantity, observation: Quantity): Quantity {
+  const { reliability, resolution, unit } = crpsComponents(dist, observation)
+  if (typeof reliability === 'number') {
+    return new Quantity(reliability - resolution, unit)
+  }
+  return new Quantity(reliability.map(r => r - resolution), unit)
+}
+
+/**
+ * Compute the reliability component of CRPS: E|X - y|
+ *
+ * This is the mean absolute error between the forecast samples and the observation.
+ * Higher values indicate the forecast center is far from the truth.
+ *
+ * @param dist - The forecast distribution
+ * @param observation - The observed value (scalar or distribution)
+ * @returns Reliability term with same units as inputs
+ */
+export function crps_reliability(dist: Quantity, observation: Quantity): Quantity {
+  const { reliability, unit } = crpsComponents(dist, observation)
+  if (typeof reliability === 'number') {
+    return new Quantity(reliability, unit)
+  }
+  return new Quantity(reliability, unit)
+}
+
+/**
+ * Compute the resolution component of CRPS: 0.5 * E|X - X'|
+ *
+ * This is half the Gini mean difference of the forecast distribution.
+ * Higher values indicate a wider, less confident forecast.
+ * This term rewards sharpness (narrow forecasts) in the CRPS score.
+ *
+ * @param dist - The forecast distribution
+ * @param observation - The observed value (unused, for API consistency)
+ * @returns Resolution term with same units as dist
+ */
+export function crps_resolution(dist: Quantity, observation: Quantity): Quantity {
+  const { resolution, unit } = crpsComponents(dist, observation)
+  return new Quantity(resolution, unit)
 }
 
 // ============================================

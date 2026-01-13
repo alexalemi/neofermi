@@ -34,7 +34,7 @@ const MATH_FUNCTIONS = new Set([
   'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
   'min', 'max', 'hypot', 'clamp',
   'quantile', 'percentile', 'p5', 'p10', 'p25', 'median', 'p75', 'p90', 'p95', 'p99',
-  'mean', 'std', 'crps'
+  'mean', 'std', 'crps', 'crps_reliability', 'crps_resolution'
 ])
 
 // User-defined function storage
@@ -127,6 +127,8 @@ export class Evaluator {
     this.functions.set('mean', mathFunctions.mean)
     this.functions.set('std', mathFunctions.std)
     this.functions.set('crps', mathFunctions.crps)
+    this.functions.set('crps_reliability', mathFunctions.crps_reliability)
+    this.functions.set('crps_resolution', mathFunctions.crps_resolution)
   }
 
   private registerPhysicalConstants(): void {
@@ -215,10 +217,15 @@ export class Evaluator {
 
       case 'Identifier':
         const variable = this.variables.get(node.name)
-        if (!variable) {
+        if (variable) {
+          return variable
+        }
+        // Try to interpret as a bare unit (e.g., "mile" means "1 mile")
+        try {
+          return new Quantity(1, node.name)
+        } catch {
           throw new EvaluationError(`Undefined variable: ${node.name}`, (node as any).location)
         }
-        return variable
 
       default:
         throw new EvaluationError(`Unknown node type: ${(node as any).type}`)

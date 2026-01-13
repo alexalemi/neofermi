@@ -243,7 +243,7 @@ Number
 
 // Unit that can start with / or "per" for reciprocals
 UnitWithReciprocal
-  = ("/" / "per" _) denominator:UnitWithPower {
+  = ("/" _ / "per" _) denominator:UnitWithPower {
       return node('Unit', {
         type: 'reciprocal',
         denominator
