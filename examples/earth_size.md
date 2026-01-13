@@ -37,7 +37,7 @@ earth_circumference = timezone_width * num_timezones
 ### Convert to Kilometers
 
 ```
-earth_circumference as km
+earth_circumference_km = earth_circumference as km
 ```
 
 ## Result

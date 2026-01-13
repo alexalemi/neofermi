@@ -172,7 +172,7 @@ function formatQuantityResult(q: Quantity): string {
 <span class="nf-stat">[68% CI]: [${p16}, ${p84}] ${unit}</span>
 </div>`
   } else {
-    const value = formatNumber(q.value)
+    const value = formatNumber(q.value as number)
     let unitStr = unit
     if (dimName && dimName !== 'dimensionless') {
       unitStr = `${unit} <span class="nf-dim">{${dimName}}</span>`
@@ -224,7 +224,7 @@ function interpolateText(text: string, evaluator: Evaluator): string {
       const unit = value.unit.toString()
       return `${mean} ${unit}`.trim()
     } else {
-      const val = formatNumber(value.value)
+      const val = formatNumber(value.value as number)
       const unit = value.unit.toString()
       return `${val} ${unit}`.trim()
     }

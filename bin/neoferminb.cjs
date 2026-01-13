@@ -39695,10 +39695,10 @@ var Quantity = class _Quantity {
     if (this.isScalar()) {
       return `${this.value} ${this.unit.toString()}`;
     }
-    const mean = this.mean();
+    const mean2 = this.mean();
     const p16 = this.percentile(0.16);
     const p84 = this.percentile(0.84);
-    return `${mean.toExponential(2)} [${p16.toExponential(2)}, ${p84.toExponential(2)}] ${this.unit.toString()}`;
+    return `${mean2.toExponential(2)} [${p16.toExponential(2)}, ${p84.toExponential(2)}] ${this.unit.toString()}`;
   }
 };
 
@@ -39773,11 +39773,11 @@ function normal(a, b2, unitString, p2 = DEFAULT_CONFIDENCE, n = DEFAULT_SAMPLE_C
   const samples = randn(n).map((z) => mu + sig * z);
   return new Quantity(samples, unitString);
 }
-function plusminus(mean, std, unitString, n = DEFAULT_SAMPLE_COUNT) {
-  if (std < 0) {
+function plusminus(mean2, std2, unitString, n = DEFAULT_SAMPLE_COUNT) {
+  if (std2 < 0) {
     throw new Error("Standard deviation must be non-negative");
   }
-  const samples = randn(n).map((z) => mean + std * z);
+  const samples = randn(n).map((z) => mean2 + std2 * z);
   return new Quantity(samples, unitString);
 }
 
@@ -40192,6 +40192,50 @@ function hypot3(a, b2) {
   }
   return new Quantity(result, a.unit.toString());
 }
+function quantile(q2, p2) {
+  const pVal = p2.isScalar() ? p2.value : p2.mean();
+  if (pVal < 0 || pVal > 1) {
+    throw new Error(`quantile() probability must be between 0 and 1, got ${pVal}`);
+  }
+  const result = q2.percentile(pVal);
+  return new Quantity(result, q2.unit.toString());
+}
+function percentile(q2, p2) {
+  return quantile(q2, p2);
+}
+function p5(q2) {
+  return new Quantity(q2.percentile(0.05), q2.unit.toString());
+}
+function p10(q2) {
+  return new Quantity(q2.percentile(0.1), q2.unit.toString());
+}
+function p25(q2) {
+  return new Quantity(q2.percentile(0.25), q2.unit.toString());
+}
+function median(q2) {
+  return new Quantity(q2.percentile(0.5), q2.unit.toString());
+}
+function p75(q2) {
+  return new Quantity(q2.percentile(0.75), q2.unit.toString());
+}
+function p90(q2) {
+  return new Quantity(q2.percentile(0.9), q2.unit.toString());
+}
+function p95(q2) {
+  return new Quantity(q2.percentile(0.95), q2.unit.toString());
+}
+function p99(q2) {
+  return new Quantity(q2.percentile(0.99), q2.unit.toString());
+}
+function mean(q2) {
+  return new Quantity(q2.mean(), q2.unit.toString());
+}
+function std(q2) {
+  const particles = q2.toParticles();
+  const m = q2.mean();
+  const variance = particles.reduce((sum2, x) => sum2 + (x - m) ** 2, 0) / particles.length;
+  return new Quantity(Math.sqrt(variance), q2.unit.toString());
+}
 function clamp2(value, minVal, maxVal) {
   if (!value.unit.equalBase(minVal.unit) || !value.unit.equalBase(maxVal.unit)) {
     throw new Error(`clamp() requires all arguments with compatible units`);
@@ -40431,7 +40475,19 @@ var MATH_FUNCTIONS = /* @__PURE__ */ new Set([
   "min",
   "max",
   "hypot",
-  "clamp"
+  "clamp",
+  "quantile",
+  "percentile",
+  "p5",
+  "p10",
+  "p25",
+  "median",
+  "p75",
+  "p90",
+  "p95",
+  "p99",
+  "mean",
+  "std"
 ]);
 var Evaluator = class {
   variables = /* @__PURE__ */ new Map();
@@ -40484,6 +40540,18 @@ var Evaluator = class {
     this.functions.set("max", max2);
     this.functions.set("hypot", hypot3);
     this.functions.set("clamp", clamp2);
+    this.functions.set("quantile", quantile);
+    this.functions.set("percentile", percentile);
+    this.functions.set("p5", p5);
+    this.functions.set("p10", p10);
+    this.functions.set("p25", p25);
+    this.functions.set("median", median);
+    this.functions.set("p75", p75);
+    this.functions.set("p90", p90);
+    this.functions.set("p95", p95);
+    this.functions.set("p99", p99);
+    this.functions.set("mean", mean);
+    this.functions.set("std", std);
   }
   registerPhysicalConstants() {
     const constantsMap = constants2;
@@ -40744,18 +40812,18 @@ var Evaluator = class {
     return uniform(leftVal, rightVal, unitStr);
   }
   evaluateNormal(node2) {
-    const mean = this.evaluate(node2.mean);
+    const mean2 = this.evaluate(node2.mean);
     const sigma2 = this.evaluate(node2.sigma);
-    if (!mean || !sigma2) {
+    if (!mean2 || !sigma2) {
       throw new EvaluationError("Normal parameters evaluated to null");
     }
-    const meanVal = mean.isScalar() ? mean.value : mean.mean();
+    const meanVal = mean2.isScalar() ? mean2.value : mean2.mean();
     const sigmaVal = sigma2.isScalar() ? sigma2.value : sigma2.mean();
     let unitStr;
     if (node2.unit) {
       unitStr = this.evaluateUnit(node2.unit);
-    } else if (mean.unit && mean.unit.toString() !== "") {
-      unitStr = mean.unit.toString();
+    } else if (mean2.unit && mean2.unit.toString() !== "") {
+      unitStr = mean2.unit.toString();
     }
     return normal(meanVal - sigmaVal, meanVal + sigmaVal, unitStr);
   }
@@ -40924,6 +40992,10 @@ var Evaluator = class {
   evaluateUnit(unitNode) {
     if (unitNode.custom && unitNode.name) {
       return unitNode.name;
+    }
+    if (unitNode.type === "reciprocal" && unitNode.denominator) {
+      const denom = this.evaluateUnit(unitNode.denominator);
+      return `1/${denom}`;
     }
     if (unitNode.numerator && unitNode.denominator) {
       const num = this.evaluateUnit(unitNode.numerator);
@@ -41116,8 +41188,9 @@ function peg$parse(input, options) {
   const peg$c35 = ":";
   const peg$c36 = "'";
   const peg$c37 = ".";
-  const peg$c38 = "#";
-  const peg$c39 = "\n";
+  const peg$c38 = "per";
+  const peg$c39 = "#";
+  const peg$c40 = "\n";
   const peg$r0 = /^[*\/]/;
   const peg$r1 = /^[0-9]/;
   const peg$r2 = /^[eE]/;
@@ -41168,13 +41241,14 @@ function peg$parse(input, options) {
   const peg$e39 = peg$literalExpectation(".", false);
   const peg$e40 = peg$classExpectation(["e", "E"], false, false, false);
   const peg$e41 = peg$classExpectation(["+", "-"], false, false, false);
-  const peg$e42 = peg$classExpectation([["a", "z"], ["A", "Z"], "_"], false, false, false);
-  const peg$e43 = peg$classExpectation([["a", "z"], ["A", "Z"], ["0", "9"], "_"], false, false, false);
-  const peg$e44 = peg$classExpectation([" ", "	", "\n", "\r"], false, false, false);
-  const peg$e45 = peg$literalExpectation("#", false);
-  const peg$e46 = peg$classExpectation(["\n"], true, false, false);
-  const peg$e47 = peg$literalExpectation("\n", false);
-  const peg$e48 = peg$anyExpectation();
+  const peg$e42 = peg$literalExpectation("per", false);
+  const peg$e43 = peg$classExpectation([["a", "z"], ["A", "Z"], "_"], false, false, false);
+  const peg$e44 = peg$classExpectation([["a", "z"], ["A", "Z"], ["0", "9"], "_"], false, false, false);
+  const peg$e45 = peg$classExpectation([" ", "	", "\n", "\r"], false, false, false);
+  const peg$e46 = peg$literalExpectation("#", false);
+  const peg$e47 = peg$classExpectation(["\n"], true, false, false);
+  const peg$e48 = peg$literalExpectation("\n", false);
+  const peg$e49 = peg$anyExpectation();
   function peg$f0(statements) {
     return node2("Program", { statements });
   }
@@ -41237,9 +41311,9 @@ function peg$parse(input, options) {
       unit: unit2 ? unit2[1] : null
     });
   }
-  function peg$f18(mean, sigma2, unit2) {
+  function peg$f18(mean2, sigma2, unit2) {
     return node2("Normal", {
-      mean,
+      mean: mean2,
       sigma: sigma2,
       unit: unit2 ? unit2[1] : null
     });
@@ -41343,20 +41417,26 @@ function peg$parse(input, options) {
       unit: unit2 ? unit2[1] : null
     });
   }
-  function peg$f45() {
+  function peg$f45(denominator) {
+    return node2("Unit", {
+      type: "reciprocal",
+      denominator
+    });
+  }
+  function peg$f46() {
     return text7();
   }
-  function peg$f46(name48) {
+  function peg$f47(name48) {
     return node2("Unit", { name: name48, custom: true });
   }
-  function peg$f47(numerator, denominator) {
+  function peg$f48(numerator, denominator) {
     return node2("Unit", {
       type: "compound",
       numerator,
       denominator
     });
   }
-  function peg$f48(unit2, power) {
+  function peg$f49(unit2, power) {
     if (power) {
       return node2("Unit", {
         type: "power",
@@ -41366,13 +41446,13 @@ function peg$parse(input, options) {
     }
     return unit2;
   }
-  function peg$f49(name48) {
+  function peg$f50(name48) {
     return node2("Unit", { name: name48, custom: false });
   }
-  function peg$f50() {
+  function peg$f51() {
     return text7();
   }
-  function peg$f51(name48) {
+  function peg$f52(name48) {
     return node2("Identifier", { name: name48 });
   }
   let peg$currPos = options.peg$currPos | 0;
@@ -43526,7 +43606,7 @@ function peg$parse(input, options) {
     if (s1 !== peg$FAILED) {
       s2 = peg$currPos;
       s3 = peg$parse_();
-      s4 = peg$parseUnit();
+      s4 = peg$parseUnitWithReciprocal();
       if (s4 !== peg$FAILED) {
         s3 = [s3, s4];
         s2 = s3;
@@ -43542,6 +43622,56 @@ function peg$parse(input, options) {
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
+    }
+    return s0;
+  }
+  function peg$parseUnitWithReciprocal() {
+    let s0, s1, s2, s3;
+    s0 = peg$currPos;
+    if (input.charCodeAt(peg$currPos) === 47) {
+      s1 = peg$c24;
+      peg$currPos++;
+    } else {
+      s1 = peg$FAILED;
+      if (peg$silentFails === 0) {
+        peg$fail(peg$e24);
+      }
+    }
+    if (s1 === peg$FAILED) {
+      s1 = peg$currPos;
+      if (input.substr(peg$currPos, 3) === peg$c38) {
+        s2 = peg$c38;
+        peg$currPos += 3;
+      } else {
+        s2 = peg$FAILED;
+        if (peg$silentFails === 0) {
+          peg$fail(peg$e42);
+        }
+      }
+      if (s2 !== peg$FAILED) {
+        s3 = peg$parse_();
+        s2 = [s2, s3];
+        s1 = s2;
+      } else {
+        peg$currPos = s1;
+        s1 = peg$FAILED;
+      }
+    }
+    if (s1 !== peg$FAILED) {
+      s2 = peg$parseUnitWithPower();
+      if (s2 !== peg$FAILED) {
+        peg$savedPos = s0;
+        s0 = peg$f45(s2);
+      } else {
+        peg$currPos = s0;
+        s0 = peg$FAILED;
+      }
+    } else {
+      peg$currPos = s0;
+      s0 = peg$FAILED;
+    }
+    if (s0 === peg$FAILED) {
+      s0 = peg$parseUnit();
     }
     return s0;
   }
@@ -43690,7 +43820,7 @@ function peg$parse(input, options) {
         s3 = null;
       }
       peg$savedPos = s0;
-      s0 = peg$f45();
+      s0 = peg$f46();
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
@@ -43724,7 +43854,7 @@ function peg$parse(input, options) {
       s2 = peg$parseIdentifierName();
       if (s2 !== peg$FAILED) {
         peg$savedPos = s0;
-        s0 = peg$f46(s2);
+        s0 = peg$f47(s2);
       } else {
         peg$currPos = s0;
         s0 = peg$FAILED;
@@ -43755,7 +43885,7 @@ function peg$parse(input, options) {
         s5 = peg$parseUnitWithPower();
         if (s5 !== peg$FAILED) {
           peg$savedPos = s0;
-          s0 = peg$f47(s1, s5);
+          s0 = peg$f48(s1, s5);
         } else {
           peg$currPos = s0;
           s0 = peg$FAILED;
@@ -43815,7 +43945,7 @@ function peg$parse(input, options) {
         s2 = null;
       }
       peg$savedPos = s0;
-      s0 = peg$f48(s1, s2);
+      s0 = peg$f49(s1, s2);
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
@@ -43856,7 +43986,7 @@ function peg$parse(input, options) {
       }
       if (s2 !== peg$FAILED) {
         peg$savedPos = s0;
-        s0 = peg$f49(s1);
+        s0 = peg$f50(s1);
       } else {
         peg$currPos = s0;
         s0 = peg$FAILED;
@@ -43887,7 +44017,7 @@ function peg$parse(input, options) {
       } else {
         s2 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$e42);
+          peg$fail(peg$e43);
         }
       }
       if (s2 !== peg$FAILED) {
@@ -43898,7 +44028,7 @@ function peg$parse(input, options) {
         } else {
           s4 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$e43);
+            peg$fail(peg$e44);
           }
         }
         while (s4 !== peg$FAILED) {
@@ -43909,12 +44039,12 @@ function peg$parse(input, options) {
           } else {
             s4 = peg$FAILED;
             if (peg$silentFails === 0) {
-              peg$fail(peg$e43);
+              peg$fail(peg$e44);
             }
           }
         }
         peg$savedPos = s0;
-        s0 = peg$f50();
+        s0 = peg$f51();
       } else {
         peg$currPos = s0;
         s0 = peg$FAILED;
@@ -43931,7 +44061,7 @@ function peg$parse(input, options) {
     s1 = peg$parseIdentifierName();
     if (s1 !== peg$FAILED) {
       peg$savedPos = s0;
-      s1 = peg$f51(s1);
+      s1 = peg$f52(s1);
     }
     s0 = s1;
     return s0;
@@ -44048,6 +44178,17 @@ function peg$parse(input, options) {
                             peg$fail(peg$e8);
                           }
                         }
+                        if (s1 === peg$FAILED) {
+                          if (input.substr(peg$currPos, 3) === peg$c38) {
+                            s1 = peg$c38;
+                            peg$currPos += 3;
+                          } else {
+                            s1 = peg$FAILED;
+                            if (peg$silentFails === 0) {
+                              peg$fail(peg$e42);
+                            }
+                          }
+                        }
                       }
                     }
                   }
@@ -44067,7 +44208,7 @@ function peg$parse(input, options) {
       } else {
         s3 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$e43);
+          peg$fail(peg$e44);
         }
       }
       peg$silentFails--;
@@ -44114,7 +44255,7 @@ function peg$parse(input, options) {
     } else {
       s0 = peg$FAILED;
       if (peg$silentFails === 0) {
-        peg$fail(peg$e44);
+        peg$fail(peg$e45);
       }
     }
     return s0;
@@ -44123,12 +44264,12 @@ function peg$parse(input, options) {
     let s0, s1, s2, s3, s4;
     s0 = peg$currPos;
     if (input.charCodeAt(peg$currPos) === 35) {
-      s1 = peg$c38;
+      s1 = peg$c39;
       peg$currPos++;
     } else {
       s1 = peg$FAILED;
       if (peg$silentFails === 0) {
-        peg$fail(peg$e45);
+        peg$fail(peg$e46);
       }
     }
     if (s1 !== peg$FAILED) {
@@ -44139,7 +44280,7 @@ function peg$parse(input, options) {
       } else {
         s3 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$e46);
+          peg$fail(peg$e47);
         }
       }
       while (s3 !== peg$FAILED) {
@@ -44150,17 +44291,17 @@ function peg$parse(input, options) {
         } else {
           s3 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$e46);
+            peg$fail(peg$e47);
           }
         }
       }
       if (input.charCodeAt(peg$currPos) === 10) {
-        s3 = peg$c39;
+        s3 = peg$c40;
         peg$currPos++;
       } else {
         s3 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$e47);
+          peg$fail(peg$e48);
         }
       }
       if (s3 === peg$FAILED) {
@@ -44172,7 +44313,7 @@ function peg$parse(input, options) {
         } else {
           s4 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$e48);
+            peg$fail(peg$e49);
           }
         }
         peg$silentFails--;
@@ -44346,8 +44487,8 @@ function formatQuantityResult(q2) {
   const unit2 = q2.unit.toString();
   const dimName = q2.dimensionName?.() || null;
   if (q2.isDistribution()) {
-    const mean = formatNumber(q2.mean());
-    const median = formatNumber(q2.median());
+    const mean2 = formatNumber(q2.mean());
+    const median2 = formatNumber(q2.median());
     const p16 = formatNumber(q2.percentile(0.16));
     const p84 = formatNumber(q2.percentile(0.84));
     let unitStr = unit2;
@@ -44355,8 +44496,8 @@ function formatQuantityResult(q2) {
       unitStr = `${unit2} <span class="nf-dim">{${dimName}}</span>`;
     }
     return `<div class="nf-stats">
-<span class="nf-stat">Mean: <strong>${mean}</strong> ${unitStr}</span>
-<span class="nf-stat">Median: ${median} ${unit2}</span>
+<span class="nf-stat">Mean: <strong>${mean2}</strong> ${unitStr}</span>
+<span class="nf-stat">Median: ${median2} ${unit2}</span>
 <span class="nf-stat">[68% CI]: [${p16}, ${p84}] ${unit2}</span>
 </div>`;
   } else {
@@ -44394,9 +44535,9 @@ function interpolateText(text7, evaluator) {
     const value = evaluator.getVariable(varName);
     if (!value) return match2;
     if (value.isDistribution()) {
-      const mean = formatNumber(value.mean());
+      const mean2 = formatNumber(value.mean());
       const unit2 = value.unit.toString();
-      return `${mean} ${unit2}`.trim();
+      return `${mean2} ${unit2}`.trim();
     } else {
       const val = formatNumber(value.value);
       const unit2 = value.unit.toString();

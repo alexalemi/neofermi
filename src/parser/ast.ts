@@ -160,7 +160,7 @@ export interface IdentifierNode {
 }
 
 export interface UnitNode {
-  type: 'Unit'
+  type: 'Unit' | 'reciprocal'
   name?: string
   custom?: boolean
   special?: boolean // For special conversions like 'SI'
