@@ -7750,10 +7750,10 @@ function formatAxisNum(n) {
 }
 
 function renderDotplot(quantiles, min, max, unit) {
-  const width = 500;
+  const width = 280;
   const height = 90;
-  const padding = 30;
-  const dotRadius = 4;
+  const padding = 25;
+  const dotRadius = 5;
   const axisHeight = 20;
 
   const canvas = document.createElement('canvas');
@@ -8013,7 +8013,7 @@ function renderDotplots() {
     if (samples.length === 0) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const displayWidth = el.clientWidth || 500;
+    const displayWidth = 280;
     const displayHeight = 90;
 
     const canvas = document.createElement('canvas');
@@ -8028,8 +8028,8 @@ function renderDotplots() {
 
     const width = displayWidth;
     const height = displayHeight;
-    const dotRadius = 4;
-    const padding = 30;
+    const dotRadius = 5;
+    const padding = 25;
     const axisHeight = 20;
 
     // Background

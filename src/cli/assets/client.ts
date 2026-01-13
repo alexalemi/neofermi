@@ -102,10 +102,10 @@ function formatAxisNum(n) {
 }
 
 function renderDotplot(quantiles, min, max, unit) {
-  const width = 500;
+  const width = 280;
   const height = 90;
-  const padding = 30;
-  const dotRadius = 4;
+  const padding = 25;
+  const dotRadius = 5;
   const axisHeight = 20;
 
   const canvas = document.createElement('canvas');
