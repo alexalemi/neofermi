@@ -49,6 +49,7 @@ export interface HistogramData {
 
 /**
  * Calculate histogram bins from particle samples
+ * Uses log-spaced bins when data spans multiple orders of magnitude
  */
 export function calculateHistogramData(
   samples: number[],
@@ -57,22 +58,47 @@ export function calculateHistogramData(
 ): HistogramData {
   const min = Math.min(...samples)
   const max = Math.max(...samples)
-  const range = max - min
+
+  // Determine if we should use log-spaced bins
+  const useLogBins = shouldUseLogScale(min, max)
 
   // Create bin edges
   const binEdges: number[] = []
-  for (let i = 0; i <= numBins; i++) {
-    binEdges.push(min + (i / numBins) * range)
+
+  if (useLogBins) {
+    // Log-spaced bins for data spanning multiple decades
+    const logMin = Math.log10(min)
+    const logMax = Math.log10(max)
+    const logRange = logMax - logMin
+
+    for (let i = 0; i <= numBins; i++) {
+      binEdges.push(Math.pow(10, logMin + (i / numBins) * logRange))
+    }
+  } else {
+    // Linear bins for narrow ranges
+    const range = max - min
+    for (let i = 0; i <= numBins; i++) {
+      binEdges.push(min + (i / numBins) * range)
+    }
   }
 
   // Count samples in each bin
   const bins = new Array(numBins).fill(0)
   for (const sample of samples) {
-    if (range === 0) {
+    if (min === max) {
       bins[0]++
+    } else if (useLogBins) {
+      // Log-space binning
+      const logSample = Math.log10(sample)
+      const logMin = Math.log10(min)
+      const logMax = Math.log10(max)
+      let binIndex = Math.floor(((logSample - logMin) / (logMax - logMin)) * numBins)
+      binIndex = Math.min(binIndex, numBins - 1)
+      bins[binIndex]++
     } else {
+      // Linear binning
+      const range = max - min
       let binIndex = Math.floor(((sample - min) / range) * numBins)
-      // Handle edge case where sample === max
       binIndex = Math.min(binIndex, numBins - 1)
       bins[binIndex]++
     }
