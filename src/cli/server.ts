@@ -246,25 +246,26 @@ function renderDotplots() {
     // Generate nice ticks
     const ticks = useLog ? generateLogTicks(min, max) : generateLinearTicks(min, max, 5);
 
-    // Bin dots by X position to stack them
+    // Bin dots by X position to stack them vertically
     const binWidth = dotRadius * 2.2;
     const bins = new Map();
     samples.forEach(v => {
       const x = toX(v);
       const binIndex = Math.round(x / binWidth);
       if (!bins.has(binIndex)) bins.set(binIndex, []);
-      bins.get(binIndex).push({ x, v });
+      bins.get(binIndex).push(v);
     });
 
-    // Draw stacked dots from bottom up
+    // Draw stacked dots from bottom up, all dots in a bin share the same X
     const baseY = height - axisHeight - dotRadius - 2;
     ctx.fillStyle = 'rgba(99, 102, 241, 0.85)';
-    bins.forEach(dots => {
-      dots.forEach((dot, i) => {
+    bins.forEach((dots, binIndex) => {
+      const x = binIndex * binWidth; // Use bin center, not individual x
+      dots.forEach((v, i) => {
         const y = baseY - i * (dotRadius * 2.2);
         if (y > dotRadius) {
           ctx.beginPath();
-          ctx.arc(dot.x, y, dotRadius, 0, Math.PI * 2);
+          ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
           ctx.fill();
         }
       });
