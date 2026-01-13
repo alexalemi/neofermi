@@ -7690,12 +7690,71 @@ function renderVisualizations() {
   });
 }
 
+// Nice number for tick marks (1, 2, 5, 10, 20, 50, etc.)
+function niceNum(x, round) {
+  if (x === 0) return 0;
+  const exp = Math.floor(Math.log10(Math.abs(x)));
+  const f = x / Math.pow(10, exp);
+  let nf;
+  if (round) {
+    nf = f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10;
+  } else {
+    nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+  }
+  return nf * Math.pow(10, exp);
+}
+
+function generateLinearTicks(min, max, maxTicks = 5) {
+  const range = niceNum(max - min, false);
+  const spacing = niceNum(range / (maxTicks - 1), true);
+  const niceMin = Math.floor(min / spacing) * spacing;
+  const niceMax = Math.ceil(max / spacing) * spacing;
+  const ticks = [];
+  for (let t = niceMin; t <= niceMax + spacing * 0.5; t += spacing) {
+    if (t >= min && t <= max) ticks.push(t);
+  }
+  return ticks;
+}
+
+function generateLogTicks(min, max) {
+  if (min <= 0 || max <= 0) return [];
+  const minExp = Math.floor(Math.log10(min));
+  const maxExp = Math.ceil(Math.log10(max));
+  const ticks = [];
+  for (let exp = minExp; exp <= maxExp; exp++) {
+    const tick = Math.pow(10, exp);
+    if (tick >= min * 0.99 && tick <= max * 1.01) ticks.push(tick);
+  }
+  if (ticks.length <= 2) {
+    const allTicks = [];
+    for (let exp = minExp; exp <= maxExp; exp++) {
+      for (const mult of [1, 2, 5]) {
+        const tick = mult * Math.pow(10, exp);
+        if (tick >= min * 0.99 && tick <= max * 1.01) allTicks.push(tick);
+      }
+    }
+    return allTicks;
+  }
+  return ticks;
+}
+
+function formatAxisNum(n) {
+  if (n === 0) return '0';
+  const abs = Math.abs(n);
+  if (abs >= 10000 || abs < 0.001) return n.toExponential(0);
+  if (Math.abs(n - Math.round(n)) < 0.001) return Math.round(n).toString();
+  if (abs >= 100) return n.toFixed(0);
+  if (abs >= 10) return n.toFixed(1);
+  if (abs >= 1) return n.toFixed(2);
+  return n.toPrecision(2);
+}
+
 function renderDotplot(quantiles, min, max, unit) {
-  const width = 400;
-  const height = 80;
-  const padding = 12;
+  const width = 500;
+  const height = 90;
+  const padding = 30;
   const dotRadius = 4;
-  const axisHeight = 15;
+  const axisHeight = 20;
 
   const canvas = document.createElement('canvas');
   const dpr = window.devicePixelRatio || 1;
@@ -7707,7 +7766,7 @@ function renderDotplot(quantiles, min, max, unit) {
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
 
-  // Determine if log scale
+  // Determine if log scale (2+ decades)
   const useLog = min > 0 && max > 0 && (max / min) > 100;
 
   function scale(v) {
@@ -7719,6 +7778,9 @@ function renderDotplot(quantiles, min, max, unit) {
     }
     return padding + ((v - min) / (max - min)) * (width - 2 * padding);
   }
+
+  // Generate nice ticks
+  const ticks = useLog ? generateLogTicks(min, max) : generateLinearTicks(min, max, 5);
 
   // Bin dots by X position to stack them
   const binWidth = dotRadius * 2.2;
@@ -7744,8 +7806,8 @@ function renderDotplot(quantiles, min, max, unit) {
     });
   });
 
-  // Draw axis
-  const axisY = height - axisHeight + 2;
+  // Draw axis line
+  const axisY = height - axisHeight;
   ctx.strokeStyle = '#666';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -7753,24 +7815,29 @@ function renderDotplot(quantiles, min, max, unit) {
   ctx.lineTo(width - padding, axisY);
   ctx.stroke();
 
-  // Draw axis labels
-  ctx.fillStyle = '#888';
+  // Draw ticks and labels
+  ctx.fillStyle = '#999';
   ctx.font = '10px -apple-system, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(formatAxisNum(min), padding, axisY + 11);
-  ctx.textAlign = 'right';
-  ctx.fillText(formatAxisNum(max), width - padding, axisY + 11);
+  ctx.textAlign = 'center';
+  ticks.forEach(tick => {
+    const x = scale(tick);
+    // Tick mark
+    ctx.beginPath();
+    ctx.moveTo(x, axisY);
+    ctx.lineTo(x, axisY + 4);
+    ctx.stroke();
+    // Label
+    ctx.fillText(formatAxisNum(tick), x, axisY + 14);
+  });
+
+  // Unit label on right
+  if (unit) {
+    ctx.fillStyle = '#777';
+    ctx.textAlign = 'right';
+    ctx.fillText(unit, width - 5, axisY + 14);
+  }
 
   return canvas;
-}
-
-function formatAxisNum(n) {
-  if (n === 0) return '0';
-  const abs = Math.abs(n);
-  if (abs >= 10000 || abs < 0.001) return n.toExponential(0);
-  if (abs >= 100) return n.toFixed(0);
-  if (abs >= 1) return n.toFixed(1);
-  return n.toPrecision(2);
 }
 
 // Run on page load
@@ -7877,7 +7944,65 @@ ${getStaticClientScript()}
 }
 function getStaticClientScript() {
   return `
-// Render quantile dotplot visualizations
+// Nice number for tick marks (1, 2, 5, 10, 20, 50, etc.)
+function niceNum(x, round) {
+  if (x === 0) return 0;
+  const exp = Math.floor(Math.log10(Math.abs(x)));
+  const f = x / Math.pow(10, exp);
+  let nf;
+  if (round) {
+    nf = f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10;
+  } else {
+    nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+  }
+  return nf * Math.pow(10, exp);
+}
+
+function generateLinearTicks(min, max, maxTicks = 5) {
+  const range = niceNum(max - min, false);
+  const spacing = niceNum(range / (maxTicks - 1), true);
+  const niceMin = Math.floor(min / spacing) * spacing;
+  const niceMax = Math.ceil(max / spacing) * spacing;
+  const ticks = [];
+  for (let t = niceMin; t <= niceMax + spacing * 0.5; t += spacing) {
+    if (t >= min && t <= max) ticks.push(t);
+  }
+  return ticks;
+}
+
+function generateLogTicks(min, max) {
+  if (min <= 0 || max <= 0) return [];
+  const minExp = Math.floor(Math.log10(min));
+  const maxExp = Math.ceil(Math.log10(max));
+  const ticks = [];
+  for (let exp = minExp; exp <= maxExp; exp++) {
+    const tick = Math.pow(10, exp);
+    if (tick >= min * 0.99 && tick <= max * 1.01) ticks.push(tick);
+  }
+  if (ticks.length <= 2) {
+    const allTicks = [];
+    for (let exp = minExp; exp <= maxExp; exp++) {
+      for (const mult of [1, 2, 5]) {
+        const tick = mult * Math.pow(10, exp);
+        if (tick >= min * 0.99 && tick <= max * 1.01) allTicks.push(tick);
+      }
+    }
+    return allTicks;
+  }
+  return ticks;
+}
+
+function formatNum(n) {
+  if (n === 0) return '0';
+  const abs = Math.abs(n);
+  if (abs >= 10000 || abs < 0.001) return n.toExponential(0);
+  if (Math.abs(n - Math.round(n)) < 0.001) return Math.round(n).toString();
+  if (abs >= 100) return n.toFixed(0);
+  if (abs >= 10) return n.toFixed(1);
+  if (abs >= 1) return n.toFixed(2);
+  return n.toPrecision(2);
+}
+
 function renderDotplots() {
   document.querySelectorAll('.nf-viz').forEach(el => {
     const samples = JSON.parse(el.dataset.samples || '[]');
@@ -7888,8 +8013,8 @@ function renderDotplots() {
     if (samples.length === 0) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const displayWidth = el.clientWidth || 400;
-    const displayHeight = 80;
+    const displayWidth = el.clientWidth || 500;
+    const displayHeight = 90;
 
     const canvas = document.createElement('canvas');
     canvas.width = displayWidth * dpr;
@@ -7904,8 +8029,8 @@ function renderDotplots() {
     const width = displayWidth;
     const height = displayHeight;
     const dotRadius = 4;
-    const padding = dotRadius + 4;
-    const axisHeight = 15;
+    const padding = 30;
+    const axisHeight = 20;
 
     // Background
     ctx.fillStyle = '#1a1a2e';
@@ -7915,6 +8040,9 @@ function renderDotplots() {
     const toX = useLog
       ? v => padding + ((Math.log10(v) - Math.log10(min)) / (Math.log10(max) - Math.log10(min))) * (width - 2 * padding)
       : v => padding + ((v - min) / (max - min)) * (width - 2 * padding);
+
+    // Generate nice ticks
+    const ticks = useLog ? generateLogTicks(min, max) : generateLinearTicks(min, max, 5);
 
     // Bin dots by X position to stack them
     const binWidth = dotRadius * 2.2;
@@ -7940,32 +8068,37 @@ function renderDotplots() {
       });
     });
 
-    // Draw axis
-    const axisY = height - axisHeight + 2;
-    ctx.strokeStyle = '#444';
+    // Draw axis line
+    const axisY = height - axisHeight;
+    ctx.strokeStyle = '#555';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(padding, axisY);
     ctx.lineTo(width - padding, axisY);
     ctx.stroke();
 
-    // Axis labels
-    ctx.fillStyle = '#888';
+    // Draw ticks and labels
+    ctx.fillStyle = '#999';
     ctx.font = '10px -apple-system, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(formatNum(min), padding, axisY + 11);
-    ctx.textAlign = 'right';
-    ctx.fillText(formatNum(max), width - padding, axisY + 11);
-  });
-}
+    ctx.textAlign = 'center';
+    ticks.forEach(tick => {
+      const x = toX(tick);
+      // Tick mark
+      ctx.beginPath();
+      ctx.moveTo(x, axisY);
+      ctx.lineTo(x, axisY + 4);
+      ctx.stroke();
+      // Label
+      ctx.fillText(formatNum(tick), x, axisY + 14);
+    });
 
-function formatNum(n) {
-  if (n === 0) return '0';
-  const abs = Math.abs(n);
-  if (abs >= 10000 || abs < 0.01) return n.toExponential(1);
-  if (abs >= 100) return n.toFixed(0);
-  if (abs >= 1) return n.toFixed(1);
-  return n.toPrecision(2);
+    // Unit label on right
+    if (unit) {
+      ctx.fillStyle = '#777';
+      ctx.textAlign = 'right';
+      ctx.fillText(unit, width - 5, axisY + 14);
+    }
+  });
 }
 
 renderDotplots();
@@ -44235,7 +44368,7 @@ function formatQuantityResult(q2) {
 }
 function getVizData(q2) {
   const samples = q2.toParticles();
-  const data = calculateDotplotData(samples, 100, q2.unit.toString());
+  const data = calculateDotplotData(samples, 20, q2.unit.toString());
   return {
     samples: data.quantiles,
     unit: data.unit,

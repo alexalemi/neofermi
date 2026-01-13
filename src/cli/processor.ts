@@ -186,7 +186,7 @@ function formatQuantityResult(q: Quantity): string {
  */
 function getVizData(q: Quantity): VizData {
   const samples = q.toParticles()
-  const data = calculateDotplotData(samples, 100, q.unit.toString())
+  const data = calculateDotplotData(samples, 20, q.unit.toString())
   return {
     samples: data.quantiles,
     unit: data.unit,
