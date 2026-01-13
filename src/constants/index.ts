@@ -33,6 +33,49 @@ export const tau = new Quantity(2 * Math.PI)
 export const googol = new Quantity(1e100)
 
 // ============================================
+// Dimensionless Number Names
+// ============================================
+
+/** Hundred = 10^2 */
+export const hundred = new Quantity(1e2)
+
+/** Thousand = 10^3 */
+export const thousand = new Quantity(1e3)
+
+/** Million = 10^6 */
+export const million = new Quantity(1e6)
+
+/** Billion = 10^9 (US/modern) */
+export const billion = new Quantity(1e9)
+
+/** Trillion = 10^12 */
+export const trillion = new Quantity(1e12)
+
+/** Quadrillion = 10^15 */
+export const quadrillion = new Quantity(1e15)
+
+/** Quintillion = 10^18 */
+export const quintillion = new Quantity(1e18)
+
+/** Sextillion = 10^21 */
+export const sextillion = new Quantity(1e21)
+
+/** Septillion = 10^24 */
+export const septillion = new Quantity(1e24)
+
+/** Percent = 0.01 */
+export const percent = new Quantity(0.01)
+
+/** Permille (per thousand) = 0.001 */
+export const permille = new Quantity(0.001)
+
+/** PPM (parts per million) = 10^-6 */
+export const ppm = new Quantity(1e-6)
+
+/** PPB (parts per billion) = 10^-9 */
+export const ppb = new Quantity(1e-9)
+
+// ============================================
 // SI Defining Constants (exact since 2019)
 // ============================================
 
@@ -529,6 +572,10 @@ export const fiber_latency_per_km = new Quantity(5e-6, 's')
 export const constants: Record<string, Quantity> = {
   // Mathematical
   e, euler, pi, tau, googol,
+  // Dimensionless numbers
+  hundred, thousand, million, billion, trillion,
+  quadrillion, quintillion, sextillion, septillion,
+  percent, permille, ppm, ppb,
   // SI Defining (exact)
   c, speed_of_light, h, Planck, planck, plancks_constant, hbar,
   q, elementary_charge, k, kB, boltzmann, boltzmann_constant, boltzmanns_constant,

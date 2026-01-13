@@ -75,19 +75,34 @@ export function trunc(q: Quantity): Quantity {
 // ============================================
 
 export function sqrt(q: Quantity): Quantity {
-  // sqrt(x) = x^0.5, so unit becomes unit^0.5
-  return applyUnary(q, Math.sqrt, (u) => {
-    if (!u || u === '') return ''
-    return `(${u})^0.5`
-  })
+  // Use Quantity.pow for proper unit handling
+  // This lets mathjs handle the unit transformation correctly
+  const particles = q.toParticles()
+  const sqrtValues = particles.map(Math.sqrt)
+
+  // Get properly transformed unit using mathjs
+  // @ts-ignore - mathjs types are incorrect, pow() accepts number
+  const resultUnit = q.unit.pow(0.5)
+
+  if (particles.length === 1) {
+    return new Quantity(sqrtValues[0], resultUnit.toString())
+  }
+  return new Quantity(sqrtValues, resultUnit.toString())
 }
 
 export function cbrt(q: Quantity): Quantity {
-  // cbrt(x) = x^(1/3), so unit becomes unit^(1/3)
-  return applyUnary(q, Math.cbrt, (u) => {
-    if (!u || u === '') return ''
-    return `(${u})^0.333333`
-  })
+  // Use Quantity.pow for proper unit handling
+  const particles = q.toParticles()
+  const cbrtValues = particles.map(Math.cbrt)
+
+  // Get properly transformed unit using mathjs
+  // @ts-ignore - mathjs types are incorrect, pow() accepts number
+  const resultUnit = q.unit.pow(1 / 3)
+
+  if (particles.length === 1) {
+    return new Quantity(cbrtValues[0], resultUnit.toString())
+  }
+  return new Quantity(cbrtValues, resultUnit.toString())
 }
 
 export function exp(q: Quantity): Quantity {

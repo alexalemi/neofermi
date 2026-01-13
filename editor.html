@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>NeoFermi Editor</title>
+  <link rel="stylesheet" href="./src/editor/styles.css">
+</head>
+<body>
+  <header class="editor-header">
+    <div class="header-left">
+      <h1>NeoFermi Editor</h1>
+      <span class="subtitle">Markdown + Monte Carlo</span>
+    </div>
+    <div class="header-actions">
+      <button class="header-btn" id="help-btn">Help</button>
+      <button class="header-btn" id="share-btn">Share</button>
+      <button class="header-btn" id="export-btn">Export</button>
+      <div class="viz-toggle">
+        <button class="header-btn active" data-viz="dotplot">Dots</button>
+        <button class="header-btn" data-viz="histogram">Hist</button>
+      </div>
+      <button class="header-btn" id="theme-btn" title="Toggle light/dark mode">Light</button>
+    </div>
+  </header>
+
+  <main class="editor-main">
+    <div class="pane editor-pane" id="editor-pane">
+      <!-- CodeMirror mounts here -->
+    </div>
+    <div class="resizer" id="resizer"></div>
+    <div class="pane preview-pane" id="preview-pane">
+      <div class="preview-content" id="preview-content">
+        <!-- Live preview renders here -->
+      </div>
+    </div>
+  </main>
+
+  <footer class="editor-footer">
+    <span class="status" id="status">Ready</span>
+  </footer>
+
+  <!-- Help Modal -->
+  <div class="modal-overlay" id="help-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>NeoFermi Editor Help</h2>
+        <button class="modal-close" id="close-help">&times;</button>
+      </div>
+      <div class="modal-body">
+        <h4>Markdown with NeoFermi</h4>
+        <p>Write markdown with embedded NeoFermi calculations. Use fenced code blocks for calculations:</p>
+        <pre>```
+x = 10 to 100 meters
+y = x * 2
+```</pre>
+
+        <h4>Inline Variables</h4>
+        <p>Reference variables in text using <code>${'{'}varname{'}'}</code>:</p>
+        <pre>The distance is approximately ${'{'}x{'}'}.</pre>
+
+        <h4>Distribution Syntax</h4>
+        <pre>1 to 10 m            # Lognormal (68% CI)
+1 .. 10 m            # Uniform distribution
+100 +- 5 kg          # Normal (mean +/- sigma)
+3 of 10              # Beta (3 successes, 10 trials)</pre>
+
+        <h4>Unit Conversion</h4>
+        <pre>100 meters as feet   # Convert to specific unit
+x -> km              # Alternative syntax</pre>
+
+        <h4>Constants</h4>
+        <pre>c, h, G, k           # Physics constants
+M_earth, R_earth     # Earth properties
+world_population     # Demographics</pre>
+
+        <h4>Keyboard Shortcuts</h4>
+        <pre>Ctrl/Cmd+S           # Share (copy link)
+Ctrl/Cmd+E           # Export as markdown</pre>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/editor/index.ts"></script>
+</body>
+</html>
