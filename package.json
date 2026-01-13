@@ -23,10 +23,10 @@
   "scripts": {
     "dev": "vite",
     "parser:build": "peggy --format es --output src/parser/generated.js src/parser/grammar.peggy",
-    "prebuild": "pnpm parser:build",
+    "prebuild": "bun run parser:build",
     "build": "tsc && vite build",
     "build:types": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "pnpm build && pnpm build:types",
+    "prepublishOnly": "bun run build && bun run build:types",
     "build:cli": "node scripts/build-cli.js",
     "notebook": "node --import tsx src/cli/index.ts",
     "preview": "vite preview",
@@ -48,7 +48,6 @@
   ],
   "author": "Alex Alemi <alexalemi@gmail.com>",
   "license": "MIT",
-  "packageManager": "pnpm@10.27.0",
   "engines": {
     "node": ">=18.0.0"
   },

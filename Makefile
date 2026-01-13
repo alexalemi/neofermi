@@ -12,17 +12,17 @@ build: parser lib cli
 # Build just the PEG parser
 parser:
 	@echo "Building parser..."
-	pnpm parser:build
+	bun parser:build
 
 # Build the TypeScript library
 lib: parser
 	@echo "Building library..."
-	pnpm build
+	bun run build
 
 # Build the CLI binary
 cli: parser
 	@echo "Building CLI..."
-	pnpm build:cli
+	bun build:cli
 	@chmod +x bin/neoferminb.cjs
 
 # Example markdown files
@@ -40,23 +40,23 @@ examples/%.html: examples/%.md bin/neoferminb.cjs
 
 # Run tests
 test:
-	pnpm test -- --run
+	bun run test -- --run
 
 # Run tests in watch mode
 test-watch:
-	pnpm test
+	bun run test
 
 # Type checking
 typecheck:
-	pnpm typecheck
+	bun typecheck
 
 # Lint the code
 lint:
-	pnpm lint
+	bun lint
 
 # Format the code
 format:
-	pnpm format
+	bun format
 
 # Clean build artifacts
 clean:
@@ -71,24 +71,24 @@ distclean: clean
 
 # Install dependencies
 install:
-	pnpm install
+	bun install
 
 # Development server
 dev:
-	pnpm dev
+	bun dev
 
 # Build npm package (library + types + CLI)
 package: parser lib cli
 	@echo "Building TypeScript declarations..."
-	pnpm build:types
+	bun build:types
 	@echo "Creating package tarball..."
-	pnpm pack
+	bun pack
 	@echo "Package created: neofermi-$$(node -p "require('./package.json').version").tgz"
 
 # Publish to npm (runs tests first)
 publish: test package
 	@echo "Publishing to npm..."
-	pnpm publish --access public
+	bun publish --access public
 
 # Help
 help:

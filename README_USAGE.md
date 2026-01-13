@@ -3,15 +3,15 @@
 ## Installation
 
 ```bash
-pnpm install
+bun install
 ```
 
 ## Running Tests
 
 ```bash
-pnpm test          # Run tests
-pnpm test:ui       # Run tests with UI
-pnpm test:coverage # Generate coverage report
+bun test          # Run tests
+bun test:ui       # Run tests with UI
+bun test:coverage # Generate coverage report
 ```
 
 ## Basic Usage
@@ -178,8 +178,8 @@ See `examples/basic_usage.ts` for a complete walkthrough.
 To run examples (requires `tsx`):
 
 ```bash
-pnpm add -D tsx
-pnpm tsx examples/basic_usage.ts
+bun add -D tsx
+bun tsx examples/basic_usage.ts
 ```
 
 ## Next Steps

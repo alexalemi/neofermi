@@ -20,8 +20,8 @@ Think: **[Frink](https://frinklang.org/) + [Squiggle](https://www.squiggle-langu
 Try it online or run locally:
 
 ```bash
-pnpm install
-pnpm dev
+bun install
+bun dev
 ```
 
 ### As a Library
@@ -120,10 +120,10 @@ us_gdp               # US GDP with uncertainty
 ## Building
 
 ```bash
-pnpm install          # install dependencies
-pnpm dev              # development server
-pnpm build            # build for production
-pnpm test             # run tests
+bun install          # install dependencies
+bun dev              # development server
+bun build            # build for production
+bun test             # run tests
 make package          # create npm tarball
 ```
 
