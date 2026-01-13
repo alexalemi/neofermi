@@ -137,10 +137,18 @@ AddOp
 
 // Multiplication and Division
 Multiplicative
-  = head:Power tail:(_ ("*" / "/") _ Power)* {
+  = head:PowerWithConversion tail:(_ ("*" / "/") _ PowerWithConversion)* {
       return tail.reduce((left, [, op, , right]) => {
         return node('BinaryOp', { op, left, right })
       }, head)
+    }
+
+// Power with optional conversion - allows "x^2 as m" to convert the whole power result
+PowerWithConversion
+  = value:Power conversions:(_ Conversion)* {
+      return conversions.reduce((val, [, conv]) => {
+        return node('Conversion', { value: val, unit: conv })
+      }, value)
     }
 
 // Power (exponentiation) - right associative
@@ -156,15 +164,7 @@ Unary
   / "-" _ value:Unary {
       return node('UnaryOp', { op: '-', value })
     }
-  / Postfix
-
-// Postfix operations (conversion, method calls)
-Postfix
-  = value:Primary conversions:(_ Conversion)* {
-      return conversions.reduce((val, [, conv]) => {
-        return node('Conversion', { value: val, unit: conv })
-      }, value)
-    }
+  / Primary
 
 Conversion
   = ("as" / "->") _ "SI" { return node('Unit', { name: 'SI', special: true }) }
@@ -267,7 +267,7 @@ NumericLiteral
 Unit
   = CustomUnit
   / CompoundUnit
-  / SimpleUnit
+  / UnitWithPower
 
 CustomUnit
   = "'" name:IdentifierName {

@@ -122,15 +122,25 @@ function simplifyUnit(unitObj: Unit): SimplifiedUnit {
   }
 
   // Build the final string
+  // IMPORTANT: Parenthesize multi-term denominators because mathjs parses
+  // "a / b c" as "(a/b) * c" not "a / (b * c)"
   let unitStr: string
   if (numerator.length === 0 && denominator.length === 0) {
     unitStr = '' // dimensionless
   } else if (denominator.length === 0) {
     unitStr = numerator.join(' ')
   } else if (numerator.length === 0) {
-    unitStr = `1 / ${denominator.join(' ')}`
+    // For "1 / denom", parenthesize if multiple terms
+    const denomStr = denominator.length > 1
+      ? `(${denominator.join(' ')})`
+      : denominator[0]
+    unitStr = `1 / ${denomStr}`
   } else {
-    unitStr = `${numerator.join(' ')} / ${denominator.join(' ')}`
+    // For "num / denom", parenthesize denominator if multiple terms
+    const denomStr = denominator.length > 1
+      ? `(${denominator.join(' ')})`
+      : denominator[0]
+    unitStr = `${numerator.join(' ')} / ${denomStr}`
   }
 
   return { unitStr, scaleFactor }

@@ -13,6 +13,57 @@ import { createServer, wrapInStaticHtml } from './server.js'
 import { watchFiles, findMostRecentMdFile } from './watcher.js'
 import { processMarkdown } from './processor.js'
 import { parse, Evaluator } from '../parser/index.js'
+import type { Quantity } from '../core/Quantity.js'
+
+/**
+ * Format a Quantity for REPL display, including dimension name
+ */
+function formatQuantity(q: Quantity): string {
+  const unit = q.unit.toString()
+  const dimName = q.dimensionName?.() || null
+  const dimSuffix = dimName && dimName !== 'dimensionless' ? ` {${dimName}}` : ''
+
+  if (q.isScalar()) {
+    const value = q.value as number
+    return `${formatValue(value)} ${unit}${dimSuffix}`
+  }
+
+  // For distributions, show summary statistics with 68% CI (1 sigma)
+  const mean = q.mean()
+  const p16 = q.percentile(0.16)
+  const p84 = q.percentile(0.84)
+  return `${formatValue(mean)} [${formatValue(p16)}, ${formatValue(p84)}] ${unit}${dimSuffix}`
+}
+
+/**
+ * Format a number for display with sensible precision
+ */
+function formatValue(n: number): string {
+  if (!isFinite(n)) return String(n)
+
+  const abs = Math.abs(n)
+
+  // Very small or very large numbers use exponential
+  if (abs > 0 && (abs < 0.001 || abs >= 1e6)) {
+    return n.toExponential(2)
+  }
+
+  // Numbers close to integers
+  if (Math.abs(n - Math.round(n)) < 0.0001) {
+    return Math.round(n).toString()
+  }
+
+  // Regular decimals with reasonable precision
+  if (abs >= 100) {
+    return n.toFixed(1)
+  } else if (abs >= 10) {
+    return n.toFixed(2)
+  } else if (abs >= 1) {
+    return n.toFixed(3)
+  } else {
+    return n.toFixed(4)
+  }
+}
 
 interface NotebookState {
   currentFile: string | null
@@ -187,7 +238,7 @@ async function runRepl() {
     try {
       const result = parse(input, evaluator)
       if (result !== null) {
-        console.log(result.toString())
+        console.log(formatQuantity(result))
         console.log('')
       }
     } catch (err) {
