@@ -4,25 +4,50 @@
  * Takes an AST and evaluates it to Quantity objects
  */
 
-import type { ASTNode, UnitNode } from './ast.js'
+import type { ASTNode, UnitNode, SourceLocation } from './ast.js'
 import { Quantity } from '../core/Quantity.js'
 import * as distributions from '../distributions/index.js'
+import * as mathFunctions from '../functions/index.js'
 import * as physicalConstants from '../constants/index.js'
 import { createUnit } from '../core/unitUtils.js'
 
 export class EvaluationError extends Error {
-  constructor(message: string) {
-    super(message)
+  location?: SourceLocation
+
+  constructor(message: string, location?: SourceLocation) {
+    // Format message with location if available
+    const locationStr = location
+      ? ` at line ${location.start.line}, column ${location.start.column}`
+      : ''
+    super(message + locationStr)
     this.name = 'EvaluationError'
+    this.location = location
   }
+}
+
+// Math functions that take Quantity objects (not raw values)
+const MATH_FUNCTIONS = new Set([
+  'abs', 'sign', 'floor', 'ceil', 'round', 'trunc',
+  'sqrt', 'cbrt', 'exp', 'expm1', 'pow',
+  'log', 'ln', 'log10', 'log2', 'log1p',
+  'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2',
+  'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
+  'min', 'max', 'hypot', 'clamp'
+])
+
+// User-defined function storage
+interface UserFunction {
+  params: string[]
+  body: ASTNode
 }
 
 export class Evaluator {
   private variables: Map<string, Quantity> = new Map()
   private functions: Map<string, Function> = new Map()
+  private userFunctions: Map<string, UserFunction> = new Map()
 
   constructor() {
-    // Register built-in functions
+    // Register distribution functions
     this.functions.set('to', distributions.to)
     this.functions.set('lognormal', distributions.lognormal)
     this.functions.set('normal', distributions.normal)
@@ -33,8 +58,58 @@ export class Evaluator {
     this.functions.set('percent', distributions.percent)
     this.functions.set('db', distributions.db)
 
+    // Register math functions (these take Quantity objects)
+    this.registerMathFunctions()
+
     // Register physical constants
     this.registerPhysicalConstants()
+  }
+
+  private registerMathFunctions(): void {
+    // Basic math
+    this.functions.set('abs', mathFunctions.abs)
+    this.functions.set('sign', mathFunctions.sign)
+    this.functions.set('floor', mathFunctions.floor)
+    this.functions.set('ceil', mathFunctions.ceil)
+    this.functions.set('round', mathFunctions.round)
+    this.functions.set('trunc', mathFunctions.trunc)
+
+    // Power and roots
+    this.functions.set('sqrt', mathFunctions.sqrt)
+    this.functions.set('cbrt', mathFunctions.cbrt)
+    this.functions.set('exp', mathFunctions.exp)
+    this.functions.set('expm1', mathFunctions.expm1)
+    this.functions.set('pow', mathFunctions.pow)
+
+    // Logarithms
+    this.functions.set('log', mathFunctions.log)
+    this.functions.set('ln', mathFunctions.ln)
+    this.functions.set('log10', mathFunctions.log10)
+    this.functions.set('log2', mathFunctions.log2)
+    this.functions.set('log1p', mathFunctions.log1p)
+
+    // Trigonometry
+    this.functions.set('sin', mathFunctions.sin)
+    this.functions.set('cos', mathFunctions.cos)
+    this.functions.set('tan', mathFunctions.tan)
+    this.functions.set('asin', mathFunctions.asin)
+    this.functions.set('acos', mathFunctions.acos)
+    this.functions.set('atan', mathFunctions.atan)
+    this.functions.set('atan2', mathFunctions.atan2)
+
+    // Hyperbolic
+    this.functions.set('sinh', mathFunctions.sinh)
+    this.functions.set('cosh', mathFunctions.cosh)
+    this.functions.set('tanh', mathFunctions.tanh)
+    this.functions.set('asinh', mathFunctions.asinh)
+    this.functions.set('acosh', mathFunctions.acosh)
+    this.functions.set('atanh', mathFunctions.atanh)
+
+    // Binary math
+    this.functions.set('min', mathFunctions.min)
+    this.functions.set('max', mathFunctions.max)
+    this.functions.set('hypot', mathFunctions.hypot)
+    this.functions.set('clamp', mathFunctions.clamp)
   }
 
   private registerPhysicalConstants(): void {
@@ -61,6 +136,21 @@ export class Evaluator {
         }
         this.variables.set(node.name, value)
         return value
+
+      case 'FunctionDef':
+        // Store user-defined function
+        this.userFunctions.set(node.name, {
+          params: node.params,
+          body: node.body
+        })
+        // Return a placeholder quantity (function definitions don't produce values)
+        return new Quantity(0)
+
+      case 'LetBinding':
+        return this.evaluateLetBinding(node)
+
+      case 'IfExpr':
+        return this.evaluateIfExpr(node)
 
       case 'BinaryOp':
         return this.evaluateBinaryOp(node)
@@ -109,7 +199,7 @@ export class Evaluator {
       case 'Identifier':
         const variable = this.variables.get(node.name)
         if (!variable) {
-          throw new EvaluationError(`Undefined variable: ${node.name}`)
+          throw new EvaluationError(`Undefined variable: ${node.name}`, (node as any).location)
         }
         return variable
 
@@ -138,13 +228,53 @@ export class Evaluator {
       case '^':
         // Exponent must be a scalar number
         if (right.isDistribution()) {
-          throw new EvaluationError('Exponent cannot be a distribution')
+          throw new EvaluationError('Exponent cannot be a distribution', (node as any).location)
         }
         const exponent = typeof right.value === 'number' ? right.value : right.value[0]
         return left.pow(exponent)
+
+      // Comparison operators - return 1 (true) or 0 (false)
+      // For distributions, compare element-wise and return proportion true
+      case '>':
+        return this.compareQuantities(left, right, (a, b) => a > b)
+      case '<':
+        return this.compareQuantities(left, right, (a, b) => a < b)
+      case '>=':
+        return this.compareQuantities(left, right, (a, b) => a >= b)
+      case '<=':
+        return this.compareQuantities(left, right, (a, b) => a <= b)
+      case '==':
+        return this.compareQuantities(left, right, (a, b) => Math.abs(a - b) < 1e-10)
+      case '!=':
+        return this.compareQuantities(left, right, (a, b) => Math.abs(a - b) >= 1e-10)
+
       default:
         throw new EvaluationError(`Unknown operator: ${node.op}`)
     }
+  }
+
+  private compareQuantities(
+    left: Quantity,
+    right: Quantity,
+    compareFn: (a: number, b: number) => boolean
+  ): Quantity {
+    const leftParticles = left.toParticles()
+    const rightParticles = right.toParticles()
+    const maxLength = Math.max(leftParticles.length, rightParticles.length)
+
+    // For scalars, return 1 or 0
+    if (maxLength === 1) {
+      return new Quantity(compareFn(leftParticles[0], rightParticles[0]) ? 1 : 0)
+    }
+
+    // For distributions, return array of 1s and 0s
+    const result: number[] = new Array(maxLength)
+    for (let i = 0; i < maxLength; i++) {
+      const a = leftParticles[i % leftParticles.length]
+      const b = rightParticles[i % rightParticles.length]
+      result[i] = compareFn(a, b) ? 1 : 0
+    }
+    return new Quantity(result)
   }
 
   private evaluateUnaryOp(node: ASTNode & { type: 'UnaryOp' }): Quantity {
@@ -160,6 +290,83 @@ export class Evaluator {
       default:
         throw new EvaluationError(`Unknown unary operator: ${node.op}`)
     }
+  }
+
+  private evaluateLetBinding(node: ASTNode & { type: 'LetBinding' }): Quantity {
+    // Evaluate the value expression
+    const boundValue = this.evaluate(node.value)
+    if (!boundValue) {
+      throw new EvaluationError('Let binding value evaluated to null')
+    }
+
+    // Save any existing variable with this name
+    const previousValue = this.variables.get(node.name)
+
+    // Bind the new value
+    this.variables.set(node.name, boundValue)
+
+    try {
+      // Evaluate the body with the binding in scope
+      const result = this.evaluate(node.body)
+      if (!result) {
+        throw new EvaluationError('Let binding body evaluated to null')
+      }
+      return result
+    } finally {
+      // Restore the previous value (or delete if there wasn't one)
+      if (previousValue !== undefined) {
+        this.variables.set(node.name, previousValue)
+      } else {
+        this.variables.delete(node.name)
+      }
+    }
+  }
+
+  private evaluateIfExpr(node: ASTNode & { type: 'IfExpr' }): Quantity {
+    const condition = this.evaluate(node.condition)
+    if (!condition) {
+      throw new EvaluationError('If condition evaluated to null')
+    }
+
+    // For scalars, simple branching
+    if (condition.isScalar()) {
+      const condValue = condition.value as number
+      // Truthy if non-zero
+      if (condValue !== 0) {
+        const result = this.evaluate(node.thenBranch)
+        if (!result) throw new EvaluationError('Then branch evaluated to null')
+        return result
+      } else {
+        const result = this.evaluate(node.elseBranch)
+        if (!result) throw new EvaluationError('Else branch evaluated to null')
+        return result
+      }
+    }
+
+    // For distributions, evaluate both branches and select element-wise
+    const thenResult = this.evaluate(node.thenBranch)
+    const elseResult = this.evaluate(node.elseBranch)
+    if (!thenResult || !elseResult) {
+      throw new EvaluationError('If branch evaluated to null')
+    }
+
+    const condParticles = condition.toParticles()
+    const thenParticles = thenResult.toParticles()
+    const elseParticles = elseResult.toParticles()
+    const maxLength = Math.max(condParticles.length, thenParticles.length, elseParticles.length)
+
+    const result: number[] = new Array(maxLength)
+    for (let i = 0; i < maxLength; i++) {
+      const c = condParticles[i % condParticles.length]
+      const t = thenParticles[i % thenParticles.length]
+      const e = elseParticles[i % elseParticles.length]
+      // Truthy if non-zero
+      result[i] = c !== 0 ? t : e
+    }
+
+    // Determine result unit (prefer then branch)
+    const unitStr = thenResult.unit.toString() || elseResult.unit.toString()
+    return new Quantity(result, unitStr || undefined)
   }
 
   private evaluateRange(node: ASTNode & { type: 'Range' }): Quantity {
@@ -204,7 +411,8 @@ export class Evaluator {
       // Check compatibility
       if (!left.unit.equalBase(right.unit)) {
         throw new EvaluationError(
-          `Incompatible units in range: ${left.unit} and ${right.unit}`
+          `Incompatible units in range: ${left.unit} and ${right.unit}`,
+          (node as any).location
         )
       }
       // Convert left to right's unit
@@ -340,9 +548,15 @@ export class Evaluator {
   }
 
   private evaluateFunctionCall(node: ASTNode & { type: 'FunctionCall' }): Quantity {
+    // Check for user-defined function first
+    const userFunc = this.userFunctions.get(node.name)
+    if (userFunc) {
+      return this.evaluateUserFunction(userFunc, node.args)
+    }
+
     const func = this.functions.get(node.name)
     if (!func) {
-      throw new EvaluationError(`Unknown function: ${node.name}`)
+      throw new EvaluationError(`Unknown function: ${node.name}`, (node as any).location)
     }
 
     const args = node.args.map((arg) => {
@@ -353,21 +567,74 @@ export class Evaluator {
       return result
     })
 
-    // Convert Quantity arguments to raw values for distribution functions
-    const rawArgs = args.map((arg) => {
-      if (arg.isScalar()) {
-        return arg.value
-      }
-      // For distributions, pass the mean (or could pass the whole Quantity)
-      return arg.mean()
-    })
-
     try {
+      // Math functions take Quantity objects directly
+      if (MATH_FUNCTIONS.has(node.name)) {
+        return func(...args) as Quantity
+      }
+
+      // Distribution functions take raw numeric values
+      const rawArgs = args.map((arg) => {
+        if (arg.isScalar()) {
+          return arg.value
+        }
+        // For distributions, pass the mean
+        return arg.mean()
+      })
+
       return func(...rawArgs) as Quantity
     } catch (error) {
       throw new EvaluationError(
-        `Error calling function ${node.name}: ${(error as Error).message}`
+        `Error calling function ${node.name}: ${(error as Error).message}`,
+        (node as any).location
       )
+    }
+  }
+
+  private evaluateUserFunction(func: UserFunction, argNodes: ASTNode[]): Quantity {
+    // Check argument count
+    if (argNodes.length !== func.params.length) {
+      throw new EvaluationError(
+        `Function expects ${func.params.length} arguments, got ${argNodes.length}`
+      )
+    }
+
+    // Evaluate arguments
+    const argValues: Quantity[] = argNodes.map((arg) => {
+      const result = this.evaluate(arg)
+      if (!result) {
+        throw new EvaluationError('Function argument evaluated to null')
+      }
+      return result
+    })
+
+    // Save current values of parameter names (if any exist)
+    const savedValues: Map<string, Quantity | undefined> = new Map()
+    for (const param of func.params) {
+      savedValues.set(param, this.variables.get(param))
+    }
+
+    try {
+      // Bind arguments to parameters
+      for (let i = 0; i < func.params.length; i++) {
+        this.variables.set(func.params[i], argValues[i])
+      }
+
+      // Evaluate the function body
+      const result = this.evaluate(func.body)
+      if (!result) {
+        throw new EvaluationError('Function body evaluated to null')
+      }
+      return result
+    } finally {
+      // Restore previous values
+      for (const [param, value] of savedValues) {
+        if (value !== undefined) {
+          this.variables.set(param, value)
+        } else {
+          this.variables.delete(param)
+        }
+      }
     }
   }
 
@@ -502,7 +769,13 @@ export class Evaluator {
 
   reset(): void {
     this.variables.clear()
+    this.userFunctions.clear()
     // Re-register physical constants after reset
     this.registerPhysicalConstants()
+  }
+
+  // Get user-defined function
+  getUserFunction(name: string): UserFunction | undefined {
+    return this.userFunctions.get(name)
   }
 }

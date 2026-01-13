@@ -5,9 +5,9 @@
  */
 
 {
-  // Helper to create AST nodes
+  // Helper to create AST nodes with source location
   function node(type, props) {
-    return { type, ...props }
+    return { type, location: location(), ...props }
   }
 }
 
@@ -22,8 +22,21 @@ StatementList
   / _ { return [] }
 
 Statement
-  = Assignment
+  = FunctionDef
+  / Assignment
   / Expression
+
+// Function definition: f(x) = x^2 or f(x, y) = x + y
+FunctionDef
+  = name:IdentifierName _ "(" _ params:ParamList _ ")" _ "=" _ body:Expression {
+      return node('FunctionDef', { name, params, body })
+    }
+
+ParamList
+  = head:IdentifierName tail:(_ "," _ IdentifierName)* {
+      return [head, ...tail.map(t => t[3])]
+    }
+  / _ { return [] }
 
 Assignment
   = name:IdentifierName _ "=" _ value:Expression {
@@ -33,7 +46,36 @@ Assignment
 // Expressions with precedence
 
 Expression
-  = Range
+  = LetBinding
+  / IfExpr
+  / Range
+
+// Let binding: let x = 10 in x + 5
+LetBinding
+  = "let" _ name:IdentifierName _ "=" _ value:Expression _ "in" _ body:Expression {
+      return node('LetBinding', { name, value, body })
+    }
+
+// If expression: if x > 0 then a else b
+IfExpr
+  = "if" _ condition:Comparison _ "then" _ thenBranch:Expression _ "else" _ elseBranch:Expression {
+      return node('IfExpr', { condition, thenBranch, elseBranch })
+    }
+
+// Comparison operators for conditions
+Comparison
+  = left:Range _ op:ComparisonOp _ right:Range {
+      return node('BinaryOp', { op, left, right })
+    }
+  / Range
+
+ComparisonOp
+  = ">=" { return ">=" }
+  / "<=" { return "<=" }
+  / "!=" { return "!=" }
+  / "==" { return "==" }
+  / ">" { return ">" }
+  / "<" { return "<" }
 
 // Distribution operators: lowest precedence
 // Includes range (to), uniform (.., thru), normal (pm, +-, +/-), beta (of, against)
@@ -251,7 +293,7 @@ Identifier
     }
 
 ReservedWord
-  = ("to" / "as" / "thru" / "pm" / "of" / "against") ![a-zA-Z0-9_]
+  = ("to" / "as" / "thru" / "pm" / "of" / "against" / "let" / "in" / "if" / "then" / "else") ![a-zA-Z0-9_]
 
 // Whitespace and comments
 _

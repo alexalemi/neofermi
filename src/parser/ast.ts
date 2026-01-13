@@ -2,9 +2,18 @@
  * Abstract Syntax Tree node types for NeoFermi
  */
 
+// Source location info from peggy parser
+export interface SourceLocation {
+  start: { offset: number; line: number; column: number }
+  end: { offset: number; line: number; column: number }
+}
+
 export type ASTNode =
   | ProgramNode
   | AssignmentNode
+  | FunctionDefNode
+  | LetBindingNode
+  | IfExprNode
   | BinaryOpNode
   | UnaryOpNode
   | RangeNode
@@ -33,9 +42,30 @@ export interface AssignmentNode {
   value: ASTNode
 }
 
+export interface FunctionDefNode {
+  type: 'FunctionDef'
+  name: string
+  params: string[]
+  body: ASTNode
+}
+
+export interface LetBindingNode {
+  type: 'LetBinding'
+  name: string
+  value: ASTNode
+  body: ASTNode
+}
+
+export interface IfExprNode {
+  type: 'IfExpr'
+  condition: ASTNode
+  thenBranch: ASTNode
+  elseBranch: ASTNode
+}
+
 export interface BinaryOpNode {
   type: 'BinaryOp'
-  op: '+' | '-' | '*' | '/' | '^'
+  op: '+' | '-' | '*' | '/' | '^' | '>' | '<' | '>=' | '<=' | '==' | '!='
   left: ASTNode
   right: ASTNode
 }

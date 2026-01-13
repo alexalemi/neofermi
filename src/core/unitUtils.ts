@@ -1,10 +1,138 @@
 /**
  * Unit utilities for NeoFermi
  *
- * Handles SI prefix expansion and plural removal to make unit parsing more forgiving.
+ * Handles SI prefix expansion, plural removal, and common aliases
+ * to make unit parsing more forgiving.
  */
 
 import { unit as mathjsUnit, Unit } from 'mathjs'
+
+/**
+ * Common unit aliases - maps informal/abbreviated names to mathjs unit names
+ */
+const UNIT_ALIASES: Record<string, string> = {
+  // Time
+  yr: 'year',
+  yrs: 'year',
+  mo: 'month',
+  mos: 'month',
+  wk: 'week',
+  wks: 'week',
+  hr: 'hour',
+  hrs: 'hour',
+  sec: 'second',
+  secs: 'second',
+  ms: 'millisecond',
+  us: 'microsecond',
+  ns: 'nanosecond',
+
+  // Length
+  mi: 'mile',
+  yd: 'yard',
+  yds: 'yard',
+  ft: 'foot',
+  'in': 'inch',  // 'in' is a reserved word in JS but works as key
+
+  // Mass
+  lb: 'pound',
+  lbs: 'pound',
+  oz: 'ounce',
+
+  // Speed
+  mph: 'mile/hour',
+  kph: 'km/hour',
+  kmh: 'km/hour',
+  mps: 'm/s',
+  fps: 'foot/second',
+  knot: 'knot',
+  kn: 'knot',
+
+  // Volume
+  gal: 'gallon',
+  gals: 'gallon',
+  qt: 'quart',
+  pt: 'pint',
+  L: 'liter',
+  l: 'liter',
+  ml: 'milliliter',
+  mL: 'milliliter',
+
+  // Area
+  sqft: 'foot^2',
+  sqm: 'm^2',
+  sqkm: 'km^2',
+  sqmi: 'mile^2',
+
+  // Energy
+  cal: 'calorie',
+  kcal: 'kilocalorie',
+  Cal: 'kilocalorie',  // food calorie
+  kWh: 'kW hour',
+  kwh: 'kW hour',
+  Wh: 'W hour',
+  wh: 'W hour',
+  eV: 'electronvolt',
+  ev: 'electronvolt',
+  keV: 'kiloelectronvolt',
+  MeV: 'megaelectronvolt',
+  GeV: 'gigaelectronvolt',
+  TeV: 'teraelectronvolt',
+
+  // Pressure
+  atm: 'atmosphere',
+  psi: 'psi',
+  bar: 'bar',
+  mbar: 'millibar',
+
+  // Temperature (mathjs uses these, but aliases help)
+  degC: 'degC',
+  degF: 'degF',
+  celsius: 'degC',
+  fahrenheit: 'degF',
+
+  // Frequency
+  Hz: 'hertz',
+  hz: 'hertz',
+  kHz: 'kilohertz',
+  khz: 'kilohertz',
+  MHz: 'megahertz',
+  mhz: 'megahertz',
+  GHz: 'gigahertz',
+  ghz: 'gigahertz',
+
+  // Data
+  bit: 'bit',
+  bits: 'bit',
+  byte: 'byte',
+  bytes: 'byte',
+  B: 'byte',
+  kB: 'kilobyte',
+  KB: 'kilobyte',
+  MB: 'megabyte',
+  GB: 'gigabyte',
+  TB: 'terabyte',
+  PB: 'petabyte',
+
+  // Force
+  N: 'newton',
+
+  // Power
+  W: 'watt',
+  kW: 'kilowatt',
+  MW: 'megawatt',
+  GW: 'gigawatt',
+  hp: 'horsepower',
+
+  // Angle
+  deg: 'degree',
+  rad: 'radian',
+
+  // Astronomy (common informal)
+  au: 'AU',
+  AU: 'AU',
+  ly: 'lightyear',
+  pc: 'parsec',
+}
 
 /**
  * SI prefixes - both full names and abbreviations
@@ -140,6 +268,14 @@ export function normalizeUnit(unitStr: string): string {
 
   const original = unitStr.trim()
 
+  // Strategy 0: Check unit aliases first
+  if (UNIT_ALIASES[original]) {
+    const aliased = UNIT_ALIASES[original]
+    if (tryParseUnit(aliased)) {
+      return aliased
+    }
+  }
+
   // Strategy 1: Try original string
   if (tryParseUnit(original)) {
     return original
@@ -209,6 +345,16 @@ export function normalizeUnitWithScale(unitStr: string): { unit: string; scale: 
     return { unit: '', scale: 1 }
   }
 
+  const original = unitStr.trim()
+
+  // Check unit aliases first (with scale 1)
+  if (UNIT_ALIASES[original]) {
+    const aliased = UNIT_ALIASES[original]
+    if (tryParseUnit(aliased)) {
+      return { unit: aliased, scale: 1 }
+    }
+  }
+
   const normalized = normalizeUnit(unitStr)
 
   // Try the normalized unit directly
@@ -217,7 +363,7 @@ export function normalizeUnitWithScale(unitStr: string): { unit: string; scale: 
   }
 
   // Extract SI prefix and try scaling
-  const prefixInfo = extractSIPrefix(unitStr)
+  const prefixInfo = extractSIPrefix(original)
   if (prefixInfo) {
     const baseOptions = [
       prefixInfo.baseUnit,
