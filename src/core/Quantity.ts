@@ -205,9 +205,20 @@ export class Quantity {
     // Calculate resulting unit
     const resultUnit = this.unit.divide(other.unit)
 
+    // mathjs returns a number when units cancel, or a Unit otherwise
+    // Simplify dimensionless units (e.g., m/m -> '')
+    let unitStr: string
+    if (typeof resultUnit === 'number') {
+      // Units cancelled completely
+      unitStr = ''
+    } else {
+      // Check if dimensionless (all dimensions are 0)
+      unitStr = resultUnit.equalBase(unit('')) ? '' : resultUnit.toString()
+    }
+
     // If both are scalars, return scalar
     if (aParticles.length === 1 && bParticles.length === 1) {
-      return new Quantity(aParticles[0] / bParticles[0], resultUnit.toString())
+      return new Quantity(aParticles[0] / bParticles[0], unitStr)
     }
 
     // Otherwise, element-wise division
@@ -220,7 +231,7 @@ export class Quantity {
       result[i] = a / b
     }
 
-    return new Quantity(result, resultUnit.toString())
+    return new Quantity(result, unitStr)
   }
 
   pow(exponent: number): Quantity {

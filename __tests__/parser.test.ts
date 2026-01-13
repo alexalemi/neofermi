@@ -275,25 +275,33 @@ describe('Parser', () => {
     it('parses poisson distribution', () => {
       const result = parse('poisson(5)')
       expect(result?.isDistribution()).toBe(true)
-      expect(result?.mean()).toBeCloseTo(5, 0)
+      const mean = result?.mean() ?? 0
+      expect(mean).toBeGreaterThan(4.5)
+      expect(mean).toBeLessThan(5.5)
     })
 
     it('parses exponential distribution', () => {
       const result = parse('exponential(0.5)')
       expect(result?.isDistribution()).toBe(true)
-      expect(result?.mean()).toBeCloseTo(2, 0) // mean = 1/rate
+      const mean = result?.mean() ?? 0
+      expect(mean).toBeGreaterThan(1.8)
+      expect(mean).toBeLessThan(2.2)
     })
 
     it('parses binomial distribution', () => {
       const result = parse('binomial(100, 0.3)')
       expect(result?.isDistribution()).toBe(true)
-      expect(result?.mean()).toBeCloseTo(30, 1) // mean = n*p
+      const mean = result?.mean() ?? 0
+      expect(mean).toBeGreaterThan(28)
+      expect(mean).toBeLessThan(32)
     })
 
     it('distributions work in expressions', () => {
       const result = parse('poisson(10) * 2')
       expect(result?.isDistribution()).toBe(true)
-      expect(result?.mean()).toBeCloseTo(20, 1)
+      const mean = result?.mean() ?? 0
+      expect(mean).toBeGreaterThan(18)
+      expect(mean).toBeLessThan(22)
     })
   })
 

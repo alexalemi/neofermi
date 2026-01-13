@@ -236,7 +236,9 @@ describe('Distributions', () => {
       const p = 0.4
       const q = binomial(n, p, undefined, 20000)
       const variance = q.std() ** 2
-      expect(variance).toBeCloseTo(n * p * (1 - p), 0)
+      const expected = n * p * (1 - p)
+      expect(variance).toBeGreaterThan(expected * 0.9)
+      expect(variance).toBeLessThan(expected * 1.1)
     })
 
     it('throws on invalid n', () => {
