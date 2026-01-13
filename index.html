@@ -16,7 +16,6 @@
 
     html, body {
       height: 100%;
-      overflow: hidden;
     }
 
     body {
@@ -29,383 +28,998 @@
 
     header {
       background: #252525;
-      padding: 16px;
+      padding: 12px 16px;
       border-bottom: 1px solid #3e3e3e;
       flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     h1 {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 600;
       color: #ffffff;
-      margin-bottom: 4px;
     }
 
     .subtitle {
-      font-size: 13px;
+      font-size: 11px;
       color: #888;
+      display: none;
     }
 
-    #output {
+    @media (min-width: 480px) {
+      .subtitle { display: inline; }
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .header-btn {
+      background: #3e3e3e;
+      color: #d4d4d4;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .header-btn:active {
+      background: #4e4e4e;
+    }
+
+    .header-btn.active {
+      background: #007acc;
+      color: white;
+    }
+
+    #notebook {
       flex: 1;
       overflow-y: auto;
       padding: 16px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .cell {
+      background: #252525;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      border: 1px solid #3e3e3e;
+      overflow: hidden;
+    }
+
+    .cell.focused {
+      border-color: #007acc;
+    }
+
+    .cell-header {
+      display: flex;
+      align-items: center;
+      padding: 6px 12px;
+      background: #2d2d2d;
+      border-bottom: 1px solid #3e3e3e;
+      gap: 8px;
+    }
+
+    .cell-num {
+      color: #888;
+      font-size: 11px;
+      font-weight: 500;
+      min-width: 24px;
+    }
+
+    .cell-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 4px;
+    }
+
+    .cell-btn {
+      background: transparent;
+      border: none;
+      color: #888;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .cell-btn:hover {
+      background: #3e3e3e;
+      color: #d4d4d4;
+    }
+
+    .cell-btn.run {
+      color: #4ec9b0;
+    }
+
+    .cell-btn.delete {
+      color: #f48771;
+    }
+
+    .cell-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: #d4d4d4;
+      padding: 12px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+      min-height: 40px;
+    }
+
+    .cell-input::placeholder {
+      color: #666;
+    }
+
+    .cell-output {
+      border-top: 1px solid #3e3e3e;
+      padding: 12px;
       font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
       font-size: 13px;
       line-height: 1.5;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
+      display: none;
     }
 
-    .output-line {
-      margin-bottom: 16px;
+    .cell-output.visible {
+      display: block;
     }
 
-    .input-echo {
-      color: #4ec9b0;
-      font-weight: 500;
-      margin-bottom: 8px;
+    .cell-output.error {
+      color: #f48771;
+      background: rgba(244, 135, 113, 0.1);
     }
 
-    .result {
+    .cell-output.result {
       color: #ce9178;
-      padding: 12px;
-      background: rgba(206, 145, 120, 0.1);
-      border-radius: 6px;
+      background: rgba(206, 145, 120, 0.08);
+    }
+
+    .result-stats {
       white-space: pre-wrap;
       word-break: break-word;
     }
 
-    .error {
-      color: #f48771;
-      background: rgba(244, 135, 113, 0.15);
-      padding: 12px;
-      border-radius: 6px;
-      border-left: 3px solid #f48771;
+    .result-viz {
+      margin-top: 12px;
+      display: flex;
+      justify-content: center;
     }
 
-    .help {
-      color: #608b4e;
-      font-size: 12px;
-      line-height: 1.6;
-      padding: 12px;
-      background: rgba(96, 139, 78, 0.1);
-      border-radius: 6px;
+    .result-viz canvas {
+      border-radius: 4px;
     }
 
-    .examples {
+    .dim-name {
+      color: #888;
+      font-style: italic;
+    }
+
+    #add-cell-btn {
+      width: 100%;
+      padding: 12px;
+      background: transparent;
+      border: 2px dashed #3e3e3e;
+      border-radius: 8px;
+      color: #666;
+      font-size: 14px;
+      cursor: pointer;
+      margin-bottom: 16px;
+    }
+
+    #add-cell-btn:hover {
+      border-color: #007acc;
+      color: #007acc;
+    }
+
+    .examples-banner {
       background: #2d2d2d;
-      padding: 16px;
+      padding: 12px 16px;
       margin-bottom: 16px;
       border-radius: 8px;
       border-left: 3px solid #007acc;
     }
 
-    .examples h3 {
-      font-size: 14px;
-      color: #4ec9b0;
-      margin-bottom: 12px;
-      font-weight: 600;
-    }
-
-    .example-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin: 8px 0;
-      padding: 10px 12px;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 6px;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .example-item:active {
-      background: rgba(0, 122, 204, 0.2);
-    }
-
-    .example-code {
-      flex: 1;
-      color: #ce9178;
+    .examples-banner h3 {
       font-size: 13px;
+      color: #4ec9b0;
+      margin-bottom: 8px;
     }
 
-    .example-tap {
-      color: #888;
-      font-size: 11px;
+    .example-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
     }
 
-    .input-area {
+    .example-chip {
+      background: rgba(0, 0, 0, 0.3);
+      border: none;
+      color: #ce9178;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      cursor: pointer;
+    }
+
+    .example-chip:active {
+      background: rgba(0, 122, 204, 0.3);
+    }
+
+    .footer-bar {
       background: #252525;
       border-top: 1px solid #3e3e3e;
-      padding: 12px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       flex-shrink: 0;
     }
 
-    .input-row {
+    .viz-toggle {
       display: flex;
-      gap: 8px;
+      gap: 4px;
+    }
+
+    .status {
+      font-size: 11px;
+      color: #666;
+    }
+
+    /* Help modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+
+    .modal-overlay.visible {
+      display: flex;
+    }
+
+    .modal {
+      background: #2d2d2d;
+      border-radius: 12px;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+      width: 100%;
+    }
+
+    .modal-header {
+      padding: 16px;
+      border-bottom: 1px solid #3e3e3e;
+      display: flex;
+      justify-content: space-between;
       align-items: center;
     }
 
-    #input {
-      flex: 1;
-      background: #1e1e1e;
-      border: 1px solid #3e3e3e;
-      border-radius: 8px;
-      color: #d4d4d4;
-      padding: 14px;
-      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    .modal-header h2 {
       font-size: 16px;
-      outline: none;
-      touch-action: manipulation;
+      color: #fff;
     }
 
-    #input:focus {
-      border-color: #007acc;
-      background: #2a2a2a;
-    }
-
-    #run-btn {
-      background: #007acc;
-      color: white;
+    .modal-close {
+      background: none;
       border: none;
-      border-radius: 8px;
-      padding: 14px 20px;
-      font-size: 16px;
-      font-weight: 600;
+      color: #888;
+      font-size: 20px;
       cursor: pointer;
-      user-select: none;
-      flex-shrink: 0;
-      touch-action: manipulation;
+      padding: 4px 8px;
     }
 
-    #run-btn:active {
-      background: #005a9e;
-    }
-
-    .quick-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-
-    .quick-actions::-webkit-scrollbar {
-      display: none;
-    }
-
-    .quick-btn {
-      background: #3e3e3e;
+    .modal-body {
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.6;
       color: #d4d4d4;
-      border: none;
+    }
+
+    .modal-body h4 {
+      color: #4ec9b0;
+      margin-top: 16px;
+      margin-bottom: 8px;
+    }
+
+    .modal-body h4:first-child {
+      margin-top: 0;
+    }
+
+    .modal-body code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #ce9178;
+    }
+
+    .modal-body pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
       border-radius: 6px;
-      padding: 8px 12px;
-      font-size: 12px;
-      white-space: nowrap;
-      cursor: pointer;
-      user-select: none;
-      touch-action: manipulation;
-      flex-shrink: 0;
-    }
-
-    .quick-btn:active {
-      background: #4e4e4e;
+      overflow-x: auto;
+      margin: 8px 0;
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>🔬 NeoFermi</h1>
-    <div class="subtitle">Monte Carlo uncertainty calculator</div>
+    <div class="header-left">
+      <h1>NeoFermi</h1>
+      <span class="subtitle">Monte Carlo calculator</span>
+    </div>
+    <div class="header-actions">
+      <button class="header-btn" id="help-btn">Help</button>
+      <button class="header-btn" id="share-btn">Share</button>
+      <button class="header-btn" id="run-all-btn">Run All</button>
+      <button class="header-btn" id="clear-btn">Clear</button>
+    </div>
   </header>
 
-  <div id="output">
-    <div class="examples">
-      <h3>Tap to try:</h3>
-      <div class="example-item" data-code="10 to 100 meters">
-        <div class="example-code">10 to 100 meters</div>
-        <div class="example-tap">▶</div>
-      </div>
-      <div class="example-item" data-code="1 to 1000 kg">
-        <div class="example-code">1 to 1000 kg</div>
-        <div class="example-tap">▶</div>
-      </div>
-      <div class="example-item" data-code="outof(7, 10)">
-        <div class="example-code">outof(7, 10)</div>
-        <div class="example-tap">▶</div>
-      </div>
-      <div class="example-item" data-code="100 meters as feet">
-        <div class="example-code">100 meters as feet</div>
-        <div class="example-tap">▶</div>
+  <div id="notebook">
+    <div class="examples-banner" id="examples-banner">
+      <h3>Try these examples:</h3>
+      <div class="example-chips">
+        <button class="example-chip" data-code="10 to 100 meters">10 to 100 meters</button>
+        <button class="example-chip" data-code="x = 1 to 1000 kg">x = 1 to 1000 kg</button>
+        <button class="example-chip" data-code="outof(7, 10)">outof(7, 10)</button>
+        <button class="example-chip" data-code="100 meters as feet">100 meters as feet</button>
       </div>
     </div>
+
+    <div id="cells"></div>
+
+    <button id="add-cell-btn">+ Add Cell</button>
   </div>
 
-  <div class="input-area">
-    <div class="input-row">
-      <input type="text" id="input" placeholder="Enter expression..."
-             autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-      <button id="run-btn">Run</button>
+  <div class="footer-bar">
+    <div class="viz-toggle">
+      <button class="header-btn active" data-viz="dotplot">Dots</button>
+      <button class="header-btn" data-viz="histogram">Hist</button>
     </div>
-    <div class="quick-actions">
-      <button class="quick-btn" data-action="help">Help</button>
-      <button class="quick-btn" data-action="clear">Clear</button>
+    <div class="status" id="status">Ready</div>
+  </div>
+
+  <!-- Help Modal -->
+  <div class="modal-overlay" id="help-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>NeoFermi Help</h2>
+        <button class="modal-close" id="close-help">&times;</button>
+      </div>
+      <div class="modal-body">
+        <h4>Distribution Syntax</h4>
+        <pre>1 to 10 m            # Lognormal (68% CI)
+1 .. 10 m            # Uniform distribution
+1 thru 10 m          # Uniform (alternate)
+100 +- 5 kg          # Normal (mean ± sigma)
+100 pm 5 kg          # Normal (alternate)
+3 of 10              # Beta (3 successes, 10 trials)
+3 against 7          # Beta (3 wins, 7 losses)</pre>
+
+        <h4>Sig-Fig Numbers</h4>
+        <pre>'3.14                # Uniform(3.135, 3.145)
+'130                 # Uniform(125, 135)
+'130.                # Uniform(129.5, 130.5)
+'1.3e6 m             # With units</pre>
+
+        <h4>Unit Conversion</h4>
+        <pre>100 meters as feet   # Convert to specific unit
+x -> km              # Alternative syntax
+100 miles as SI      # Convert to SI base units</pre>
+
+        <p style="margin-top: 8px; color: #888; font-size: 11px;">
+          Results are displayed in SI units by default.
+        </p>
+
+        <h4>Variables</h4>
+        <pre>x = 10 to 100 meters
+y = x * 2
+area = x * y</pre>
+
+        <h4>Distribution Functions</h4>
+        <pre>lognormal(1, 100)    # Positive values
+normal(-10, 10)      # Any values
+uniform(0, 1)        # Flat distribution
+outof(7, 10)         # Beta for proportions
+gamma(2, 5)          # Counts and rates</pre>
+
+        <h4>Operators &amp; Comments</h4>
+        <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>^</code> &nbsp; <code># comment</code>
+
+        <h4>Custom Units</h4>
+        <code>100 'widgets</code> (tick prefix for custom units)
+      </div>
     </div>
   </div>
 
   <script type="module">
-    import * as neofermi from './src/index.js'
     import { parse, Evaluator } from './src/parser/index.js'
+    import { visualize } from './src/visualization/index.js'
 
-    window.neofermi = neofermi
+
+    // State
+    let cells = []
+    let vizType = 'dotplot'
     const evaluator = new Evaluator()
+    const STORAGE_KEY = 'neofermi-notebook'
+    const DEBOUNCE_MS = 500
 
-    const outputDiv = document.getElementById('output')
-    const inputEl = document.getElementById('input')
-    const runBtn = document.getElementById('run-btn')
+    // DOM elements
+    const cellsContainer = document.getElementById('cells')
+    const addCellBtn = document.getElementById('add-cell-btn')
+    const statusEl = document.getElementById('status')
+    const examplesBanner = document.getElementById('examples-banner')
 
-    function addOutput(content, className) {
-      const div = document.createElement('div')
-      div.className = `output-line ${className}`
-      if (typeof content === 'string') {
-        div.textContent = content
-      } else {
-        div.appendChild(content)
-      }
-      outputDiv.appendChild(div)
-      outputDiv.scrollTop = outputDiv.scrollHeight
+    // =====================
+    // Cell Management
+    // =====================
+
+    function createCell(code = '', id = null) {
+      const cellId = id || Date.now().toString(36) + Math.random().toString(36).substr(2)
+      const cell = { id: cellId, code, result: null, error: null }
+      cells.push(cell)
+      renderCell(cell)
+      saveToStorage()
+      updateStatus()
+      return cell
     }
 
-    function formatQuantity(q) {
-      if (!q || typeof q !== 'object') return String(q)
-
-      if (q.isScalar && q.isScalar()) {
-        return `${q.value} ${q.unit.toString()}`
-      }
-
-      if (q.isDistribution && q.isDistribution()) {
-        const mean = q.mean()
-        const median = q.median()
-        const p5 = q.percentile(0.05)
-        const p95 = q.percentile(0.95)
-        const std = q.std()
-
-        return `Mean:    ${mean.toExponential(3)} ${q.unit}
-Median:  ${median.toExponential(3)}
-[5%-95%] [${p5.toExponential(3)}, ${p95.toExponential(3)}]
-StdDev:  ${std.toExponential(3)}
-Samples: ${q.sampleCount}`
-      }
-
-      return q.toString()
+    function deleteCell(id) {
+      const index = cells.findIndex(c => c.id === id)
+      if (index === -1) return
+      cells.splice(index, 1)
+      document.getElementById(`cell-${id}`)?.remove()
+      saveToStorage()
+      updateCellNumbers()
+      updateStatus()
     }
 
-    function evaluate(code) {
-      try {
-        const result = parse(code, evaluator)
-        return { success: true, result }
-      } catch (error) {
-        return { success: false, error: error.message }
+    function updateCellCode(id, code) {
+      const cell = cells.find(c => c.id === id)
+      if (cell) {
+        cell.code = code
+        saveToStorage()
       }
     }
 
-    function handleInput(code) {
-      if (!code.trim()) return
-
-      // Echo input
-      const echo = document.createElement('div')
-      echo.className = 'input-echo'
-      echo.textContent = `> ${code}`
-      addOutput(echo, '')
-
-      if (code.toLowerCase() === 'help') {
-        const helpText = `NeoFermi DSL (20k samples)
-
-Range syntax:
-  1 to 10              Unitless range
-  1 to 10 meters       Range with unit
-  5 ft to 10 m         Mixed units
-  10 m as feet         Unit conversion
-
-Arithmetic:
-  x = 10 + 5          Assignment
-  x * 2               Multiply
-  x / 2               Divide
-  x ^ 2               Power
-
-Functions:
-  lognormal(low, high)  For positive values
-  normal(low, high)     For any values
-  uniform(low, high)    Flat distribution
-  outof(7, 10)          Beta (proportions)
-  gamma(shape, scale)   Counts and rates
-
-Comments: # like this
-
-Units: meters, kg, celsius, etc.
-Custom: 'widgets
-
-Type 'clear' to clear output`
-        addOutput(helpText, 'help')
-        return
-      }
-
-      if (code.toLowerCase() === 'clear') {
-        outputDiv.innerHTML = ''
-        return
-      }
-
-      const { success, result, error } = evaluate(code)
-
-      if (success) {
-        const formatted = formatQuantity(result)
-        addOutput(formatted, 'result')
-      } else {
-        addOutput(`Error: ${error}`, 'error')
-      }
-    }
-
-    // Run button
-    runBtn.addEventListener('click', () => {
-      const code = inputEl.value
-      if (code.trim()) {
-        handleInput(code)
-        inputEl.value = ''
-        inputEl.blur() // Hide keyboard on mobile
-      }
-    })
-
-    // Enter key
-    inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        runBtn.click()
-      }
-    })
-
-    // Example items
-    document.querySelectorAll('.example-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const code = item.dataset.code
-        inputEl.value = code
-        runBtn.click()
+    function updateCellNumbers() {
+      cells.forEach((cell, i) => {
+        const numEl = document.querySelector(`#cell-${cell.id} .cell-num`)
+        if (numEl) numEl.textContent = `[${i + 1}]`
       })
-    })
+    }
 
-    // Quick action buttons
-    document.querySelectorAll('.quick-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const action = btn.dataset.action
-        if (action === 'help') {
-          handleInput('help')
-        } else if (action === 'clear') {
-          handleInput('clear')
+    // =====================
+    // Rendering
+    // =====================
+
+    function renderCell(cell) {
+      const index = cells.indexOf(cell)
+      const el = document.createElement('div')
+      el.className = 'cell'
+      el.id = `cell-${cell.id}`
+
+      el.innerHTML = `
+        <div class="cell-header">
+          <span class="cell-num">[${index + 1}]</span>
+          <div class="cell-actions">
+            <button class="cell-btn run" title="Run">▶</button>
+            <button class="cell-btn delete" title="Delete">✕</button>
+          </div>
+        </div>
+        <textarea class="cell-input" placeholder="Enter expression..." rows="1">${escapeHtml(cell.code)}</textarea>
+        <div class="cell-output"></div>
+      `
+
+      const textarea = el.querySelector('.cell-input')
+      const output = el.querySelector('.cell-output')
+
+      // Auto-resize textarea
+      const autoResize = () => {
+        textarea.style.height = 'auto'
+        textarea.style.height = textarea.scrollHeight + 'px'
+      }
+
+      // Debounced evaluation
+      let debounceTimer = null
+      textarea.addEventListener('input', () => {
+        autoResize()
+        updateCellCode(cell.id, textarea.value)
+
+        clearTimeout(debounceTimer)
+        debounceTimer = setTimeout(() => {
+          runCell(cell.id)
+        }, DEBOUNCE_MS)
+      })
+
+      // Focus handling
+      textarea.addEventListener('focus', () => {
+        el.classList.add('focused')
+      })
+      textarea.addEventListener('blur', () => {
+        el.classList.remove('focused')
+      })
+
+      // Run on Shift+Enter
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.shiftKey) {
+          e.preventDefault()
+          clearTimeout(debounceTimer)
+          runCell(cell.id)
         }
       })
+
+      // Button handlers
+      el.querySelector('.cell-btn.run').addEventListener('click', () => {
+        clearTimeout(debounceTimer)
+        runCell(cell.id)
+      })
+      el.querySelector('.cell-btn.delete').addEventListener('click', () => {
+        deleteCell(cell.id)
+      })
+
+      cellsContainer.appendChild(el)
+      autoResize()
+
+      // If cell has result, render it
+      if (cell.result || cell.error) {
+        renderOutput(cell)
+      }
+    }
+
+    function renderOutput(cell) {
+      const el = document.getElementById(`cell-${cell.id}`)
+      if (!el) return
+
+      const output = el.querySelector('.cell-output')
+      output.innerHTML = ''
+      output.classList.remove('visible', 'error', 'result')
+
+      if (cell.error) {
+        output.classList.add('visible', 'error')
+        output.textContent = `Error: ${cell.error}`
+        return
+      }
+
+      if (cell.result !== null && cell.result !== undefined) {
+        output.classList.add('visible', 'result')
+
+        try {
+          const q = cell.result
+          if (q && typeof q === 'object' && q.isDistribution && q.isDistribution()) {
+            // Distribution result - convert to SI for display
+            const qSI = q.toSI ? q.toSI() : q
+
+            const stats = document.createElement('div')
+            stats.className = 'result-stats'
+            stats.innerHTML = formatQuantity(q, true)
+            output.appendChild(stats)
+
+            // Visualization (use SI-converted data)
+            const vizContainer = document.createElement('div')
+            vizContainer.className = 'result-viz'
+            const width = Math.min(window.innerWidth - 80, 280)
+            const canvas = visualize(qSI, vizType, {
+              width,
+              height: 105, // Increased to accommodate axis label
+              numDots: 20,
+              numBins: 25,
+              dotColor: '#4ec9b0',
+              barColor: '#4ec9b0',
+            })
+            if (canvas) {
+              vizContainer.appendChild(canvas)
+              output.appendChild(vizContainer)
+            }
+          } else if (q && typeof q === 'object' && q.isScalar && q.isScalar()) {
+            // Scalar result - convert to SI for display
+            const qSI = q.toSI ? q.toSI() : q
+            const unit = qSI.unit.toString()
+            const dimName = qSI.dimensionName ? qSI.dimensionName() : null
+            const valueStr = cleanFloatArtifacts(qSI.value)
+            if (dimName && dimName !== 'dimensionless') {
+              output.innerHTML = `${valueStr} ${unit} <span class="dim-name">{${dimName}}</span>`
+            } else {
+              output.textContent = `${valueStr} ${unit}`
+            }
+          } else {
+            // Other result
+            output.textContent = String(q)
+          }
+        } catch (renderErr) {
+          output.classList.add('error')
+          output.textContent = `Render error: ${renderErr.message}`
+        }
+      }
+    }
+
+    /**
+     * Clean up floating point artifacts while preserving meaningful precision
+     * e.g., "0.30000000000000004" -> "0.3"
+     * e.g., "0.29999999999999999" -> "0.3"
+     * But preserves real precision like "3.14159265359"
+     */
+    function cleanFloatArtifacts(value) {
+      if (!isFinite(value) || value === 0) {
+        return String(value)
+      }
+
+      const str = String(value)
+
+      // Check for floating point noise patterns: many 0s or 9s near the end
+      // Pattern: digits followed by 0000+ or 9999+ with maybe 1-2 other digits
+      if (/\d\.(.*)(0000\d{0,2}|9999\d{0,2})$/.test(str)) {
+        // Round to 10 significant figures to clean up artifacts
+        const rounded = parseFloat(value.toPrecision(10))
+        return String(rounded)
+      }
+
+      return str
+    }
+
+    /**
+     * Format a number with a maximum number of significant figures
+     * Used when we want to limit precision (e.g., for uncertain values)
+     */
+    function formatToSigFigs(value, maxSigFigs) {
+      if (!isFinite(value) || value === 0) {
+        return String(value)
+      }
+
+      const absValue = Math.abs(value)
+
+      // Use scientific notation for very large or small numbers
+      if (absValue >= 1e6 || (absValue < 1e-3 && absValue > 0)) {
+        return value.toExponential(Math.min(maxSigFigs - 1, 4))
+      }
+
+      // Use toPrecision and clean up
+      let str = value.toPrecision(maxSigFigs)
+      const parsed = parseFloat(str)
+
+      // Remove unnecessary trailing zeros after decimal
+      str = String(parsed)
+
+      return str
+    }
+
+    /**
+     * Format a number with significant figures based on uncertainty
+     * Shows only as many digits as justified by the uncertainty
+     */
+    function formatWithUncertainty(value, uncertainty) {
+      if (uncertainty === 0 || !isFinite(uncertainty)) {
+        // No uncertainty info - just clean up float artifacts
+        return cleanFloatArtifacts(value)
+      }
+
+      // Calculate significant figures from relative uncertainty
+      const relUncertainty = Math.abs(uncertainty / value)
+
+      // Number of significant figures = -log10(relative uncertainty)
+      // But at least 2 and at most 5 for uncertain values
+      let sigFigs = Math.max(2, Math.min(5, Math.ceil(-Math.log10(relUncertainty))))
+
+      // For very uncertain values (>30% relative), use 1-2 sig figs
+      if (relUncertainty > 0.3) {
+        sigFigs = 2
+      }
+
+      return formatToSigFigs(value, sigFigs)
+    }
+
+    function formatQuantity(q, asHtml = false) {
+      // Convert to SI units by default for consistent display
+      const qSI = q.toSI ? q.toSI() : q
+
+      const mean = qSI.mean()
+      const median = qSI.median()
+      const p16 = qSI.percentile(0.16)
+      const p84 = qSI.percentile(0.84)
+
+      // Calculate uncertainty as half-width of 68% CI
+      const uncertainty = (p84 - p16) / 2
+
+      // Get unit and dimension name
+      const unit = qSI.unit.toString()
+      const dimName = qSI.dimensionName ? qSI.dimensionName() : null
+
+      // Format unit string with dimension name
+      let unitStr = unit
+      let unitStrPlain = unit
+      if (dimName && dimName !== 'dimensionless') {
+        if (asHtml) {
+          unitStr = `${unit} <span class="dim-name">{${dimName}}</span>`
+        }
+        unitStrPlain = `${unit} {${dimName}}`
+      }
+
+      // Format numbers with appropriate precision
+      const meanFmt = formatWithUncertainty(mean, uncertainty)
+      const medianFmt = formatWithUncertainty(median, uncertainty)
+      const p16Fmt = formatWithUncertainty(p16, uncertainty)
+      const p84Fmt = formatWithUncertainty(p84, uncertainty)
+
+      if (asHtml) {
+        return `Mean: ${meanFmt} ${unitStr}<br>Median: ${medianFmt} ${unit}<br>[68% CI]: [${p16Fmt}, ${p84Fmt}] ${unit}`
+      }
+
+      return `Mean: ${meanFmt} ${unitStrPlain}
+Median: ${medianFmt} ${unit}
+[68% CI]: [${p16Fmt}, ${p84Fmt}] ${unit}`
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    // =====================
+    // Evaluation
+    // =====================
+
+    function runCell(id) {
+      const cell = cells.find(c => c.id === id)
+      if (!cell || !cell.code.trim()) {
+        if (cell) {
+          cell.result = null
+          cell.error = null
+          renderOutput(cell)
+        }
+        return
+      }
+
+      try {
+        const result = parse(cell.code, evaluator)
+        cell.result = result
+        cell.error = null
+      } catch (err) {
+        cell.result = null
+        cell.error = err.message
+      }
+
+      renderOutput(cell)
+      saveToStorage()
+    }
+
+    function runAllCells() {
+      // Reset evaluator to clear variables, then run in order
+      evaluator.reset()
+      for (const cell of cells) {
+        if (cell.code.trim()) {
+          try {
+            const result = parse(cell.code, evaluator)
+            cell.result = result
+            cell.error = null
+          } catch (err) {
+            cell.result = null
+            cell.error = err.message
+          }
+          renderOutput(cell)
+        }
+      }
+      saveToStorage()
+      setStatus('All cells evaluated')
+    }
+
+    // =====================
+    // Storage
+    // =====================
+
+    function saveToStorage() {
+      const data = cells.map(c => ({ id: c.id, code: c.code }))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    }
+
+    function loadFromStorage() {
+      try {
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY))
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach(item => {
+            createCell(item.code, item.id)
+          })
+          // Hide examples if we have saved cells
+          if (cells.length > 0) {
+            examplesBanner.style.display = 'none'
+          }
+          // Run all to restore state
+          runAllCells()
+          return true
+        }
+      } catch (e) {}
+      return false
+    }
+
+    function clearNotebook() {
+      if (!confirm('Clear all cells?')) return
+      cells = []
+      cellsContainer.innerHTML = ''
+      evaluator.reset()
+      localStorage.removeItem(STORAGE_KEY)
+      window.location.hash = ''
+      createCell()
+      examplesBanner.style.display = 'block'
+      setStatus('Notebook cleared')
+    }
+
+    // =====================
+    // URL Hash Sharing
+    // =====================
+
+    function encodeNotebook() {
+      const data = cells.map(c => c.code).filter(c => c.trim())
+      if (data.length === 0) return ''
+      const json = JSON.stringify(data)
+      // Use base64 encoding for URL safety
+      return btoa(encodeURIComponent(json))
+    }
+
+    function decodeNotebook(hash) {
+      if (!hash) return null
+      try {
+        const json = decodeURIComponent(atob(hash))
+        const data = JSON.parse(json)
+        if (Array.isArray(data) && data.every(c => typeof c === 'string')) {
+          return data
+        }
+      } catch (e) {}
+      return null
+    }
+
+    function loadFromHash() {
+      const hash = window.location.hash.slice(1)
+      if (!hash) return false
+
+      const codes = decodeNotebook(hash)
+      if (!codes || codes.length === 0) return false
+
+      // Clear existing cells
+      cells = []
+      cellsContainer.innerHTML = ''
+      evaluator.reset()
+
+      // Create cells from hash
+      codes.forEach(code => createCell(code))
+      examplesBanner.style.display = 'none'
+
+      // Run all cells
+      runAllCells()
+      setStatus('Loaded from shared link')
+      return true
+    }
+
+    function shareNotebook() {
+      const encoded = encodeNotebook()
+      if (!encoded) {
+        setStatus('Nothing to share')
+        return
+      }
+
+      const url = `${window.location.origin}${window.location.pathname}#${encoded}`
+
+      // Update URL without reload
+      window.history.replaceState(null, '', `#${encoded}`)
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(url).then(() => {
+        setStatus('Link copied to clipboard!')
+      }).catch(() => {
+        // Fallback: show URL in prompt
+        prompt('Share this link:', url)
+        setStatus('Link ready to share')
+      })
+    }
+
+    // =====================
+    // Status
+    // =====================
+
+    function updateStatus() {
+      const count = cells.length
+      statusEl.textContent = `${count} cell${count !== 1 ? 's' : ''}`
+    }
+
+    function setStatus(msg) {
+      statusEl.textContent = msg
+      setTimeout(updateStatus, 2000)
+    }
+
+    // =====================
+    // Event Handlers
+    // =====================
+
+    addCellBtn.addEventListener('click', () => {
+      const cell = createCell()
+      // Focus the new cell
+      setTimeout(() => {
+        const textarea = document.querySelector(`#cell-${cell.id} .cell-input`)
+        textarea?.focus()
+      }, 50)
     })
+
+    document.getElementById('run-all-btn').addEventListener('click', runAllCells)
+    document.getElementById('clear-btn').addEventListener('click', clearNotebook)
+    document.getElementById('share-btn').addEventListener('click', shareNotebook)
+
+    // Help modal
+    document.getElementById('help-btn').addEventListener('click', () => {
+      document.getElementById('help-modal').classList.add('visible')
+    })
+    document.getElementById('close-help').addEventListener('click', () => {
+      document.getElementById('help-modal').classList.remove('visible')
+    })
+    document.getElementById('help-modal').addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-overlay')) {
+        document.getElementById('help-modal').classList.remove('visible')
+      }
+    })
+
+    // Viz toggle
+    document.querySelectorAll('[data-viz]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        vizType = btn.dataset.viz
+        document.querySelectorAll('[data-viz]').forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+        // Re-render all outputs with new viz type
+        cells.forEach(cell => {
+          if (cell.result && cell.result.isDistribution?.()) {
+            renderOutput(cell)
+          }
+        })
+      })
+    })
+
+    // Example chips
+    document.querySelectorAll('.example-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const code = chip.dataset.code
+        // Add to first empty cell or create new cell
+        let targetCell = cells.find(c => !c.code.trim())
+        if (!targetCell) {
+          targetCell = createCell(code)
+        } else {
+          targetCell.code = code
+          const textarea = document.querySelector(`#cell-${targetCell.id} .cell-input`)
+          if (textarea) {
+            textarea.value = code
+            textarea.dispatchEvent(new Event('input'))
+          }
+        }
+        runCell(targetCell.id)
+        examplesBanner.style.display = 'none'
+      })
+    })
+
+    // =====================
+    // Initialize
+    // =====================
+
+    // Priority: URL hash > localStorage > empty notebook
+    if (!loadFromHash() && !loadFromStorage()) {
+      createCell()
+    }
+    updateStatus()
   </script>
 </body>
 </html>

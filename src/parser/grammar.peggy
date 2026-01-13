@@ -35,7 +35,8 @@ Assignment
 Expression
   = Range
 
-// Range: lowest precedence (1 to 10)
+// Distribution operators: lowest precedence
+// Includes range (to), uniform (.., thru), normal (pm, +-, +/-), beta (of, against)
 Range
   = left:Additive _ "to" _ right:Additive unit:(_ Unit)? {
       return node('Range', {
@@ -44,15 +45,46 @@ Range
         unit: unit ? unit[1] : null
       })
     }
+  / left:Additive _ (".." / "thru") _ right:Additive unit:(_ Unit)? {
+      return node('Uniform', {
+        left,
+        right,
+        unit: unit ? unit[1] : null
+      })
+    }
+  / mean:Additive _ ("+/-" / "+-" / "pm") _ sigma:Additive unit:(_ Unit)? {
+      return node('Normal', {
+        mean,
+        sigma,
+        unit: unit ? unit[1] : null
+      })
+    }
+  / successes:Additive _ "of" _ total:Additive {
+      return node('BetaOf', {
+        successes,
+        total
+      })
+    }
+  / successes:Additive _ "against" _ failures:Additive {
+      return node('BetaAgainst', {
+        successes,
+        failures
+      })
+    }
   / Additive
 
 // Addition and Subtraction
+// Note: Use negative lookahead to avoid matching +- or +/- as separate operators
 Additive
-  = head:Multiplicative tail:(_ ("+" / "-") _ Multiplicative)* {
+  = head:Multiplicative tail:(_ AddOp _ Multiplicative)* {
       return tail.reduce((left, [, op, , right]) => {
         return node('BinaryOp', { op, left, right })
       }, head)
     }
+
+AddOp
+  = "+" !"/" !"-" { return "+" }  // + but not +/ or +-
+  / "-" { return "-" }
 
 // Multiplication and Division
 Multiplicative
@@ -85,14 +117,30 @@ Postfix
     }
 
 Conversion
-  = ("as" / "->") _ unit:Unit { return unit }
+  = ("as" / "->") _ "SI" { return node('Unit', { name: 'SI', special: true }) }
+  / ("as" / "->") _ unit:Unit { return unit }
 
 // Primary expressions
 Primary
-  = Number
+  = SigFigNumber
+  / Number
   / FunctionCall
   / Identifier
   / "(" _ expr:Expression _ ")" { return expr }
+
+// Significant figure number: '3.14 means "about 3.14" with uncertainty from sig figs
+SigFigNumber
+  = "'" raw:SigFigLiteral unit:(_ Unit)? {
+      return node('SigFigNumber', {
+        raw: raw,
+        unit: unit ? unit[1] : null
+      })
+    }
+
+SigFigLiteral
+  = [0-9]+ "." [0-9]* ([eE] [+-]? [0-9]+)? { return text() }
+  / [0-9]+ ([eE] [+-]? [0-9]+)? "."? { return text() }
+  / "." [0-9]+ ([eE] [+-]? [0-9]+)? { return text() }
 
 // Function calls
 FunctionCall
@@ -167,7 +215,7 @@ Identifier
     }
 
 ReservedWord
-  = ("to" / "as") ![a-zA-Z0-9_]
+  = ("to" / "as" / "thru" / "pm" / "of" / "against") ![a-zA-Z0-9_]
 
 // Whitespace and comments
 _

@@ -7,6 +7,7 @@
  */
 
 import { unit, Unit } from 'mathjs'
+import { getDimensionName, formatUnitWithDimension } from './dimensions.js'
 
 export type Value = number | number[]
 
@@ -253,6 +254,51 @@ export class Quantity {
   }
 
   /**
+   * Convert to SI base units
+   * Returns a new Quantity with value expressed in SI base units
+   */
+  toSI(): Quantity {
+    const unitStr = this.unit.toString()
+
+    // If dimensionless, just return a copy (no conversion needed)
+    if (!unitStr || unitStr === '') {
+      return new Quantity(this.value)
+    }
+
+    const aParticles = this.toParticles()
+
+    // Get the SI representation of the unit
+    // mathjs can convert any unit to its SI base representation
+    const sourceUnit = unit(1, unitStr)
+    const siUnit = sourceUnit.toSI()
+    const siUnitString = siUnit.toString().replace(/^[\d.e+-]+\s*/, '') // Remove numeric prefix
+    const conversionFactor = siUnit.toNumber()
+
+    // Apply conversion
+    if (aParticles.length === 1) {
+      return new Quantity(aParticles[0] * conversionFactor, siUnitString)
+    }
+
+    const result = aParticles.map((x) => x * conversionFactor)
+    return new Quantity(result, siUnitString)
+  }
+
+  /**
+   * Get human-readable dimension name (e.g., "volume", "velocity")
+   */
+  dimensionName(): string | null {
+    return getDimensionName(this.unit)
+  }
+
+  /**
+   * Get unit string with dimension name in curly braces
+   * e.g., "m^3 {volume}"
+   */
+  unitWithDimension(): string {
+    return formatUnitWithDimension(this.unit)
+  }
+
+  /**
    * Display methods
    */
 
@@ -261,10 +307,10 @@ export class Quantity {
       return `${this.value} ${this.unit.toString()}`
     }
 
-    // For distributions, show summary statistics
+    // For distributions, show summary statistics with 68% CI (1 sigma)
     const mean = this.mean()
-    const p5 = this.percentile(0.05)
-    const p95 = this.percentile(0.95)
-    return `${mean.toExponential(2)} [${p5.toExponential(2)}, ${p95.toExponential(2)}] ${this.unit.toString()}`
+    const p16 = this.percentile(0.16)
+    const p84 = this.percentile(0.84)
+    return `${mean.toExponential(2)} [${p16.toExponential(2)}, ${p84.toExponential(2)}] ${this.unit.toString()}`
   }
 }

@@ -266,70 +266,115 @@ All convenience functions can wait until core 5 are working.
 - Custom units with tick syntax
 - Python-style comments
 
-### Phase 3: Visualization
+### Phase 3: Visualization ✅ COMPLETED
 **Goal**: Beautiful, informative displays of uncertainty
 
-1. **Quantile dotplots** (like SimpleFermi)
-   - Canvas-based or SVG
-   - Show distribution shape intuitively
-   - Mobile-responsive
+**Status**: Completed 2026-01-12
 
-2. **Summary statistics**
-   - Mean, median, mode
-   - Confidence intervals (5th, 50th, 95th percentiles)
+1. **Quantile dotplots** ✅
+   - Canvas-based with high-DPI support
+   - Stacked dots at quantile positions
+   - Mobile-responsive (dynamic width)
+   - Configurable dot count, colors, axis display
+
+2. **Summary statistics** ✅
+   - Mean, median displayed
+   - Confidence intervals (5th, 95th percentiles)
    - Standard deviation
    - Scientific notation with appropriate precision
 
-3. **Alternative visualizations**
-   - Histogram/density plot
-   - CDF plot
-   - Box plot option
+3. **Alternative visualizations** ✅
+   - Histogram with configurable bins
+   - Toggle between dotplot and histogram in web UI
+   - CDF plot (deferred to Phase 5+)
+   - Box plot option (deferred to Phase 5+)
 
-**Deliverable**: Standalone visualization library
+**Deliverable**: `src/visualization/` module with:
+- `quantileDotplot.ts` - Quantile dotplot renderer
+- `histogram.ts` - Histogram renderer
+- `index.ts` - Public API with `visualize()` function
+- 7 passing tests in `__tests__/visualization.test.ts`
 
-### Phase 4: Web Interface (MVP)
+### Phase 4: Web Interface (MVP) ✅ COMPLETED
 **Goal**: Mobile-friendly live notebook for GitHub Pages
 
-1. **Static site setup**
-   - Vite build targeting GitHub Pages
-   - Deploy to `gh-pages` branch via GitHub Actions
-   - Custom domain setup (to be configured later)
-   - Service worker for offline support
+**Status**: Completed 2026-01-12
 
-2. **Basic UI framework**
-   - Start with vanilla TS/JS (decide on framework during implementation)
-   - Cell-based input (like Jupyter/Observable)
+1. **Static site setup** ✅
+   - Vite build targeting GitHub Pages
+   - GitHub Actions workflow for automatic deployment
+   - Custom domain configured (neofermi.alexalemi.com)
+   - Service worker (deferred to Phase 6 PWA)
+
+2. **Basic UI framework** ✅
+   - Vanilla TypeScript/JavaScript
+   - Cell-based notebook interface (like Jupyter)
    - Each cell: code input → evaluation → visualization
    - Responsive design, mobile-first
 
-3. **Live evaluation**
-   - Debounced auto-evaluation as user types (300ms delay)
-   - Dependency tracking between cells (or just sequential for MVP)
-   - Error handling and display with helpful messages
-   - Show evaluation time (useful for 20k samples)
+3. **Live evaluation** ✅
+   - Debounced auto-evaluation (500ms delay)
+   - Sequential execution with shared evaluator
+   - Error handling with clear error messages
+   - "Run All" button for full notebook execution
 
-4. **Local storage + sharing**
-   - Save/load notebooks to browser localStorage
-   - Export to JSON file (download)
-   - Import JSON file (upload)
-   - Share via URL hash (compressed notebook state)
-   - Pre-loaded example notebooks
+4. **Local storage + sharing** ✅
+   - localStorage persistence (survives page reload)
+   - URL hash sharing (base64 encoded notebook)
+   - Share button copies link to clipboard
+   - Example chips for quick start
+   - Export/import JSON (deferred to Phase 5)
 
-5. **Basic styling**
-   - Clean, readable design
-   - Syntax highlighting (CodeMirror or Monaco - decide in Phase 4)
-   - Dark mode support (respect `prefers-color-scheme`)
+5. **Basic styling** ✅
+   - Clean dark theme design
+   - Monospace font for code
+   - Dark mode by default
    - Mobile-optimized touch targets
+   - Syntax highlighting (deferred - plain textarea for now)
 
-**Deliverable**: Static web app deployed to GitHub Pages, fully functional on mobile
+**Deliverable**: Fully functional notebook web app
+- Multi-cell editing with numbered cells
+- Variables persist across cells
+- Visualization toggle (dotplot/histogram)
+- Help modal with syntax reference
+- Bundle size: 77 KB gzipped
 
-### Phase 5: Enhanced Features
+### Additional Features (Post-Phase 4)
+
+**SI Unit Conversion** ✅
+- `as SI` syntax for explicit conversion to SI base units
+- Default display in SI units for consistency
+- Automatic conversion: `100 feet` displays as `30.48 m`
+
+**Human Dimension Names** ✅
+- ~40 dimension types supported (from SimpleFermi)
+- Display format: `m^3 {volume}`, `m / s {velocity}`
+- Covers mechanics, E&M, thermodynamics
+
+**Visualization Improvements** ✅
+- Log scale for wide ranges (>2 decades / 100x)
+- Nice tick numbers (1, 2, 5, 10, 20, 50...)
+- Auto-scaling dots to prevent cutoff
+
+### Phase 5: Enhanced Features (IN PROGRESS)
 **Goal**: Match and exceed SimpleFermi capabilities
 
-1. **Extended library**
-   - More physical constants
-   - Common conversion factors
-   - Domain-specific libraries (astronomy, chemistry, etc.)
+**Status**: Started 2026-01-12
+
+1. **Extended library** ✅
+   - Physical constants library with ~40 constants (CODATA 2018)
+   - Exact constants: `c`, `h`, `hbar`, `e`, `k`, `NA`, `g`
+   - Measured constants with uncertainties: `G`, `alpha`, `m_e`, `m_p`, `m_n`, `u`
+   - Atomic: `a0`, `r_e`, `R_inf`
+   - Astronomical: `AU`, `ly`, `pc`, `M_sun`, `R_sun`, `L_sun`, `M_earth`, `R_earth`, `M_moon`
+   - Everyday: `atm`, `T0`, `rho_water`
+   - All constants accessible in DSL expressions
+
+**68% Confidence Interval** ✅
+- Changed default confidence from 90% to 68% (~1 sigma)
+- "1 to 10" now means the 68% CI is [1, 10]
+- Matches physics convention where ± typically means 1 standard deviation
+- UI displays [68% CI] label
 
 2. **Advanced distributions**
    - Mixture distributions

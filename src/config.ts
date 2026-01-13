@@ -10,7 +10,10 @@ export const DEFAULT_SAMPLE_COUNT = 20000
 
 /**
  * Default confidence level for distributions
- * 0.9 means the interval contains 90% of probability mass
- * (5th percentile to 95th percentile)
+ * ~0.6827 means the interval contains ~68% of probability mass (1 sigma)
+ * (16th percentile to 84th percentile)
+ *
+ * This is the standard convention in physics where "1 to 10" means
+ * the true value is within one standard deviation of this range.
  */
-export const DEFAULT_CONFIDENCE = 0.9
+export const DEFAULT_CONFIDENCE = 0.6827

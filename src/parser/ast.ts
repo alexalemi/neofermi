@@ -8,9 +8,14 @@ export type ASTNode =
   | BinaryOpNode
   | UnaryOpNode
   | RangeNode
+  | UniformNode
+  | NormalNode
+  | BetaOfNode
+  | BetaAgainstNode
   | ConversionNode
   | FunctionCallNode
   | NumberNode
+  | SigFigNumberNode
   | IdentifierNode
   | UnitNode
 
@@ -45,6 +50,32 @@ export interface RangeNode {
   unit: UnitNode | null
 }
 
+export interface UniformNode {
+  type: 'Uniform'
+  left: ASTNode
+  right: ASTNode
+  unit: UnitNode | null
+}
+
+export interface NormalNode {
+  type: 'Normal'
+  mean: ASTNode
+  sigma: ASTNode
+  unit: UnitNode | null
+}
+
+export interface BetaOfNode {
+  type: 'BetaOf'
+  successes: ASTNode
+  total: ASTNode
+}
+
+export interface BetaAgainstNode {
+  type: 'BetaAgainst'
+  successes: ASTNode
+  failures: ASTNode
+}
+
 export interface ConversionNode {
   type: 'Conversion'
   value: ASTNode
@@ -63,6 +94,12 @@ export interface NumberNode {
   unit: UnitNode | null
 }
 
+export interface SigFigNumberNode {
+  type: 'SigFigNumber'
+  raw: string // Raw string representation for sig fig analysis
+  unit: UnitNode | null
+}
+
 export interface IdentifierNode {
   type: 'Identifier'
   name: string
@@ -72,6 +109,7 @@ export interface UnitNode {
   type: 'Unit'
   name?: string
   custom?: boolean
+  special?: boolean // For special conversions like 'SI'
   // For compound units like kg/m^3
   numerator?: UnitNode
   denominator?: UnitNode

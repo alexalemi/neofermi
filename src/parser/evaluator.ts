@@ -7,6 +7,7 @@
 import type { ASTNode, UnitNode } from './ast.js'
 import { Quantity } from '../core/Quantity.js'
 import * as distributions from '../distributions/index.js'
+import * as physicalConstants from '../constants/index.js'
 import { unit as createUnit } from 'mathjs'
 
 export class EvaluationError extends Error {
@@ -31,6 +32,17 @@ export class Evaluator {
     this.functions.set('plusminus', distributions.plusminus)
     this.functions.set('percent', distributions.percent)
     this.functions.set('db', distributions.db)
+
+    // Register physical constants
+    this.registerPhysicalConstants()
+  }
+
+  private registerPhysicalConstants(): void {
+    // Get all exported constants from the constants module
+    const constantsMap = physicalConstants.constants
+    for (const [name, value] of Object.entries(constantsMap)) {
+      this.variables.set(name, value)
+    }
   }
 
   evaluate(node: ASTNode): Quantity | null {
@@ -59,6 +71,18 @@ export class Evaluator {
       case 'Range':
         return this.evaluateRange(node)
 
+      case 'Uniform':
+        return this.evaluateUniform(node)
+
+      case 'Normal':
+        return this.evaluateNormal(node)
+
+      case 'BetaOf':
+        return this.evaluateBetaOf(node)
+
+      case 'BetaAgainst':
+        return this.evaluateBetaAgainst(node)
+
       case 'Conversion':
         return this.evaluateConversion(node)
 
@@ -67,6 +91,9 @@ export class Evaluator {
 
       case 'Number':
         return this.evaluateNumber(node)
+
+      case 'SigFigNumber':
+        return this.evaluateSigFigNumber(node)
 
       case 'Identifier':
         const variable = this.variables.get(node.name)
@@ -197,10 +224,93 @@ export class Evaluator {
     return distributions.to(leftVal, rightVal)
   }
 
+  private evaluateUniform(node: ASTNode & { type: 'Uniform' }): Quantity {
+    const left = this.evaluate(node.left)
+    const right = this.evaluate(node.right)
+
+    if (!left || !right) {
+      throw new EvaluationError('Uniform bounds evaluated to null')
+    }
+
+    const leftVal = left.isScalar() ? (left.value as number) : left.mean()
+    const rightVal = right.isScalar() ? (right.value as number) : right.mean()
+
+    // Determine unit from trailing unit or from operands
+    let unitStr: string | undefined
+    if (node.unit) {
+      unitStr = this.evaluateUnit(node.unit)
+    } else if (right.unit && right.unit.toString() !== '') {
+      unitStr = right.unit.toString()
+    } else if (left.unit && left.unit.toString() !== '') {
+      unitStr = left.unit.toString()
+    }
+
+    return distributions.uniform(leftVal, rightVal, unitStr)
+  }
+
+  private evaluateNormal(node: ASTNode & { type: 'Normal' }): Quantity {
+    const mean = this.evaluate(node.mean)
+    const sigma = this.evaluate(node.sigma)
+
+    if (!mean || !sigma) {
+      throw new EvaluationError('Normal parameters evaluated to null')
+    }
+
+    const meanVal = mean.isScalar() ? (mean.value as number) : mean.mean()
+    const sigmaVal = sigma.isScalar() ? (sigma.value as number) : sigma.mean()
+
+    // Determine unit from trailing unit or from mean
+    let unitStr: string | undefined
+    if (node.unit) {
+      unitStr = this.evaluateUnit(node.unit)
+    } else if (mean.unit && mean.unit.toString() !== '') {
+      unitStr = mean.unit.toString()
+    }
+
+    // Create normal distribution: mean ± sigma represents 68% CI
+    // So the 16th percentile is mean - sigma, 84th is mean + sigma
+    return distributions.normal(meanVal - sigmaVal, meanVal + sigmaVal, unitStr)
+  }
+
+  private evaluateBetaOf(node: ASTNode & { type: 'BetaOf' }): Quantity {
+    const successes = this.evaluate(node.successes)
+    const total = this.evaluate(node.total)
+
+    if (!successes || !total) {
+      throw new EvaluationError('Beta parameters evaluated to null')
+    }
+
+    const successVal = successes.isScalar() ? (successes.value as number) : successes.mean()
+    const totalVal = total.isScalar() ? (total.value as number) : total.mean()
+
+    // outof(successes, total) creates a beta distribution
+    return distributions.outof(successVal, totalVal)
+  }
+
+  private evaluateBetaAgainst(node: ASTNode & { type: 'BetaAgainst' }): Quantity {
+    const successes = this.evaluate(node.successes)
+    const failures = this.evaluate(node.failures)
+
+    if (!successes || !failures) {
+      throw new EvaluationError('Beta parameters evaluated to null')
+    }
+
+    const successVal = successes.isScalar() ? (successes.value as number) : successes.mean()
+    const failureVal = failures.isScalar() ? (failures.value as number) : failures.mean()
+
+    // against(successes, failures) creates a beta distribution
+    return distributions.against(successVal, failureVal)
+  }
+
   private evaluateConversion(node: ASTNode & { type: 'Conversion' }): Quantity {
     const value = this.evaluate(node.value)
     if (!value) {
       throw new EvaluationError('Conversion value evaluated to null')
+    }
+
+    // Handle special SI conversion
+    if (node.unit.special && node.unit.name === 'SI') {
+      return value.toSI()
     }
 
     const targetUnit = this.evaluateUnit(node.unit)
@@ -242,6 +352,80 @@ export class Evaluator {
   private evaluateNumber(node: ASTNode & { type: 'Number' }): Quantity {
     const unitStr = node.unit ? this.evaluateUnit(node.unit) : undefined
     return new Quantity(node.value, unitStr)
+  }
+
+  private evaluateSigFigNumber(node: ASTNode & { type: 'SigFigNumber' }): Quantity {
+    const unitStr = node.unit ? this.evaluateUnit(node.unit) : undefined
+    const { value, uncertainty } = this.parseSigFigs(node.raw)
+
+    // Create uniform distribution: [value - uncertainty, value + uncertainty]
+    const low = value - uncertainty
+    const high = value + uncertainty
+    return distributions.uniform(low, high, unitStr)
+  }
+
+  /**
+   * Parse a number string and determine its uncertainty from significant figures.
+   *
+   * Rules:
+   * - "3.14" → 3 sig figs, uncertainty = 0.005 (half of last digit place)
+   * - "130" → 2 sig figs (trailing zeros ambiguous), uncertainty = 5
+   * - "130." → 3 sig figs (decimal indicates precision), uncertainty = 0.5
+   * - "1.30" → 3 sig figs (trailing zero significant), uncertainty = 0.005
+   * - "1.3e6" → 2 sig figs, uncertainty = 0.05e6 = 50000
+   */
+  private parseSigFigs(raw: string): { value: number; uncertainty: number } {
+    const value = parseFloat(raw)
+
+    // Handle scientific notation: extract mantissa and exponent
+    const eMatch = raw.toLowerCase().match(/^([^e]+)e([+-]?\d+)$/)
+    let mantissa = raw
+    let exponent = 0
+
+    if (eMatch) {
+      mantissa = eMatch[1]
+      exponent = parseInt(eMatch[2], 10)
+    }
+
+    // Determine the place value of the last significant digit
+    let lastDigitPlace: number
+
+    if (mantissa.includes('.')) {
+      // Has decimal point
+      const decimalIndex = mantissa.indexOf('.')
+      const afterDecimal = mantissa.slice(decimalIndex + 1)
+
+      if (afterDecimal.length === 0) {
+        // Trailing decimal like "130." - precision is ones place
+        lastDigitPlace = 0
+      } else {
+        // Normal decimal: "3.14" or "1.30"
+        // Last digit is at position -(afterDecimal.length)
+        lastDigitPlace = -afterDecimal.length
+      }
+    } else {
+      // No decimal point: find last non-zero digit position
+      // "130" → last sig fig is at position 1 (tens place)
+      // "1300" → last sig fig is at position 2 (hundreds place)
+      const reversed = mantissa.split('').reverse()
+      let trailingZeros = 0
+      for (const char of reversed) {
+        if (char === '0') {
+          trailingZeros++
+        } else {
+          break
+        }
+      }
+      lastDigitPlace = trailingZeros
+    }
+
+    // Apply exponent to get actual place value
+    const actualPlace = lastDigitPlace + exponent
+
+    // Uncertainty is half of the last digit place value
+    const uncertainty = 0.5 * Math.pow(10, actualPlace)
+
+    return { value, uncertainty }
   }
 
   private evaluateUnit(unitNode: UnitNode): string {
@@ -292,5 +476,11 @@ export class Evaluator {
 
   clearVariables(): void {
     this.variables.clear()
+  }
+
+  reset(): void {
+    this.variables.clear()
+    // Re-register physical constants after reset
+    this.registerPhysicalConstants()
   }
 }
