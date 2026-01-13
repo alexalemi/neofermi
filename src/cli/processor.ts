@@ -213,20 +213,27 @@ function formatNumber(n: number): string {
 
 /**
  * Interpolate ${var} references in text
+ *
+ * For distributions: shows median [68% CI] unit {dimension}
+ * For scalars: shows value unit {dimension}
  */
 function interpolateText(text: string, evaluator: Evaluator): string {
   return text.replace(/\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g, (match, varName) => {
     const value = evaluator.getVariable(varName)
     if (!value) return match
 
+    const unit = value.unit.toString()
+    const dimName = value.dimensionName?.()
+    const dimSuffix = dimName && dimName !== 'dimensionless' ? ` {${dimName}}` : ''
+
     if (value.isDistribution()) {
-      const mean = formatNumber(value.mean())
-      const unit = value.unit.toString()
-      return `${mean} ${unit}`.trim()
+      const median = formatNumber(value.median())
+      const p16 = formatNumber(value.percentile(0.16))
+      const p84 = formatNumber(value.percentile(0.84))
+      return `${median} [${p16} – ${p84}] ${unit}${dimSuffix}`.trim()
     } else {
       const val = formatNumber(value.value as number)
-      const unit = value.unit.toString()
-      return `${val} ${unit}`.trim()
+      return `${val} ${unit}${dimSuffix}`.trim()
     }
   })
 }
