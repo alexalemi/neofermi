@@ -61,6 +61,7 @@
     "@codemirror/view": "^6.26.0",
     "@hono/node-server": "^1.14.1",
     "@lezer/highlight": "^1.2.0",
+    "@replit/codemirror-vim": "^6.3.0",
     "chokidar": "^4.0.3",
     "commander": "^13.1.0",
     "hono": "^4.7.4",

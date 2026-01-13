@@ -86,35 +86,36 @@ ComparisonOp
 
 // Distribution operators: lowest precedence
 // Includes range (to), uniform (.., thru), normal (pm, +-, +/-), beta (of, against)
+// Keywords must be followed by non-identifier chars to avoid matching prefixes like "total"
 Range
-  = left:Additive _ "to" _ right:Additive unit:(_ Unit)? {
+  = left:Additive _ "to" ![a-zA-Z0-9_] _ right:Additive unit:(_ Unit)? {
       return node('Range', {
         left,
         right,
         unit: unit ? unit[1] : null
       })
     }
-  / left:Additive _ (".." / "thru") _ right:Additive unit:(_ Unit)? {
+  / left:Additive _ (".." / "thru" ![a-zA-Z0-9_]) _ right:Additive unit:(_ Unit)? {
       return node('Uniform', {
         left,
         right,
         unit: unit ? unit[1] : null
       })
     }
-  / mean:Additive _ ("+/-" / "+-" / "pm") _ sigma:Additive unit:(_ Unit)? {
+  / mean:Additive _ ("+/-" / "+-" / "pm" ![a-zA-Z0-9_]) _ sigma:Additive unit:(_ Unit)? {
       return node('Normal', {
         mean,
         sigma,
         unit: unit ? unit[1] : null
       })
     }
-  / successes:Additive _ "of" _ total:Additive {
+  / successes:Additive _ "of" ![a-zA-Z0-9_] _ total:Additive {
       return node('BetaOf', {
         successes,
         total
       })
     }
-  / successes:Additive _ "against" _ failures:Additive {
+  / successes:Additive _ "against" ![a-zA-Z0-9_] _ failures:Additive {
       return node('BetaAgainst', {
         successes,
         failures

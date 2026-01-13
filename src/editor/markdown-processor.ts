@@ -27,7 +27,9 @@ export interface ProcessedDocument {
  */
 export function processMarkdown(content: string): ProcessedDocument {
   const expressions: ParsedExpression[] = []
-  let exprCounter = 0
+  // Track block index by source position to ensure stable IDs across renders
+  const blockIdMap = new Map<number, string>()
+  let blockCounter = 0
 
   const md = new MarkdownIt({
     html: true,
@@ -58,12 +60,18 @@ export function processMarkdown(content: string): ProcessedDocument {
       return ''
     }
 
-    const exprId = `block-${exprCounter++}`
-    expressions.push({
-      id: exprId,
-      type: 'block',
-      source: code,
-    })
+    // Use token map position for stable ID (survives re-renders)
+    const pos = token.map ? token.map[0] : idx
+    let exprId = blockIdMap.get(pos)
+    if (!exprId) {
+      exprId = `block-${blockCounter++}`
+      blockIdMap.set(pos, exprId)
+      expressions.push({
+        id: exprId,
+        type: 'block',
+        source: code,
+      })
+    }
 
     // Return placeholder that will be replaced with results
     return `<!--nf:${exprId}-->`

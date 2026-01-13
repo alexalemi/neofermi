@@ -4,7 +4,7 @@
  * A live-updating markdown editor with embedded neofermi expression support.
  */
 
-import { createEditor } from './codemirror-setup.js'
+import { createEditor, setVimMode } from './codemirror-setup.js'
 import { processMarkdown } from './markdown-processor.js'
 import { evaluateExpressions } from './expression-evaluator.js'
 import { renderVisualizations, VizType } from './preview-renderer.js'
@@ -13,6 +13,7 @@ import type { EditorView } from '@codemirror/view'
 // Constants
 const STORAGE_KEY = 'neofermi-editor'
 const THEME_KEY = 'neofermi-theme'
+const VIM_KEY = 'neofermi-vim'
 const DEBOUNCE_MS = 400
 
 const DEFAULT_CONTENT = `# NeoFermi Editor
@@ -50,6 +51,7 @@ There are approximately \${piano_tuners} piano tuners in Chicago.
 let editorView: EditorView
 let vizType: VizType = 'dotplot'
 let currentTheme: 'light' | 'dark' = 'light'
+let vimEnabled = false
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 // DOM Elements
@@ -66,11 +68,14 @@ function init() {
   // Load and apply saved theme
   loadTheme()
 
+  // Load vim mode preference
+  loadVimMode()
+
   // Load content: URL hash > localStorage > default
   const content = loadFromHash() || loadFromStorage() || DEFAULT_CONTENT
 
-  // Initialize CodeMirror
-  editorView = createEditor(editorPane, content, onContentChange)
+  // Initialize CodeMirror with vim mode if enabled
+  editorView = createEditor(editorPane, content, onContentChange, { vimMode: vimEnabled })
 
   // Initial render
   updatePreview(content)
@@ -79,6 +84,7 @@ function init() {
   setupResizer()
   setupVizToggle()
   setupThemeToggle()
+  setupVimToggle()
   setupModals()
   setupKeyboardShortcuts()
   setupExport()
@@ -337,6 +343,39 @@ function toggleTheme() {
 function setupThemeToggle() {
   const themeBtn = document.getElementById('theme-btn')!
   themeBtn.addEventListener('click', toggleTheme)
+}
+
+// =====================
+// Vim Mode Toggle
+// =====================
+
+function loadVimMode() {
+  const saved = localStorage.getItem(VIM_KEY)
+  vimEnabled = saved === 'true'
+  applyVimMode()
+}
+
+function applyVimMode() {
+  const vimBtn = document.getElementById('vim-btn')
+  if (vimBtn) {
+    vimBtn.textContent = vimEnabled ? 'Vim: On' : 'Vim: Off'
+    vimBtn.classList.toggle('active', vimEnabled)
+  }
+}
+
+function toggleVimMode() {
+  vimEnabled = !vimEnabled
+  setVimMode(editorView, vimEnabled)
+  applyVimMode()
+  localStorage.setItem(VIM_KEY, String(vimEnabled))
+  setStatus(vimEnabled ? 'Vim mode enabled' : 'Vim mode disabled')
+}
+
+function setupVimToggle() {
+  const vimBtn = document.getElementById('vim-btn')
+  if (vimBtn) {
+    vimBtn.addEventListener('click', toggleVimMode)
+  }
 }
 
 // =====================

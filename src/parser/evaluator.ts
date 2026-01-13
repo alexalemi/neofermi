@@ -492,7 +492,34 @@ export class Evaluator {
     const leftHasUnit = left.unit && left.unit.toString() !== ''
     const rightHasUnit = right.unit && right.unit.toString() !== ''
 
+    // Check if the right operand's ORIGINAL AST node has a dimensionless multiplier
+    // This handles "100 to 200 million" where million should apply to both bounds
+    // The right.value already has the multiplier applied (200e6), so we just apply to left
+    if (
+      !leftHasUnit &&
+      !rightHasUnit &&
+      (node.right as any).type === 'Number' &&
+      (node.right as any).unit?.name
+    ) {
+      const rightMultiplier = this.getDimensionlessMultiplier((node.right as any).unit.name)
+      if (rightMultiplier !== null) {
+        // Right already has multiplier applied, apply it to left too
+        return distributions.to(leftVal * rightMultiplier, rightVal)
+      }
+    }
+
     // Determine trailing unit from the range syntax
+    // First check if the "unit" is actually a dimensionless multiplier (million, billion, etc.)
+    let trailingMultiplier: number | null = null
+    if (node.unit && node.unit.name && !node.unit.custom) {
+      trailingMultiplier = this.getDimensionlessMultiplier(node.unit.name)
+    }
+
+    // If trailing token is a dimensionless multiplier, apply it to bounds
+    if (trailingMultiplier !== null && !leftHasUnit && !rightHasUnit) {
+      return distributions.to(leftVal * trailingMultiplier, rightVal * trailingMultiplier)
+    }
+
     const trailingUnit = node.unit ? this.evaluateUnit(node.unit) : null
 
     // Rule 1: Trailing unit applies to both (when operands are unitless)
@@ -763,8 +790,40 @@ export class Evaluator {
       // Custom unit not defined - it's just a label
     }
 
+    // Check if the "unit" is actually a dimensionless multiplier constant (million, billion, etc.)
+    if (node.unit && node.unit.name && !node.unit.custom) {
+      const multiplier = this.getDimensionlessMultiplier(node.unit.name)
+      if (multiplier !== null) {
+        return new Quantity(node.value * multiplier)
+      }
+    }
+
     const unitStr = node.unit ? this.evaluateUnit(node.unit) : undefined
     return new Quantity(node.value, unitStr)
+  }
+
+  /**
+   * Check if a name is a dimensionless multiplier constant (million, billion, etc.)
+   * Returns the multiplier value if it is, or null if not.
+   */
+  private getDimensionlessMultiplier(name: string): number | null {
+    const multipliers: Record<string, number> = {
+      hundred: 1e2,
+      thousand: 1e3,
+      million: 1e6,
+      billion: 1e9,
+      trillion: 1e12,
+      quadrillion: 1e15,
+      quintillion: 1e18,
+      sextillion: 1e21,
+      septillion: 1e24,
+      // Also support K, M, B abbreviations
+      K: 1e3,
+      M: 1e6,
+      B: 1e9,
+      T: 1e12,
+    }
+    return multipliers[name] ?? null
   }
 
   private evaluateSigFigNumber(node: ASTNode & { type: 'SigFigNumber' }): Quantity {

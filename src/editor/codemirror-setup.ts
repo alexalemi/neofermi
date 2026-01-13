@@ -3,11 +3,15 @@
  */
 
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
-import { EditorState, Extension } from '@codemirror/state'
+import { EditorState, Extension, Compartment } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
+import { vim } from '@replit/codemirror-vim'
+
+// Compartment for dynamically toggling vim mode
+const vimCompartment = new Compartment()
 
 /**
  * Theme-agnostic base styles for CodeMirror
@@ -20,6 +24,13 @@ const baseTheme = EditorView.theme({
   '.cm-foldPlaceholder': {
     backgroundColor: 'transparent',
     border: 'none',
+  },
+  // Vim mode cursor styling
+  '.cm-fat-cursor': {
+    background: 'var(--accent) !important',
+  },
+  '.cm-cursor-primary': {
+    borderLeftColor: 'var(--text-primary)',
   },
 })
 
@@ -35,13 +46,18 @@ const highlightStyle = HighlightStyle.define([
   { tag: tags.quote, fontStyle: 'italic' },
 ])
 
+export interface EditorOptions {
+  vimMode?: boolean
+}
+
 /**
  * Create a CodeMirror editor instance
  */
 export function createEditor(
   parent: HTMLElement,
   initialContent: string,
-  onChange: (content: string) => void
+  onChange: (content: string) => void,
+  options: EditorOptions = {}
 ): EditorView {
   const updateListener = EditorView.updateListener.of((update) => {
     if (update.docChanged) {
@@ -64,6 +80,8 @@ export function createEditor(
     ]),
     updateListener,
     EditorView.lineWrapping,
+    // Vim mode compartment - can be toggled dynamically
+    vimCompartment.of(options.vimMode ? vim() : []),
   ]
 
   const state = EditorState.create({
@@ -74,6 +92,15 @@ export function createEditor(
   return new EditorView({
     state,
     parent,
+  })
+}
+
+/**
+ * Toggle vim mode on/off
+ */
+export function setVimMode(view: EditorView, enabled: boolean): void {
+  view.dispatch({
+    effects: vimCompartment.reconfigure(enabled ? vim() : [])
   })
 }
 
