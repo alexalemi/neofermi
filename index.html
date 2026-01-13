@@ -83,6 +83,54 @@
       color: white;
     }
 
+    /* Export dropdown */
+    .export-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .export-menu {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      background: #2d2d2d;
+      border: 1px solid #4e4e4e;
+      border-radius: 6px;
+      min-width: 120px;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    .export-menu.visible {
+      display: block;
+    }
+
+    .export-option {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      color: #d4d4d4;
+      font-size: 12px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .export-option:hover {
+      background: #3e3e3e;
+    }
+
+    .export-option:first-child {
+      border-radius: 5px 5px 0 0;
+    }
+
+    .export-option:last-child {
+      border-radius: 0 0 5px 5px;
+    }
+
     #notebook {
       flex: 1;
       overflow-y: auto;
@@ -438,6 +486,14 @@
     <div class="header-actions">
       <button class="header-btn" id="help-btn">Help</button>
       <button class="header-btn" id="share-btn">Share</button>
+      <div class="export-dropdown">
+        <button class="header-btn" id="export-btn">Export</button>
+        <div class="export-menu" id="export-menu">
+          <button class="export-option" data-format="text">Plain Text</button>
+          <button class="export-option" data-format="markdown">Markdown</button>
+          <button class="export-option" data-format="json">JSON</button>
+        </div>
+      </div>
       <button class="header-btn" id="run-all-btn">Run All</button>
       <button class="header-btn" id="clear-btn">Clear</button>
     </div>
@@ -1112,6 +1168,127 @@ Median: ${medianFmt} ${unit}
     }
 
     // =====================
+    // Export
+    // =====================
+
+    function exportNotebook(format) {
+      const data = cells.filter(c => c.code.trim())
+      if (data.length === 0) {
+        setStatus('Nothing to export')
+        return
+      }
+
+      let content, filename, mimeType
+
+      switch (format) {
+        case 'text':
+          content = exportAsText(data)
+          filename = 'neofermi-notebook.txt'
+          mimeType = 'text/plain'
+          break
+        case 'markdown':
+          content = exportAsMarkdown(data)
+          filename = 'neofermi-notebook.md'
+          mimeType = 'text/markdown'
+          break
+        case 'json':
+          content = exportAsJSON(data)
+          filename = 'neofermi-notebook.json'
+          mimeType = 'application/json'
+          break
+        default:
+          return
+      }
+
+      downloadFile(content, filename, mimeType)
+      setStatus(`Exported as ${format}`)
+    }
+
+    function exportAsText(data) {
+      return data.map((cell, i) => {
+        let output = `[${i + 1}] ${cell.code}`
+        if (cell.result) {
+          const q = cell.result
+          if (q.isDistribution?.()) {
+            const qSI = q.toSI ? q.toSI() : q
+            output += `\n    => ${formatQuantity(q, false)}`
+          } else if (q.isScalar?.()) {
+            const qSI = q.toSI ? q.toSI() : q
+            output += `\n    => ${cleanFloatArtifacts(qSI.value)} ${qSI.unit.toString()}`
+          }
+        } else if (cell.error) {
+          output += `\n    Error: ${cell.error}`
+        }
+        return output
+      }).join('\n\n')
+    }
+
+    function exportAsMarkdown(data) {
+      let md = '# NeoFermi Notebook\n\n'
+      data.forEach((cell, i) => {
+        md += '```neofermi\n' + cell.code + '\n```\n\n'
+        if (cell.result) {
+          const q = cell.result
+          if (q.isDistribution?.()) {
+            md += `**Result:** ${formatQuantity(q, false).replace(/\n/g, ' | ')}\n\n`
+          } else if (q.isScalar?.()) {
+            const qSI = q.toSI ? q.toSI() : q
+            md += `**Result:** ${cleanFloatArtifacts(qSI.value)} ${qSI.unit.toString()}\n\n`
+          }
+        } else if (cell.error) {
+          md += `**Error:** ${cell.error}\n\n`
+        }
+      })
+      return md
+    }
+
+    function exportAsJSON(data) {
+      const exportData = data.map((cell, i) => {
+        const entry = {
+          index: i + 1,
+          code: cell.code,
+        }
+        if (cell.result) {
+          const q = cell.result
+          if (q.isDistribution?.()) {
+            const qSI = q.toSI ? q.toSI() : q
+            entry.result = {
+              type: 'distribution',
+              mean: qSI.mean(),
+              median: qSI.median(),
+              p16: qSI.percentile(0.16),
+              p84: qSI.percentile(0.84),
+              unit: qSI.unit.toString(),
+            }
+          } else if (q.isScalar?.()) {
+            const qSI = q.toSI ? q.toSI() : q
+            entry.result = {
+              type: 'scalar',
+              value: qSI.value,
+              unit: qSI.unit.toString(),
+            }
+          }
+        } else if (cell.error) {
+          entry.error = cell.error
+        }
+        return entry
+      })
+      return JSON.stringify(exportData, null, 2)
+    }
+
+    function downloadFile(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }
+
+    // =====================
     // Status
     // =====================
 
@@ -1141,6 +1318,29 @@ Median: ${medianFmt} ${unit}
     document.getElementById('run-all-btn').addEventListener('click', runAllCells)
     document.getElementById('clear-btn').addEventListener('click', clearNotebook)
     document.getElementById('share-btn').addEventListener('click', shareNotebook)
+
+    // Export dropdown
+    const exportBtn = document.getElementById('export-btn')
+    const exportMenu = document.getElementById('export-menu')
+
+    exportBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      exportMenu.classList.toggle('visible')
+    })
+
+    document.querySelectorAll('.export-option').forEach(option => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const format = option.dataset.format
+        exportNotebook(format)
+        exportMenu.classList.remove('visible')
+      })
+    })
+
+    // Close export menu when clicking outside
+    document.addEventListener('click', () => {
+      exportMenu.classList.remove('visible')
+    })
 
     // Help modal
     document.getElementById('help-btn').addEventListener('click', () => {

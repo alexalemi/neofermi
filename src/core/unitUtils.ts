@@ -18,13 +18,20 @@ const UNIT_ALIASES: Record<string, string> = {
   mos: 'month',
   wk: 'week',
   wks: 'week',
+  d: 'day',
   hr: 'hour',
   hrs: 'hour',
+  min: 'minute',
+  mins: 'minute',
   sec: 'second',
   secs: 'second',
   ms: 'millisecond',
   us: 'microsecond',
   ns: 'nanosecond',
+  fortnight: '336 hour',  // 14 days
+  decade: '3652.425 day', // 10 years (average)
+  century: '36524.25 day', // 100 years (average)
+  millennium: '365242.5 day', // 1000 years
 
   // Length
   mi: 'mile',
@@ -42,10 +49,13 @@ const UNIT_ALIASES: Record<string, string> = {
   mph: 'mile/hour',
   kph: 'km/hour',
   kmh: 'km/hour',
+  kmph: 'km/hour',
   mps: 'm/s',
   fps: 'foot/second',
   knot: 'knot',
   kn: 'knot',
+  kt: 'knot',
+  kts: 'knot',
 
   // Volume
   gal: 'gallon',
@@ -56,12 +66,25 @@ const UNIT_ALIASES: Record<string, string> = {
   l: 'liter',
   ml: 'milliliter',
   mL: 'milliliter',
+  cup: 'cup',
+  cups: 'cup',
+  tbsp: 'tablespoon',
+  Tbsp: 'tablespoon',
+  tsp: 'teaspoon',
+  floz: 'fluidounce',
 
   // Area
   sqft: 'foot^2',
   sqm: 'm^2',
   sqkm: 'km^2',
   sqmi: 'mile^2',
+  sqyd: 'yard^2',
+  sqin: 'inch^2',
+  acre: 'acre',
+  acres: 'acre',
+  hectare: 'hectare',
+  hectares: 'hectare',
+  ha: 'hectare',
 
   // Energy
   cal: 'calorie',
@@ -83,6 +106,11 @@ const UNIT_ALIASES: Record<string, string> = {
   psi: 'psi',
   bar: 'bar',
   mbar: 'millibar',
+  kPa: 'kilopascal',
+  MPa: 'megapascal',
+  Pa: 'pascal',
+  torr: 'torr',
+  mmHg: 'mmHg',
 
   // Temperature (mathjs uses these, but aliases help)
   degC: 'degC',
@@ -126,12 +154,31 @@ const UNIT_ALIASES: Record<string, string> = {
   // Angle
   deg: 'degree',
   rad: 'radian',
+  arcmin: 'arcmin',
+  arcminute: 'arcmin',
+  arcsec: 'arcsec',
+  arcsecond: 'arcsec',
+  sr: 'steradian',
 
   // Astronomy (common informal)
   au: 'AU',
   AU: 'AU',
   ly: 'lightyear',
+  lyr: 'lightyear',
   pc: 'parsec',
+
+  // Counts and quantities
+  dozen: '12',
+  doz: '12',
+  gross: '144', // 12 dozen
+  score: '20',
+  pair: '2',
+  mol: 'mole',
+
+  // Misc
+  rpm: '1/minute',
+  rps: '1/second',
+  bpm: '1/minute', // beats per minute (same as rpm)
 }
 
 /**

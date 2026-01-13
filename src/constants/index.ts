@@ -316,6 +316,26 @@ export const min = minute
 /** Week (exact) */
 export const week = new Quantity(604800, 's')
 
+// Common time conversion constants (useful for Fermi estimation)
+/** Seconds per minute (exact) */
+export const seconds_per_minute = new Quantity(60)
+/** Seconds per hour (exact) */
+export const seconds_per_hour = new Quantity(3600)
+/** Seconds per day (exact) */
+export const seconds_per_day = new Quantity(86400)
+/** Seconds per year (approx - based on 365.2425 day Gregorian average) */
+export const seconds_per_year = new Quantity(31556952)
+/** Minutes per day */
+export const minutes_per_day = new Quantity(1440)
+/** Hours per day */
+export const hours_per_day = new Quantity(24)
+/** Days per year (distribution based on leap year cycle) */
+export const days_per_year = weighted([365, 366], [303, 97])
+/** Days per week */
+export const days_per_week = new Quantity(7)
+/** Weeks per year (approx) */
+export const weeks_per_year = new Quantity(52.1775)
+
 // ============================================
 // Common Everyday Constants
 // ============================================
@@ -482,6 +502,8 @@ export const constants: Record<string, Quantity> = {
   sun_luminosity: L_sun,
   // Time
   year, yr, month, day, hour, hr, minute, min, week,
+  seconds_per_minute, seconds_per_hour, seconds_per_day, seconds_per_year,
+  minutes_per_day, hours_per_day, days_per_year, days_per_week, weeks_per_year,
   // Everyday
   atm, T0, rho_water,
   // Earth geography
