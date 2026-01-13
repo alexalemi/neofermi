@@ -8,7 +8,7 @@ import type { ASTNode, UnitNode } from './ast.js'
 import { Quantity } from '../core/Quantity.js'
 import * as distributions from '../distributions/index.js'
 import * as physicalConstants from '../constants/index.js'
-import { unit as createUnit } from 'mathjs'
+import { createUnit } from '../core/unitUtils.js'
 
 export class EvaluationError extends Error {
   constructor(message: string) {

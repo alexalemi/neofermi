@@ -8,6 +8,7 @@
 
 import { unit, Unit } from 'mathjs'
 import { getDimensionName, formatUnitWithDimension } from './dimensions.js'
+import { normalizeUnitWithScale } from './unitUtils.js'
 
 export type Value = number | number[]
 
@@ -16,8 +17,23 @@ export class Quantity {
   readonly unit: Unit
 
   constructor(value: Value, unitString?: string) {
-    this.value = value
-    this.unit = unitString ? unit(unitString) : unit('')
+    // Normalize unit and get scaling factor for SI prefixes
+    const { unit: normalizedUnit, scale } = unitString
+      ? normalizeUnitWithScale(unitString)
+      : { unit: '', scale: 1 }
+
+    // Apply scale to value if needed (for SI prefixes like "milliyear" -> year * 0.001)
+    if (scale !== 1) {
+      if (Array.isArray(value)) {
+        this.value = value.map((v) => v * scale)
+      } else {
+        this.value = value * scale
+      }
+    } else {
+      this.value = value
+    }
+
+    this.unit = normalizedUnit ? unit(normalizedUnit) : unit('')
   }
 
   /**
