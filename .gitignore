@@ -3,9 +3,17 @@ node_modules/
 .pnpm-store/
 package-lock.json
 
+
+__tests__/**
+
+# examples
+examples/*.html
+
 # Build outputs
 dist/
 build/
+bin/*.cjs
+bin/*.cjs.map
 *.tsbuildinfo
 
 # Generated parser

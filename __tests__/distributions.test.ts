@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { lognormal, normal, uniform, plusminus, outof, gamma, to } from '../src/index.js'
+import { crps } from '../src/functions/math.js'
+import { Quantity } from '../src/core/Quantity.js'
 
 describe('Distributions', () => {
   const TOLERANCE = 0.1 // 10% tolerance for statistical tests
@@ -158,6 +160,115 @@ describe('Distributions', () => {
       // Should behave like normal - mean near 0
       expect(mean).toBeGreaterThan(-2)
       expect(mean).toBeLessThan(2)
+    })
+  })
+
+  describe('crps', () => {
+    it('returns 0 for point mass at observation', () => {
+      // A distribution that's a point mass at 5 should have CRPS=0 when observation is 5
+      const dist = new Quantity([5, 5, 5, 5, 5])
+      const obs = new Quantity(5)
+      const score = crps(dist, obs)
+      expect(score.value).toBeCloseTo(0, 10)
+    })
+
+    it('increases as observation moves away from distribution', () => {
+      const dist = normal(0, 10, undefined, 0.9, 5000)
+      const obs1 = new Quantity(5) // Near mean
+      const obs2 = new Quantity(20) // Far from mean
+      const obs3 = new Quantity(50) // Very far from mean
+
+      const score1 = crps(dist, obs1)
+      const score2 = crps(dist, obs2)
+      const score3 = crps(dist, obs3)
+
+      expect((score1.value as number)).toBeLessThan((score2.value as number))
+      expect((score2.value as number)).toBeLessThan((score3.value as number))
+    })
+
+    it('narrower distribution has lower CRPS when observation matches mean', () => {
+      // When observation matches the mean, tighter distributions score better
+      const narrow = plusminus(50, 5, undefined, 5000)
+      const wide = plusminus(50, 20, undefined, 5000)
+      const obs = new Quantity(50) // At the mean
+
+      const narrowScore = crps(narrow, obs)
+      const wideScore = crps(wide, obs)
+
+      expect((narrowScore.value as number)).toBeLessThan((wideScore.value as number))
+    })
+
+    it('wider distribution scores better when observation is in tail', () => {
+      // When observation is far from mean, wider distribution may score better
+      const narrow = plusminus(50, 5, undefined, 5000)
+      const wide = plusminus(50, 30, undefined, 5000)
+      const obs = new Quantity(80) // In tail for narrow, reasonable for wide
+
+      const narrowScore = crps(narrow, obs)
+      const wideScore = crps(wide, obs)
+
+      expect((wideScore.value as number)).toBeLessThan((narrowScore.value as number))
+    })
+
+    it('is always non-negative', () => {
+      const dist = normal(-10, 10, undefined, 0.9, 5000)
+      const observations = [-100, -10, 0, 10, 100]
+
+      for (const y of observations) {
+        const score = crps(dist, new Quantity(y))
+        expect((score.value as number)).toBeGreaterThanOrEqual(0)
+      }
+    })
+
+    it('preserves units', () => {
+      const dist = normal(0, 100, 'meters', 0.9, 1000)
+      const obs = new Quantity(50, 'meters')
+      const score = crps(dist, obs)
+      expect(score.unit.toString()).toBe('meters')
+    })
+
+    it('throws on incompatible units', () => {
+      const dist = normal(0, 100, 'meters', 0.9, 100)
+      const obs = new Quantity(50, 'seconds')
+      expect(() => crps(dist, obs)).toThrow(/compatible units/)
+    })
+
+    it('handles distribution observations element-wise', () => {
+      const dist = plusminus(50, 10, undefined, 1000)
+      const obsDistribution = new Quantity([45, 50, 55]) // Three observation values
+
+      const scores = crps(dist, obsDistribution)
+
+      // Should return a distribution of scores
+      expect(scores.isDistribution()).toBe(true)
+      expect(scores.sampleCount).toBe(3)
+
+      // Middle observation (50) should have lowest score
+      const particles = scores.toParticles()
+      expect(particles[1]).toBeLessThan(particles[0]) // 50 < 45's score
+      expect(particles[1]).toBeLessThan(particles[2]) // 50 < 55's score
+    })
+
+    it('matches naive O(n²) computation', () => {
+      // Verify the efficient algorithm matches the naive one
+      const samples = [1, 3, 5, 7, 9]
+      const dist = new Quantity(samples)
+      const obs = new Quantity(4)
+
+      // Naive computation:
+      // E|X - y| = (|1-4| + |3-4| + |5-4| + |7-4| + |9-4|) / 5 = (3+1+1+3+5)/5 = 13/5 = 2.6
+      // E|X - X'| = sum of all |xi - xj| / 25
+      // Pairs: |1-1|=0, |1-3|=2, |1-5|=4, |1-7|=6, |1-9|=8
+      //        |3-1|=2, |3-3|=0, |3-5|=2, |3-7|=4, |3-9|=6
+      //        |5-1|=4, |5-3|=2, |5-5|=0, |5-7|=2, |5-9|=4
+      //        |7-1|=6, |7-3|=4, |7-5|=2, |7-7|=0, |7-9|=2
+      //        |9-1|=8, |9-3|=6, |9-5|=4, |9-7|=2, |9-9|=0
+      // Sum = 2*(2+4+6+8+2+4+6+2+4+2) = 2*40 = 80
+      // E|X-X'| = 80/25 = 3.2
+      // CRPS = 2.6 - 0.5 * 3.2 = 2.6 - 1.6 = 1.0
+
+      const score = crps(dist, obs)
+      expect((score.value as number)).toBeCloseTo(1.0, 10)
     })
   })
 })

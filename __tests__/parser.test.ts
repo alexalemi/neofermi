@@ -223,4 +223,26 @@ describe('Parser', () => {
       expect(result?.unit.toString()).toContain('second')
     })
   })
+
+  describe('CRPS scoring', () => {
+    it('computes crps for distribution vs scalar', () => {
+      const result = parse('crps(plusminus(50, 10), 50)')
+      expect(result?.isScalar()).toBe(true)
+      expect(result?.value as number).toBeGreaterThanOrEqual(0)
+    })
+
+    it('crps increases with distance from mean', () => {
+      const close = parse('crps(plusminus(50, 10), 50)')
+      const far = parse('crps(plusminus(50, 10), 80)')
+      expect((close?.value as number)).toBeLessThan((far?.value as number))
+    })
+
+    it('crps preserves units', () => {
+      const evaluator = new Evaluator()
+      parse('dist = plusminus(50, 10) * 1 meter', evaluator)
+      parse('obs = 50 meters', evaluator)
+      const result = parse('crps(dist, obs)', evaluator)
+      expect(result?.unit.toString()).toBe('meter')
+    })
+  })
 })

@@ -34,7 +34,7 @@ const MATH_FUNCTIONS = new Set([
   'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
   'min', 'max', 'hypot', 'clamp',
   'quantile', 'percentile', 'p5', 'p10', 'p25', 'median', 'p75', 'p90', 'p95', 'p99',
-  'mean', 'std'
+  'mean', 'std', 'crps'
 ])
 
 // User-defined function storage
@@ -126,6 +126,7 @@ export class Evaluator {
     this.functions.set('p99', mathFunctions.p99)
     this.functions.set('mean', mathFunctions.mean)
     this.functions.set('std', mathFunctions.std)
+    this.functions.set('crps', mathFunctions.crps)
   }
 
   private registerPhysicalConstants(): void {

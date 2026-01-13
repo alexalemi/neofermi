@@ -430,6 +430,70 @@ export function std(q: Quantity): Quantity {
   return new Quantity(Math.sqrt(variance), q.unit.toString())
 }
 
+/**
+ * Compute CRPS (Continuous Ranked Probability Score) for a distribution against an observation.
+ *
+ * CRPS measures the accuracy of a probabilistic forecast. Lower scores are better.
+ * Score of 0 means the distribution is a perfect point mass at the observation.
+ *
+ * Uses the efficient O(n log n) sorted algorithm:
+ * CRPS(F, y) = E|X - y| - 0.5 * E|X - X'|
+ *
+ * @param dist - The forecast distribution
+ * @param observation - The observed value (scalar or distribution)
+ * @returns CRPS score with same units as inputs
+ */
+export function crps(dist: Quantity, observation: Quantity): Quantity {
+  if (!dist.unit.equalBase(observation.unit)) {
+    throw new Error(
+      `crps() requires arguments with compatible units, got ${dist.unit} and ${observation.unit}`
+    )
+  }
+
+  const particles = dist.toParticles()
+  const n = particles.length
+
+  // Sort particles for efficient E|X - X'| computation
+  const sorted = particles.slice().sort((a, b) => a - b)
+
+  // Compute E|X - X'| using sorted samples: (2/n²) * Σᵢ (2i - n + 1) * xᵢ
+  // This exploits the fact that for sorted values, we can compute the sum of
+  // all pairwise absolute differences in O(n) instead of O(n²)
+  let pairwiseSum = 0
+  for (let i = 0; i < n; i++) {
+    pairwiseSum += (2 * i - n + 1) * sorted[i]
+  }
+  const expectedPairwiseDiff = (2 / (n * n)) * pairwiseSum
+
+  // Handle observation - could be scalar or distribution
+  const obsParticles = observation.toParticles()
+
+  if (obsParticles.length === 1) {
+    // Single observation - compute single CRPS value
+    const y = obsParticles[0]
+    let absSum = 0
+    for (let i = 0; i < n; i++) {
+      absSum += Math.abs(sorted[i] - y)
+    }
+    const expectedAbsDiff = absSum / n
+    const score = expectedAbsDiff - 0.5 * expectedPairwiseDiff
+    return new Quantity(score, dist.unit.toString())
+  }
+
+  // Distribution observation - compute CRPS for each observation particle
+  const results: number[] = new Array(obsParticles.length)
+  for (let j = 0; j < obsParticles.length; j++) {
+    const y = obsParticles[j]
+    let absSum = 0
+    for (let i = 0; i < n; i++) {
+      absSum += Math.abs(sorted[i] - y)
+    }
+    const expectedAbsDiff = absSum / n
+    results[j] = expectedAbsDiff - 0.5 * expectedPairwiseDiff
+  }
+  return new Quantity(results, dist.unit.toString())
+}
+
 // ============================================
 // Clamp function
 // ============================================
