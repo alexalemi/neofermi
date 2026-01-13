@@ -38,6 +38,8 @@ src/parser/generated.js
 .gitconfig
 .gitmodules
 .ripgreprc
+.vscode
+.idea
 
 # OS
 .DS_Store
