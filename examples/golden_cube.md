@@ -36,9 +36,9 @@ The cube would be about **${cube_side_m}** on each side - roughly the size of a 
 If we had the same mass of other materials, how big would they be?
 
 ```
-steel_volume = total_gold / rho_steel * rho_gold
-aluminum_volume = total_gold / rho_aluminum * rho_gold
-wood_volume = total_gold / rho_wood * rho_gold
+steel_volume = total_gold / rho_steel
+aluminum_volume = total_gold / rho_aluminum
+wood_volume = total_gold / rho_wood
 
 steel_cube = steel_volume^(1/3) as m
 aluminum_cube = aluminum_volume^(1/3) as m
