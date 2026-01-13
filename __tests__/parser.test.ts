@@ -245,4 +245,109 @@ describe('Parser', () => {
       expect(result?.unit.toString()).toBe('meter')
     })
   })
+
+  describe('Custom unit definitions', () => {
+    it('defines and uses custom unit', () => {
+      const evaluator = new Evaluator()
+      parse("1 'widget = 5 kg", evaluator)
+      const result = parse("10 'widget", evaluator)
+      expect(result?.value).toBeCloseTo(50, 1)
+      expect(result?.unit.toString()).toBe('kg')
+    })
+
+    it('custom units work in expressions', () => {
+      const evaluator = new Evaluator()
+      parse("1 'box = 2 meters", evaluator)
+      const result = parse("3 'box * 4", evaluator)
+      expect(result?.value).toBeCloseTo(24, 1)
+    })
+
+    it('custom units persist across evaluations', () => {
+      const evaluator = new Evaluator()
+      parse("1 'foo = 100", evaluator)
+      parse("x = 5 'foo", evaluator)
+      const result = parse("x + 50", evaluator)
+      expect(result?.mean()).toBeCloseTo(550, 0)
+    })
+  })
+
+  describe('New distribution functions', () => {
+    it('parses poisson distribution', () => {
+      const result = parse('poisson(5)')
+      expect(result?.isDistribution()).toBe(true)
+      expect(result?.mean()).toBeCloseTo(5, 0)
+    })
+
+    it('parses exponential distribution', () => {
+      const result = parse('exponential(0.5)')
+      expect(result?.isDistribution()).toBe(true)
+      expect(result?.mean()).toBeCloseTo(2, 0) // mean = 1/rate
+    })
+
+    it('parses binomial distribution', () => {
+      const result = parse('binomial(100, 0.3)')
+      expect(result?.isDistribution()).toBe(true)
+      expect(result?.mean()).toBeCloseTo(30, 1) // mean = n*p
+    })
+
+    it('distributions work in expressions', () => {
+      const result = parse('poisson(10) * 2')
+      expect(result?.isDistribution()).toBe(true)
+      expect(result?.mean()).toBeCloseTo(20, 1)
+    })
+  })
+
+  describe('Error suggestions', () => {
+    it('suggests similar variable names', () => {
+      const evaluator = new Evaluator()
+      parse('myVariable = 10', evaluator)
+      expect(() => parse('myVarible', evaluator)).toThrow(/myVariable/)
+    })
+
+    it('suggests similar function names', () => {
+      expect(() => parse('unifrom(0, 1)')).toThrow(/uniform/)
+    })
+
+    it('suggests similar unit names', () => {
+      expect(() => parse('100 metrs')).toThrow(/meter/)
+    })
+  })
+
+  describe('Evaluator API', () => {
+    it('getVariableNames returns all variables', () => {
+      const evaluator = new Evaluator()
+      parse('x = 10', evaluator)
+      parse('y = 20', evaluator)
+      const names = evaluator.getVariableNames()
+      expect(names).toContain('x')
+      expect(names).toContain('y')
+    })
+
+    it('getUserVariableNames excludes built-in constants', () => {
+      const evaluator = new Evaluator()
+      parse('x = 10', evaluator)
+      const userNames = evaluator.getUserVariableNames()
+      expect(userNames).toContain('x')
+      expect(userNames).not.toContain('c') // speed of light
+      expect(userNames).not.toContain('pi')
+    })
+
+    it('clearVariables removes user variables but resets constants', () => {
+      const evaluator = new Evaluator()
+      parse('x = 10', evaluator)
+      evaluator.clearVariables()
+      expect(() => parse('x', evaluator)).toThrow()
+    })
+
+    it('reset clears everything including functions', () => {
+      const evaluator = new Evaluator()
+      parse('f(a) = a * 2', evaluator)
+      parse('x = 10', evaluator)
+      evaluator.reset()
+      expect(() => parse('f(5)', evaluator)).toThrow()
+      // Constants should be restored
+      const c = parse('c', evaluator)
+      expect(c?.value).toBeCloseTo(299792458, -5)
+    })
+  })
 })

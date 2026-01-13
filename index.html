@@ -581,14 +581,29 @@ binomial(10, 0.5)    # n trials, p success</pre>
         <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>^</code> &nbsp; <code># comment</code>
 
         <h4>Custom Units</h4>
-        <code>100 'widgets</code> (tick prefix for custom units)
+        <pre>100 'widgets         # Use custom unit
+1 'widget = 5 kg     # Define custom unit
+10 'widget           # Now equals 50 kg</pre>
 
-        <h4>Physical Constants</h4>
-        <pre>c, h, hbar, e, k, G  # Fundamentals
-M_earth, R_earth     # Earth (with uncertainty)
-M_sun, R_sun, L_sun  # Solar
-year, month, day     # Time (year/month are distributions)
-AU, ly, pc           # Distances</pre>
+        <h4>Constants</h4>
+        <pre># Physics
+c, h, hbar, G, k     # Fundamentals
+M_earth, R_earth     # Earth
+M_sun, AU, ly, pc    # Astronomical
+
+# Time
+year, month, day     # As distributions
+seconds_per_year     # Exact conversions
+
+# Population & Economics
+world_population     # ~8.2 billion
+us_gdp, world_gdp    # With uncertainty
+us_median_income
+
+# Computing
+cpu_transistors      # Modern CPU
+internet_users
+google_searches_per_day</pre>
 
         <h4>Keyboard Shortcuts</h4>
         <pre>Shift+Enter          # Run current cell

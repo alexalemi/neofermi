@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { lognormal, normal, uniform, plusminus, outof, gamma, to } from '../src/index.js'
+import { lognormal, normal, uniform, plusminus, outof, gamma, to, poisson, exponential, exponentialMean, binomial } from '../src/index.js'
 import { crps } from '../src/functions/math.js'
 import { Quantity } from '../src/core/Quantity.js'
 
@@ -142,6 +142,117 @@ describe('Distributions', () => {
       const q = gamma(shape, scale, undefined, 20000)
       const expectedMean = shape * scale
       expect(q.mean()).toBeCloseTo(expectedMean, -0.5) // Within order of magnitude
+    })
+  })
+
+  describe('poisson', () => {
+    it('creates non-negative integer values', () => {
+      const q = poisson(5, undefined, 1000)
+      const values = q.toParticles()
+      expect(Math.min(...values)).toBeGreaterThanOrEqual(0)
+      values.forEach(v => expect(Number.isInteger(v)).toBe(true))
+    })
+
+    it('mean approximates lambda', () => {
+      const lambda = 10
+      const q = poisson(lambda, undefined, 20000)
+      expect(q.mean()).toBeCloseTo(lambda, 0)
+    })
+
+    it('variance approximates lambda', () => {
+      const lambda = 15
+      const q = poisson(lambda, undefined, 20000)
+      const variance = q.std() ** 2
+      expect(variance).toBeCloseTo(lambda, 0)
+    })
+
+    it('throws on non-positive lambda', () => {
+      expect(() => poisson(0)).toThrow()
+      expect(() => poisson(-5)).toThrow()
+    })
+
+    it('respects units', () => {
+      const q = poisson(5, 'kg', 100)
+      expect(q.unit.toString()).toBe('kg')
+    })
+  })
+
+  describe('exponential', () => {
+    it('creates positive values only', () => {
+      const q = exponential(0.5, undefined, 1000)
+      const values = q.toParticles()
+      expect(Math.min(...values)).toBeGreaterThan(0)
+    })
+
+    it('mean approximates 1/rate', () => {
+      const rate = 0.2
+      const q = exponential(rate, undefined, 20000)
+      expect(q.mean()).toBeCloseTo(1 / rate, 0)
+    })
+
+    it('throws on non-positive rate', () => {
+      expect(() => exponential(0)).toThrow()
+      expect(() => exponential(-1)).toThrow()
+    })
+
+    it('respects units', () => {
+      const q = exponential(0.1, 'seconds', 100)
+      expect(q.unit.toString()).toBe('seconds')
+    })
+  })
+
+  describe('exponentialMean', () => {
+    it('mean approximates specified mean', () => {
+      const meanVal = 10
+      const q = exponentialMean(meanVal, undefined, 20000)
+      expect(q.mean()).toBeCloseTo(meanVal, 0)
+    })
+
+    it('throws on non-positive mean', () => {
+      expect(() => exponentialMean(0)).toThrow()
+      expect(() => exponentialMean(-5)).toThrow()
+    })
+  })
+
+  describe('binomial', () => {
+    it('creates values between 0 and n', () => {
+      const n = 20
+      const q = binomial(n, 0.5, undefined, 1000)
+      const values = q.toParticles()
+      expect(Math.min(...values)).toBeGreaterThanOrEqual(0)
+      expect(Math.max(...values)).toBeLessThanOrEqual(n)
+      values.forEach(v => expect(Number.isInteger(v)).toBe(true))
+    })
+
+    it('mean approximates n*p', () => {
+      const n = 100
+      const p = 0.3
+      const q = binomial(n, p, undefined, 20000)
+      expect(q.mean()).toBeCloseTo(n * p, 0)
+    })
+
+    it('variance approximates n*p*(1-p)', () => {
+      const n = 100
+      const p = 0.4
+      const q = binomial(n, p, undefined, 20000)
+      const variance = q.std() ** 2
+      expect(variance).toBeCloseTo(n * p * (1 - p), 0)
+    })
+
+    it('throws on invalid n', () => {
+      expect(() => binomial(0, 0.5)).toThrow()
+      expect(() => binomial(-10, 0.5)).toThrow()
+      expect(() => binomial(10.5, 0.5)).toThrow()
+    })
+
+    it('throws on invalid p', () => {
+      expect(() => binomial(10, -0.1)).toThrow()
+      expect(() => binomial(10, 1.1)).toThrow()
+    })
+
+    it('respects units', () => {
+      const q = binomial(10, 0.5, 'kg', 100)
+      expect(q.unit.toString()).toBe('kg')
     })
   })
 

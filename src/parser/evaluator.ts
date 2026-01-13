@@ -896,6 +896,15 @@ export class Evaluator {
     this.variables.set(name, value)
   }
 
+  getVariableNames(): string[] {
+    return Array.from(this.variables.keys())
+  }
+
+  getUserVariableNames(): string[] {
+    const builtInNames = new Set(Object.keys(physicalConstants.constants))
+    return Array.from(this.variables.keys()).filter(name => !builtInNames.has(name))
+  }
+
   clearVariables(): void {
     this.variables.clear()
   }
