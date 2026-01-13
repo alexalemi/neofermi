@@ -44,6 +44,27 @@ export {
   type HistogramData,
 } from './visualization/index.js'
 
+// Analysis
+export {
+  type SensitivityResult,
+  type SensitivityAnalysis,
+  analyzeSensitivity,
+  formatSensitivity
+} from './analysis/index.js'
+
+// Autocomplete
+export {
+  type Completion,
+  getCompletions,
+  getWordAtCursor,
+  ALL_COMPLETIONS,
+  KEYWORDS,
+  DISTRIBUTION_FUNCTIONS,
+  MATH_FUNCTIONS,
+  CONSTANTS as CONSTANT_COMPLETIONS,
+  UNITS as UNIT_COMPLETIONS
+} from './autocomplete/index.js'
+
 // Physical constants
 export * as constants from './constants/index.js'
 export {

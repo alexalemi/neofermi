@@ -254,6 +254,7 @@ export const constants: Record<string, Quantity> = {
   b, wien_displacement, R_inf, Rydberg_constant, a0, bohr_radius, planck_temperature,
   // Particles
   m_e, m_p, m_n,
+  electron_mass: m_e, proton_mass: m_p, neutron_mass: m_n,
   // Magnetic moments
   muon_magnetic_moment, proton_magnetic_moment, electron_magnetic_moment,
   neutron_magnetic_moment, deuteron_magnetic_moment,
@@ -261,6 +262,10 @@ export const constants: Record<string, Quantity> = {
   sigma, stefan_boltzmann, epsilon0, mu0, R, gas_constant,
   // Astronomical
   AU, ly, pc, M_sun, R_sun, L_sun, M_earth, R_earth, M_moon, solar_constant,
+  // User-friendly astronomical aliases
+  earth_mass: M_earth, sun_mass: M_sun, moon_mass: M_moon,
+  earth_radius: R_earth, sun_radius: R_sun,
+  sun_luminosity: L_sun,
   // Time
   year, yr, month, day, hour, hr, minute, min, week,
   // Everyday

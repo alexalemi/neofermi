@@ -165,6 +165,72 @@
       color: #666;
     }
 
+    /* Autocomplete dropdown */
+    .autocomplete-container {
+      position: relative;
+    }
+
+    .autocomplete-dropdown {
+      position: absolute;
+      left: 12px;
+      background: #2d2d2d;
+      border: 1px solid #4e4e4e;
+      border-radius: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+      min-width: 200px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    .autocomplete-dropdown.visible {
+      display: block;
+    }
+
+    .autocomplete-item {
+      padding: 6px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    }
+
+    .autocomplete-item:hover,
+    .autocomplete-item.selected {
+      background: #3e3e3e;
+    }
+
+    .autocomplete-item .label {
+      color: #d4d4d4;
+      font-weight: 500;
+    }
+
+    .autocomplete-item .type {
+      color: #888;
+      font-size: 10px;
+      padding: 1px 4px;
+      background: #3e3e3e;
+      border-radius: 3px;
+    }
+
+    .autocomplete-item .type.function { color: #dcdcaa; background: #3e3e3e; }
+    .autocomplete-item .type.constant { color: #4fc1ff; background: #3e3e3e; }
+    .autocomplete-item .type.unit { color: #4ec9b0; background: #3e3e3e; }
+    .autocomplete-item .type.keyword { color: #c586c0; background: #3e3e3e; }
+
+    .autocomplete-item .desc {
+      color: #666;
+      font-size: 11px;
+      margin-left: auto;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 150px;
+    }
+
     .cell-output {
       border-top: 1px solid #3e3e3e;
       padding: 12px;
@@ -469,6 +535,7 @@ AU, ly, pc           # Distances</pre>
   <script type="module">
     import { parse, Evaluator } from './src/parser/index.js'
     import { visualize } from './src/visualization/index.js'
+    import { getCompletions, getWordAtCursor } from './src/autocomplete/index.js'
 
 
     // State
@@ -541,12 +608,19 @@ AU, ly, pc           # Distances</pre>
             <button class="cell-btn delete" title="Delete">✕</button>
           </div>
         </div>
-        <textarea class="cell-input" placeholder="Enter expression..." rows="1">${escapeHtml(cell.code)}</textarea>
+        <div class="autocomplete-container">
+          <textarea class="cell-input" placeholder="Enter expression..." rows="1">${escapeHtml(cell.code)}</textarea>
+          <div class="autocomplete-dropdown"></div>
+        </div>
         <div class="cell-output"></div>
       `
 
       const textarea = el.querySelector('.cell-input')
       const output = el.querySelector('.cell-output')
+      const dropdown = el.querySelector('.autocomplete-dropdown')
+
+      // Autocomplete state for this cell
+      let acState = { visible: false, items: [], selectedIndex: 0, wordInfo: null }
 
       // Auto-resize textarea
       const autoResize = () => {
@@ -554,11 +628,75 @@ AU, ly, pc           # Distances</pre>
         textarea.style.height = textarea.scrollHeight + 'px'
       }
 
+      // Autocomplete functions
+      function showAutocomplete() {
+        const wordInfo = getWordAtCursor(textarea.value, textarea.selectionStart)
+        if (!wordInfo || wordInfo.word.length < 2) {
+          hideAutocomplete()
+          return
+        }
+
+        const items = getCompletions(wordInfo.word, 8)
+        if (items.length === 0) {
+          hideAutocomplete()
+          return
+        }
+
+        acState = { visible: true, items, selectedIndex: 0, wordInfo }
+        renderAutocomplete()
+      }
+
+      function hideAutocomplete() {
+        acState.visible = false
+        dropdown.classList.remove('visible')
+      }
+
+      function renderAutocomplete() {
+        if (!acState.visible) return
+        dropdown.innerHTML = acState.items.map((item, i) => `
+          <div class="autocomplete-item ${i === acState.selectedIndex ? 'selected' : ''}" data-index="${i}">
+            <span class="label">${item.label}</span>
+            <span class="type ${item.type}">${item.type}</span>
+            ${item.description ? `<span class="desc">${item.description}</span>` : ''}
+          </div>
+        `).join('')
+        dropdown.classList.add('visible')
+
+        // Click handlers for items
+        dropdown.querySelectorAll('.autocomplete-item').forEach(itemEl => {
+          itemEl.addEventListener('mousedown', (e) => {
+            e.preventDefault()
+            const idx = parseInt(itemEl.dataset.index)
+            selectAutocompleteItem(idx)
+          })
+        })
+      }
+
+      function selectAutocompleteItem(index) {
+        if (!acState.visible || !acState.wordInfo) return
+        const item = acState.items[index]
+        if (!item) return
+
+        const { start, end } = acState.wordInfo
+        const before = textarea.value.slice(0, start)
+        const after = textarea.value.slice(end)
+        const newValue = before + item.label + after
+        textarea.value = newValue
+        textarea.selectionStart = textarea.selectionEnd = start + item.label.length
+
+        updateCellCode(cell.id, newValue)
+        hideAutocomplete()
+        textarea.focus()
+      }
+
       // Debounced evaluation
       let debounceTimer = null
       textarea.addEventListener('input', () => {
         autoResize()
         updateCellCode(cell.id, textarea.value)
+
+        // Show autocomplete
+        showAutocomplete()
 
         clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
@@ -570,17 +708,47 @@ AU, ly, pc           # Distances</pre>
       textarea.addEventListener('focus', () => {
         el.classList.add('focused')
       })
-      textarea.addEventListener('blur', () => {
-        el.classList.remove('focused')
-      })
 
-      // Run on Shift+Enter
+      // Keyboard handling (autocomplete navigation + run)
       textarea.addEventListener('keydown', (e) => {
+        // Autocomplete navigation
+        if (acState.visible) {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            acState.selectedIndex = (acState.selectedIndex + 1) % acState.items.length
+            renderAutocomplete()
+            return
+          }
+          if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            acState.selectedIndex = (acState.selectedIndex - 1 + acState.items.length) % acState.items.length
+            renderAutocomplete()
+            return
+          }
+          if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault()
+            selectAutocompleteItem(acState.selectedIndex)
+            return
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            hideAutocomplete()
+            return
+          }
+        }
+
+        // Run on Shift+Enter
         if (e.key === 'Enter' && e.shiftKey) {
           e.preventDefault()
           clearTimeout(debounceTimer)
           runCell(cell.id)
         }
+      })
+
+      // Hide autocomplete on blur (with delay for click to register)
+      textarea.addEventListener('blur', () => {
+        el.classList.remove('focused')
+        setTimeout(hideAutocomplete, 150)
       })
 
       // Button handlers
