@@ -9,7 +9,7 @@ import { Quantity } from '../core/Quantity.js'
 import * as distributions from '../distributions/index.js'
 import * as mathFunctions from '../functions/index.js'
 import * as physicalConstants from '../constants/index.js'
-import { createUnit, getKnownUnitNames } from '../core/unitUtils.js'
+import { createUnit, getKnownUnitNames, ensureLabelUnitRegistered } from '../core/unitUtils.js'
 
 /**
  * Calculate Levenshtein distance between two strings
@@ -787,7 +787,9 @@ export class Evaluator {
         // e.g., if 1 'widget = 5 kg, then 10 'widgets = 10 * 5 kg
         return customUnitDef.multiply(new Quantity(node.value))
       }
-      // Custom unit not defined - it's just a label
+      // Custom unit not defined - register as a label unit and use it
+      ensureLabelUnitRegistered(node.unit.name)
+      return new Quantity(node.value, node.unit.name)
     }
 
     // Check if the "unit" is actually a dimensionless multiplier constant (million, billion, etc.)
@@ -901,8 +903,9 @@ export class Evaluator {
   }
 
   private evaluateUnit(unitNode: UnitNode): string {
-    // Custom unit with tick
+    // Custom unit with tick - register as label unit if not defined
     if (unitNode.custom && unitNode.name) {
+      ensureLabelUnitRegistered(unitNode.name)
       return unitNode.name
     }
 

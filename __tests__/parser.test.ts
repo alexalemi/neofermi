@@ -358,4 +358,43 @@ describe('Parser', () => {
       expect(c?.value).toBeCloseTo(299792458, -5)
     })
   })
+
+  describe('Undefined custom units (label units)', () => {
+    it('works without prior definition', () => {
+      const result = parse("100 'points")
+      expect(result?.value).toBe(100)
+      expect(result?.unit.toString()).toBe('points')
+    })
+
+    it('supports addition of same label units', () => {
+      const evaluator = new Evaluator()
+      const result = parse("100 'points + 50 'points", evaluator)
+      expect(result?.value).toBe(150)
+      expect(result?.unit.toString()).toBe('points')
+    })
+
+    it('supports multiplication by scalar', () => {
+      const evaluator = new Evaluator()
+      const result = parse("100 'points * 2", evaluator)
+      expect(result?.value).toBe(200)
+      expect(result?.unit.toString()).toBe('points')
+    })
+
+    it('supports division by scalar', () => {
+      const evaluator = new Evaluator()
+      const result = parse("200 'points / 4", evaluator)
+      expect(result?.value).toBe(50)
+      expect(result?.unit.toString()).toBe('points')
+    })
+
+    it('throws for incompatible label units', () => {
+      const evaluator = new Evaluator()
+      expect(() => parse("100 'apples + 50 'oranges", evaluator)).toThrow(/incompatible/)
+    })
+
+    it('throws when mixing label units with standard units', () => {
+      const evaluator = new Evaluator()
+      expect(() => parse("100 'points + 50 kg", evaluator)).toThrow(/incompatible/)
+    })
+  })
 })

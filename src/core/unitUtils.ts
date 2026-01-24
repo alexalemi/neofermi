@@ -5,7 +5,7 @@
  * to make unit parsing more forgiving.
  */
 
-import { unit as mathjsUnit, Unit } from 'mathjs'
+import { unit as mathjsUnit, createUnit as mathjsCreateUnit, Unit } from 'mathjs'
 
 /**
  * Common unit aliases - maps informal/abbreviated names to mathjs unit names
@@ -483,6 +483,34 @@ export function createUnit(value: number, unitStr: string): Unit {
 
   // Nothing worked, try original and let mathjs throw the error
   return mathjsUnit(value, normalized)
+}
+
+/**
+ * Track dynamically registered label units (custom units like 'points, 'widgets)
+ * These are registered as mathjs base units on-the-fly when first used.
+ */
+const registeredLabelUnits = new Set<string>()
+
+/**
+ * Register a custom label unit as a mathjs base unit if not already registered.
+ * This allows undefined custom units (like 100 'points) to work without
+ * requiring prior definition.
+ *
+ * Each label becomes its own unique dimension, so 'points + 'widgets will
+ * correctly error as incompatible units.
+ */
+export function ensureLabelUnitRegistered(labelName: string): void {
+  if (registeredLabelUnits.has(labelName)) return
+
+  mathjsCreateUnit(labelName, { baseName: labelName })
+  registeredLabelUnits.add(labelName)
+}
+
+/**
+ * Check if a unit name is a dynamically registered label unit
+ */
+export function isLabelUnit(name: string): boolean {
+  return registeredLabelUnits.has(name)
 }
 
 /**
