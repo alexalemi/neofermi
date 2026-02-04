@@ -7,6 +7,14 @@
 
 import { unit as mathjsUnit, createUnit as mathjsCreateUnit, Unit } from 'mathjs'
 
+// Register additional units not in mathjs by default
+try {
+  // Nautical mile: exactly 1852 meters by international agreement
+  mathjsCreateUnit('nmi', '1852 m')
+} catch {
+  // Unit may already be registered in tests
+}
+
 /**
  * Common unit aliases - maps informal/abbreviated names to mathjs unit names
  */

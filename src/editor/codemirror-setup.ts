@@ -2,7 +2,7 @@
  * CodeMirror 6 setup for the NeoFermi markdown editor
  */
 
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection } from '@codemirror/view'
 import { EditorState, Extension, Compartment } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
@@ -104,6 +104,7 @@ export function createEditor(
     // Static extensions
     highlightActiveLine(),
     highlightActiveLineGutter(),
+    drawSelection(),
     history(),
     markdown(),
     baseTheme,

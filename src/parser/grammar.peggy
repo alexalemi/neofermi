@@ -87,22 +87,23 @@ ComparisonOp
 // Distribution operators: lowest precedence
 // Includes range (to), uniform (.., thru), normal (pm, +-, +/-), beta (of, against)
 // Keywords must be followed by non-identifier chars to avoid matching prefixes like "total"
+// IMPORTANT: Use _no_newline for unit attachment to prevent "1 to 2 m\nx" being parsed as "1 to 2 mx"
 Range
-  = left:Additive _ "to" ![a-zA-Z0-9_] _ right:Additive unit:(_ Unit)? {
+  = left:Additive _ "to" ![a-zA-Z0-9_] _ right:Additive unit:(_no_newline Unit)? {
       return node('Range', {
         left,
         right,
         unit: unit ? unit[1] : null
       })
     }
-  / left:Additive _ (".." / "thru" ![a-zA-Z0-9_]) _ right:Additive unit:(_ Unit)? {
+  / left:Additive _ (".." / "thru" ![a-zA-Z0-9_]) _ right:Additive unit:(_no_newline Unit)? {
       return node('Uniform', {
         left,
         right,
         unit: unit ? unit[1] : null
       })
     }
-  / mean:Additive _ ("+/-" / "+-" / "pm" ![a-zA-Z0-9_]) _ sigma:Additive unit:(_ Unit)? {
+  / mean:Additive _ ("+/-" / "+-" / "pm" ![a-zA-Z0-9_]) _ sigma:Additive unit:(_no_newline Unit)? {
       return node('Normal', {
         mean,
         sigma,
@@ -194,7 +195,7 @@ DbTwiddle
 
 // Weighted set notation: {365, 366} or {365: 303, 366: 97}
 WeightedSet
-  = "{" _ entries:WeightedEntries _ "}" unit:(_ Unit)? {
+  = "{" _ entries:WeightedEntries _ "}" unit:(_no_newline Unit)? {
       return node('WeightedSet', {
         entries,
         unit: unit ? unit[1] : null
@@ -216,7 +217,7 @@ WeightedEntry
 
 // Significant figure number: '3.14 means "about 3.14" with uncertainty from sig figs
 SigFigNumber
-  = "'" raw:SigFigLiteral unit:(_ Unit)? {
+  = "'" raw:SigFigLiteral unit:(_no_newline Unit)? {
       return node('SigFigNumber', {
         raw: raw,
         unit: unit ? unit[1] : null
@@ -241,8 +242,9 @@ ArgumentList
   / _ { return [] }
 
 // Numbers with optional units
+// IMPORTANT: Use _no_newline to prevent "5\ny" from being parsed as "5 y"
 Number
-  = value:NumericLiteral unit:(_ UnitWithReciprocal)? {
+  = value:NumericLiteral unit:(_no_newline UnitWithReciprocal)? {
       return node('Number', {
         value: parseFloat(value),
         unit: unit ? unit[1] : null
@@ -316,6 +318,10 @@ ReservedWord
 // Whitespace and comments
 _
   = (WhiteSpace / Comment)*
+
+// Whitespace without newlines (for use in statement separators)
+_no_newline
+  = [ \t]+
 
 WhiteSpace
   = [ \t\n\r]
