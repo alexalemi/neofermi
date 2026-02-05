@@ -32,7 +32,7 @@ const DEFAULT_OPTIONS: Required<HistogramOptions> = {
   numBins: 25,
   barColor: '#4ec9b0',
   barOpacity: 0.8,
-  axisColor: '#666',
+  axisColor: '#a0a0a0',
   backgroundColor: 'transparent',
   showAxis: true,
   padding: 10,
@@ -210,7 +210,7 @@ export function renderHistogram(
     if (axisLabel) {
       ctx.textAlign = 'center'
       ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif'
-      ctx.fillStyle = '#888'
+      ctx.fillStyle = axisColor
       ctx.fillText(axisLabel, width / 2, axisY + 16)
     }
   }

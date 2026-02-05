@@ -298,7 +298,7 @@
     }
 
     .cell-output.result {
-      color: #ce9178;
+      color: #e8c4a0;
       background: rgba(206, 145, 120, 0.08);
     }
 
@@ -318,7 +318,7 @@
     }
 
     .dim-name {
-      color: #888;
+      color: #b0b0b0;
       font-style: italic;
     }
 
@@ -1027,12 +1027,12 @@ Escape               # Unfocus cell</pre>
       const p84Fmt = formatWithUncertainty(p84, uncertainty)
 
       if (asHtml) {
-        return `Mean: ${meanFmt} ${unitStr}<br>Median: ${medianFmt} ${unit}<br>[68% CI]: [${p16Fmt}, ${p84Fmt}] ${unit}`
+        return `Mean: ${meanFmt} ${unitStr}<br>Median: ${medianFmt} ${unitStr}<br>[68% CI]: [${p16Fmt}, ${p84Fmt}] ${unitStr}`
       }
 
       return `Mean: ${meanFmt} ${unitStrPlain}
-Median: ${medianFmt} ${unit}
-[68% CI]: [${p16Fmt}, ${p84Fmt}] ${unit}`
+Median: ${medianFmt} ${unitStrPlain}
+[68% CI]: [${p16Fmt}, ${p84Fmt}] ${unitStrPlain}`
     }
 
     function escapeHtml(str) {

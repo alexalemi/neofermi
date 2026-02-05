@@ -137,8 +137,8 @@ function formatQuantityResult(q: Quantity): string {
 
     return `<div class="nf-stats">
 <span class="nf-stat">Mean: <strong>${mean}</strong> ${unitStr}</span>
-<span class="nf-stat">Median: ${median} ${unit}</span>
-<span class="nf-stat">[68% CI]: [${p16}, ${p84}] ${unit}</span>
+<span class="nf-stat">Median: ${median} ${unitStr}</span>
+<span class="nf-stat">[68% CI]: [${p16}, ${p84}] ${unitStr}</span>
 </div>`
   } else {
     const value = formatNumber(q.value as number)

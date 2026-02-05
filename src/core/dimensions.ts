@@ -81,6 +81,10 @@ const DIMENSION_NAMES: Record<string, DimensionInfo> = {
 
 /**
  * Get the dimension signature from a mathjs Unit
+ *
+ * mathjs uses 9 base dimensions: [mass, length, time, current, temp, moles, luminosity, angle, bit]
+ * When custom units are registered, mathjs may add extra dimension slots (10th, 11th, etc.)
+ * We only use the first 9 for our lookup table to ensure robustness with custom units.
  */
 function getDimensionSignature(unit: Unit): string {
   try {
@@ -89,7 +93,13 @@ function getDimensionSignature(unit: Unit): string {
     if (!dims || !Array.isArray(dims)) {
       return '0,0,0,0,0,0,0,0,0'
     }
-    return dims.join(',')
+    // Only use first 9 dimensions (standard SI bases), ignore custom dimension extensions
+    const standardDims = dims.slice(0, 9)
+    // Pad with zeros if somehow shorter than 9
+    while (standardDims.length < 9) {
+      standardDims.push(0)
+    }
+    return standardDims.join(',')
   } catch {
     return '0,0,0,0,0,0,0,0,0'
   }
