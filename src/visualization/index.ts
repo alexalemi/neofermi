@@ -23,8 +23,32 @@ export {
 } from './histogram.js'
 
 import { Quantity } from '../core/Quantity.js'
-import { createDotplotCanvas, DotplotOptions } from './quantileDotplot.js'
+import { createDotplotCanvas, DotplotOptions, calculateDotplotData } from './quantileDotplot.js'
 import { createHistogramCanvas, HistogramOptions } from './histogram.js'
+
+/**
+ * Structured visualization data for dotplots, used across all rendering surfaces.
+ */
+export interface VizData {
+  samples: number[]
+  unit: string
+  min: number
+  max: number
+}
+
+/**
+ * Extract visualization data from a distribution Quantity.
+ */
+export function getVizData(q: Quantity): VizData {
+  const samples = q.toParticles()
+  const data = calculateDotplotData(samples, 20, q.unit.toString())
+  return {
+    samples: data.quantiles,
+    unit: data.unit,
+    min: data.min,
+    max: data.max,
+  }
+}
 
 export type VisualizationType = 'dotplot' | 'histogram'
 

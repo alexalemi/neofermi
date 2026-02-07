@@ -1,7 +1,7 @@
 # NeoFermi Makefile
 # Build the library, CLI binary, and render example outputs
 
-.PHONY: all build parser lib cli examples clean test help package publish
+.PHONY: all build parser lib cli embed examples clean test help package publish
 
 # Default target
 all: build examples
@@ -18,6 +18,11 @@ parser:
 lib: parser
 	@echo "Building library..."
 	bun run build
+
+# Build the embeddable script bundle
+embed: parser
+	@echo "Building embed bundle..."
+	bun build:embed
 
 # Build the CLI binary
 cli: parser
@@ -100,6 +105,7 @@ help:
 	@echo "  parser     - Build PEG.js parser only"
 	@echo "  lib        - Build TypeScript library"
 	@echo "  cli        - Build CLI binary"
+	@echo "  embed      - Build embeddable script bundle (neofermi-embed.js)"
 	@echo "  examples   - Render example markdown files to HTML"
 	@echo "  test       - Run tests"
 	@echo "  test-watch - Run tests in watch mode"

@@ -7,15 +7,11 @@
 
 import { parse, Evaluator, EvaluationError } from '../parser/index.js'
 import type { Quantity } from '../core/Quantity.js'
-import { calculateDotplotData } from '../visualization/quantileDotplot.js'
+import { getVizData, type VizData } from '../visualization/index.js'
+import { formatQuantityConcise } from '../utils/format.js'
 import type { ParsedExpression } from './markdown-processor.js'
 
-export interface VizData {
-  samples: number[]
-  unit: string
-  min: number
-  max: number
-}
+export type { VizData }
 
 export interface EvaluationResult {
   source: string
@@ -74,8 +70,8 @@ function evaluateCode(
       return { output: '', inlineOutput: '', error: null, quantity: null, vizData: null }
     }
 
-    const output = formatQuantityResult(result)
-    const inlineOutput = formatQuantityInline(result)
+    const output = formatQuantityConcise(result, { html: true })
+    const inlineOutput = formatQuantityConcise(result)
     const vizData = result.isDistribution() ? getVizData(result) : null
 
     return { output, inlineOutput, error: null, quantity: result, vizData }
@@ -105,8 +101,8 @@ function evaluateVariable(
     }
   }
 
-  const output = formatQuantityResult(value)
-  const inlineOutput = formatQuantityInline(value)
+  const output = formatQuantityConcise(value, { html: true })
+  const inlineOutput = formatQuantityConcise(value)
 
   return {
     output,
@@ -117,87 +113,4 @@ function evaluateVariable(
   }
 }
 
-/**
- * Format a Quantity result for block display (detailed stats)
- */
-function formatQuantityResult(q: Quantity): string {
-  const unit = q.unit.toString()
-  const dimName = q.dimensionName?.() || null
 
-  if (q.isDistribution()) {
-    const mean = formatNumber(q.mean())
-    const median = formatNumber(q.median())
-    const p16 = formatNumber(q.percentile(0.16))
-    const p84 = formatNumber(q.percentile(0.84))
-
-    let unitStr = unit
-    if (dimName && dimName !== 'dimensionless') {
-      unitStr = `${unit} <span class="nf-dim">{${dimName}}</span>`
-    }
-
-    return `<div class="nf-stats">
-<span class="nf-stat">Mean: <strong>${mean}</strong> ${unitStr}</span>
-<span class="nf-stat">Median: ${median} ${unitStr}</span>
-<span class="nf-stat">[68% CI]: [${p16}, ${p84}] ${unitStr}</span>
-</div>`
-  } else {
-    const value = formatNumber(q.value as number)
-    let unitStr = unit
-    if (dimName && dimName !== 'dimensionless') {
-      unitStr = `${unit} <span class="nf-dim">{${dimName}}</span>`
-    }
-    return `<span class="nf-scalar">${value} ${unitStr}</span>`
-  }
-}
-
-/**
- * Format a Quantity for inline display (compact)
- *
- * For distributions: median [p16 - p84] unit
- * For scalars: value unit
- */
-function formatQuantityInline(q: Quantity): string {
-  const unit = q.unit.toString()
-  const dimName = q.dimensionName?.()
-  const dimSuffix = dimName && dimName !== 'dimensionless' ? ` {${dimName}}` : ''
-
-  if (q.isDistribution()) {
-    const median = formatNumber(q.median())
-    const p16 = formatNumber(q.percentile(0.16))
-    const p84 = formatNumber(q.percentile(0.84))
-    return `${median} [${p16} – ${p84}] ${unit}${dimSuffix}`.trim()
-  } else {
-    const value = formatNumber(q.value as number)
-    return `${value} ${unit}${dimSuffix}`.trim()
-  }
-}
-
-/**
- * Get visualization data for a distribution
- */
-function getVizData(q: Quantity): VizData {
-  const samples = q.toParticles()
-  const data = calculateDotplotData(samples, 20, q.unit.toString())
-  return {
-    samples: data.quantiles,
-    unit: data.unit,
-    min: data.min,
-    max: data.max,
-  }
-}
-
-/**
- * Format a number for display
- */
-function formatNumber(n: number): string {
-  if (!isFinite(n)) return String(n)
-
-  const abs = Math.abs(n)
-  if (abs >= 1e6 || (abs < 1e-3 && abs > 0)) {
-    return n.toExponential(2)
-  }
-  if (abs >= 100) return n.toFixed(0)
-  if (abs >= 10) return n.toFixed(1)
-  if (abs >= 1) return n.toFixed(2)
-  return n.toPrecision(3)
-}

@@ -43,6 +43,35 @@ const result = parse('10 to 100 * 5 kg')
 console.log(result.toString())         // "250 kg (90% CI: 50 - 500)"
 ```
 
+### Embed in a Blog Post
+
+Drop a single `<script>` tag into any HTML page. It auto-evaluates `neofermi` code blocks and renders results with dotplots inline.
+
+```html
+<script src="https://cdn.jsdelivr.net/gh/alexalemi/neofermi@v0.1.0/dist/neofermi-embed.js"></script>
+```
+
+Then write fenced code blocks with the `neofermi` language tag:
+
+````html
+<pre><code class="language-neofermi">
+speed = 60 to 120 km/hr
+time = 1 to 3 hours
+distance = speed * time
+</code></pre>
+````
+
+The script evaluates each block top-to-bottom (sharing state across blocks on the page) and inserts the result with a dotplot visualization below.
+
+**Options:**
+
+- **REPL widget** — Add `data-repl="true"` to the script tag to show a collapsible REPL bar at the bottom of the page:
+  ```html
+  <script src="https://cdn.jsdelivr.net/gh/alexalemi/neofermi@v0.1.0/dist/neofermi-embed.js" data-repl="true"></script>
+  ```
+
+**Self-hosting:** Build the embed script locally with `make embed`, then serve `dist/neofermi-embed.js` from your own domain.
+
 ### CLI
 
 ```bash

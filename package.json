@@ -27,6 +27,7 @@
     "build": "tsc && vite build",
     "build:types": "tsc -p tsconfig.build.json",
     "prepublishOnly": "bun run build && bun run build:types",
+    "build:embed": "vite build --config vite.config.embed.ts",
     "build:cli": "node scripts/build-cli.js",
     "build:cli:watch": "node scripts/build-cli.js --watch",
     "notebook": "node --import tsx src/cli/index.ts",

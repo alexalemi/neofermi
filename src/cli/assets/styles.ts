@@ -108,23 +108,14 @@ p code, li code {
   background: rgba(9, 105, 218, 0.04);
 }
 
-.nf-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.nf-stat {
-  font-size: 0.9em;
-}
-
-.nf-stat strong {
-  color: #0969da;
-}
-
 .nf-scalar {
   color: #0969da;
   font-weight: 500;
+}
+
+.nf-ci {
+  color: #656d76;
+  font-size: 0.9em;
 }
 
 .nf-dim {
@@ -145,6 +136,11 @@ p code, li code {
   padding: 12px;
   display: flex;
   justify-content: center;
+  --nf-dot-color: rgba(37, 99, 235, 0.8);
+  --nf-axis-color: #ccc;
+  --nf-label-color: #666;
+  --nf-unit-color: #888;
+  --nf-viz-bg: #f8f9fa;
 }
 
 .nf-viz canvas {
@@ -283,23 +279,14 @@ p code, li code {
   background: rgba(206, 145, 120, 0.08);
 }
 
-.nf-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.nf-stat {
-  font-size: 0.9em;
-}
-
-.nf-stat strong {
-  color: #4ec9b0;
-}
-
 .nf-scalar {
   color: #4ec9b0;
   font-weight: 500;
+}
+
+.nf-ci {
+  color: #888;
+  font-size: 0.9em;
 }
 
 .nf-dim {
@@ -320,6 +307,11 @@ p code, li code {
   padding: 12px;
   display: flex;
   justify-content: center;
+  --nf-dot-color: rgba(99, 102, 241, 0.85);
+  --nf-axis-color: #555;
+  --nf-label-color: #999;
+  --nf-unit-color: #777;
+  --nf-viz-bg: #1a1a2e;
 }
 
 .nf-viz canvas {

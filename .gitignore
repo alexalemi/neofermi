@@ -19,6 +19,9 @@ bin/*.cjs.map
 # Generated parser
 src/parser/generated.js
 
+# Generated client-viz bundle (created by scripts/build-cli.js)
+src/cli/assets/_generated-client-viz.ts
+
 # Environment
 .env
 .env.local

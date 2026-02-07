@@ -8,6 +8,7 @@
 
 import MarkdownIt from 'markdown-it'
 import type { EvaluationResult } from './expression-evaluator.js'
+import { escapeHtml, buildCellHtml } from '../utils/html.js'
 
 export interface ParsedExpression {
   id: string
@@ -113,7 +114,7 @@ export function processMarkdown(content: string): ProcessedDocument {
       if (!result) {
         return '<div class="nf-cell"><div class="nf-error">Expression not evaluated</div></div>'
       }
-      return renderBlockResult(exprId, result)
+      return buildCellHtml(result.source || '', result, exprId)
     })
 
     // Replace inline expressions in the rendered HTML
@@ -134,40 +135,6 @@ export function processMarkdown(content: string): ProcessedDocument {
   return { expressions, render }
 }
 
-/**
- * Render a block expression result as HTML
- */
-function renderBlockResult(exprId: string, result: EvaluationResult): string {
-  const escapedCode = escapeHtml(result.source || '')
-
-  if (result.error) {
-    return `<div class="nf-cell">
-<pre class="nf-code"><code>${escapedCode}</code></pre>
-<div class="nf-error">${escapeHtml(result.error)}</div>
-</div>`
-  }
-
-  let resultHtml = ''
-  if (result.output) {
-    resultHtml = `<div class="nf-result">${result.output}</div>`
-
-    if (result.vizData) {
-      const vizAttrs = [
-        `data-expr-id="${exprId}"`,
-        `data-samples="${escapeHtml(JSON.stringify(result.vizData.samples))}"`,
-        `data-unit="${escapeHtml(result.vizData.unit)}"`,
-        `data-min="${result.vizData.min}"`,
-        `data-max="${result.vizData.max}"`,
-      ].join(' ')
-      resultHtml += `<div class="nf-viz" ${vizAttrs}></div>`
-    }
-  }
-
-  return `<div class="nf-cell">
-<pre class="nf-code"><code>${escapedCode}</code></pre>
-${resultHtml}
-</div>`
-}
 
 /**
  * Render an inline expression result
@@ -184,16 +151,6 @@ function renderInlineResult(result: EvaluationResult | undefined): string {
   return `<span class="nf-inline">${result.inlineOutput || result.output || '???'}</span>`
 }
 
-/**
- * Escape HTML special characters
- */
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 /**
  * Escape special regex characters in a string

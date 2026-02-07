@@ -310,20 +310,14 @@ body {
   color: var(--error-color);
 }
 
-.nf-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.nf-scalar {
   font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
-  color: var(--result-color);
-}
-
-.nf-stat strong {
   color: var(--highlight-color);
+  font-weight: 500;
 }
 
-.nf-scalar {
+.nf-ci {
   font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   color: var(--result-color);
