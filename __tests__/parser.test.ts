@@ -163,6 +163,22 @@ describe('Parser', () => {
       expect(mean).toBeGreaterThan(3) // > 3 feet
       expect(mean).toBeLessThan(33) // < 33 feet
     })
+
+    it('as applies to entire expression, not just last operand', () => {
+      const evaluator = new Evaluator()
+      parse('x = 100 meters', evaluator)
+      parse('y = 50 meters/second', evaluator)
+      const result = parse('x / y as seconds', evaluator)
+      expect(result?.value).toBeCloseTo(2, 1)
+      expect(result?.unit.toString()).toBe('seconds')
+    })
+
+    it('chains multiple conversions', () => {
+      const result = parse('1000 meters as feet as inches')
+      expect(result?.unit.toString()).toBe('inches')
+      // 1000 m ≈ 3280.84 ft ≈ 39370 in
+      expect(result?.value).toBeCloseTo(39370.1, -1)
+    })
   })
 
   describe('Function calls', () => {
