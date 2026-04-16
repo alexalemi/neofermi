@@ -255,6 +255,64 @@ describe('Unit system', () => {
     })
   })
 
+  describe('Cross-unit cancellation (dimensionless simplification)', () => {
+    // Regression: `simplifyUnit` used to group by mathjs base name, so
+    // `feet`/`mm` would cancel dimensionally (both are length) but the ratio
+    // was silently dropped because the names didn't match. The fix detects
+    // dimensionlessness via the aggregate dimension vector.
+    it('feet over mm reduces to dimensionless 304.8', () => {
+      const r = parse('1 feet / 1 mm')
+      expect(r?.value).toBeCloseTo(304.8, 4)
+      expect(r?.unit.toString()).toBe('')
+    })
+
+    it('feet^3 over mm^3 reduces to dimensionless 2.83e7', () => {
+      const r = parse('1 feet^3 / 1 mm^3')
+      expect(r?.value).toBeCloseTo(28316846.592, 1)
+      expect(r?.unit.toString()).toBe('')
+    })
+
+    it('calorie over joule reduces to dimensionless 4.184', () => {
+      const r = parse('1 calorie / 1 joule')
+      expect(r?.value).toBeCloseTo(4.184, 6)
+      expect(r?.unit.toString()).toBe('')
+    })
+
+    it('hour over second reduces to dimensionless 3600', () => {
+      const r = parse('1 hour / 1 second')
+      expect(r?.value).toBe(3600)
+      expect(r?.unit.toString()).toBe('')
+    })
+
+    it('lightyear over meter reduces to dimensionless 9.46e15', () => {
+      const r = parse('1 ly / 1 m')
+      expect(r?.value).toBeCloseTo(9.4607e15, -12)
+      expect(r?.unit.toString()).toBe('')
+    })
+
+    it('same-prefix cancellation still works: km / m = 1000', () => {
+      const r = parse('1 km / 1 m')
+      expect(r?.value).toBe(1000)
+      expect(r?.unit.toString()).toBe('')
+    })
+
+    it('feet * mm^-1 reduces to dimensionless 304.8', () => {
+      const r = parse('1 feet * 1 mm^-1')
+      expect(r?.value).toBeCloseTo(304.8, 4)
+      expect(r?.unit.toString()).toBe('')
+    })
+
+    it('non-dimensionless products are preserved (feet * mm)', () => {
+      const r = parse('1 feet * 1 mm')
+      expect(r?.unit.toString()).not.toBe('')
+    })
+
+    it('partial cancellation is preserved (feet^2 / meter)', () => {
+      const r = parse('1 feet^2 / 1 meter')
+      expect(r?.unit.toString()).not.toBe('')
+    })
+  })
+
   describe('Quantity unit conversion method', () => {
     it('converts between compatible units', () => {
       const a = new Quantity(1000, 'meters')

@@ -35,15 +35,37 @@ function simplifyUnit(unitObj: Unit): SimplifiedUnit {
   }
 
   // Access the internal units array
-  // Each element has: { unit: { name }, prefix: { name, value }, power }
+  // Each element has: { unit: { name, value, dimensions }, prefix: { name, value }, power }
+  // `unit.value` is the SI conversion factor (feet=0.3048, m=1, calorie=4.184…)
+  // `unit.dimensions` is the 9-element base dimension vector.
   const units = (unitObj as any).units as Array<{
-    unit: { name: string }
+    unit: { name: string; value: number; dimensions: number[] }
     prefix: { name: string; value: number }
     power: number
   }>
 
   if (!units || units.length === 0) {
     return { unitStr: '', scaleFactor: 1 }
+  }
+
+  // If the aggregate dimension vector is zero, the unit is dimensionless even
+  // if the entries have different base names (e.g. `feet^3 / mm^3`). Absorb
+  // every entry's conversion factor into scaleFactor. Without this, simplifyUnit's
+  // name-grouped path leaves the ratio in the unit string and silently drops
+  // the numeric factor (the cross-unit cancellation bug).
+  const dimCount = units[0].unit.dimensions.length
+  const totalDims = new Array<number>(dimCount).fill(0)
+  for (const u of units) {
+    for (let i = 0; i < dimCount; i++) {
+      totalDims[i] += u.unit.dimensions[i] * u.power
+    }
+  }
+  if (totalDims.every((d) => d === 0)) {
+    let scaleFactor = 1
+    for (const u of units) {
+      scaleFactor *= Math.pow(u.prefix.value * u.unit.value, u.power)
+    }
+    return { unitStr: '', scaleFactor }
   }
 
   // Group units by BASE name (ignoring prefix) and sum their powers
