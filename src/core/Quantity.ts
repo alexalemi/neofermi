@@ -250,61 +250,49 @@ export class Quantity {
    */
 
   add(other: Quantity): Quantity {
-    // Check dimensional compatibility
-    if (!this.unit.equalBase(other.unit)) {
-      throw new Error(
-        `Cannot add quantities with incompatible units: ${this.unit} and ${other.unit}`
-      )
-    }
-
-    const aParticles = this.toParticles()
-    const bParticles = other.toParticles()
-
-    // If both are scalars, return scalar
-    if (aParticles.length === 1 && bParticles.length === 1) {
-      return new Quantity(aParticles[0] + bParticles[0], this.unit.toString())
-    }
-
-    // Otherwise, element-wise addition
-    const maxLength = Math.max(aParticles.length, bParticles.length)
-    const result: number[] = new Array(maxLength)
-
-    for (let i = 0; i < maxLength; i++) {
-      const a = aParticles[i % aParticles.length]
-      const b = bParticles[i % bParticles.length]
-      result[i] = a + b
-    }
-
-    return new Quantity(result, this.unit.toString())
+    return this.combine(other, 'add', (a, b) => a + b)
   }
 
   subtract(other: Quantity): Quantity {
-    // Check dimensional compatibility
+    return this.combine(other, 'subtract', (a, b) => a - b)
+  }
+
+  /**
+   * Element-wise combine of this Quantity with another under a binary scalar
+   * operation. Requires the same dimensional base; converts `other` into this
+   * quantity's unit first so `1 m + 50 cm` correctly yields `1.5 m` rather
+   * than `51 m`.
+   */
+  private combine(
+    other: Quantity,
+    opName: string,
+    op: (a: number, b: number) => number,
+  ): Quantity {
     if (!this.unit.equalBase(other.unit)) {
       throw new Error(
-        `Cannot subtract quantities with incompatible units: ${this.unit} and ${other.unit}`
+        `Cannot ${opName} quantities with incompatible units: ${this.unit} and ${other.unit}`,
       )
     }
 
-    const aParticles = this.toParticles()
-    const bParticles = other.toParticles()
+    const unitStr = this.unit.toString()
+    const aligned =
+      unitStr !== '' && other.unit.toString() !== unitStr ? other.to(unitStr) : other
 
-    // If both are scalars, return scalar
+    const aParticles = this.toParticles()
+    const bParticles = aligned.toParticles()
+
     if (aParticles.length === 1 && bParticles.length === 1) {
-      return new Quantity(aParticles[0] - bParticles[0], this.unit.toString())
+      return new Quantity(op(aParticles[0], bParticles[0]), unitStr)
     }
 
-    // Otherwise, element-wise subtraction
     const maxLength = Math.max(aParticles.length, bParticles.length)
     const result: number[] = new Array(maxLength)
-
     for (let i = 0; i < maxLength; i++) {
       const a = aParticles[i % aParticles.length]
       const b = bParticles[i % bParticles.length]
-      result[i] = a - b
+      result[i] = op(a, b)
     }
-
-    return new Quantity(result, this.unit.toString())
+    return new Quantity(result, unitStr)
   }
 
   multiply(other: Quantity): Quantity {

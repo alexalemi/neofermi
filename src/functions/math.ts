@@ -21,11 +21,23 @@ function applyUnary(q: Quantity, fn: (x: number) => number, unitTransform?: (u: 
 }
 
 /**
- * Helper to apply a binary function element-wise to two Quantities
+ * Helper to apply a binary function element-wise to two Quantities.
+ *
+ * When `resultUnit` is provided, `b` is first converted into that unit so the
+ * element-wise operation compares like-for-like numeric values (e.g. meters vs
+ * meters). When omitted, the result is dimensionless — appropriate for ratios
+ * and log-scale operations.
  */
-function applyBinary(a: Quantity, b: Quantity, fn: (x: number, y: number) => number): Quantity {
+function applyBinary(
+  a: Quantity,
+  b: Quantity,
+  fn: (x: number, y: number) => number,
+  resultUnit?: string,
+): Quantity {
   const aParticles = a.toParticles()
-  const bParticles = b.toParticles()
+  const bParticles = resultUnit && b.unit.toString() !== resultUnit
+    ? b.to(resultUnit).toParticles()
+    : b.toParticles()
   const maxLength = Math.max(aParticles.length, bParticles.length)
   const result: number[] = new Array(maxLength)
 
@@ -35,11 +47,10 @@ function applyBinary(a: Quantity, b: Quantity, fn: (x: number, y: number) => num
     result[i] = fn(x, y)
   }
 
-  // Result is dimensionless for most binary math functions
   if (aParticles.length === 1 && bParticles.length === 1) {
-    return new Quantity(result[0])
+    return new Quantity(result[0], resultUnit)
   }
-  return new Quantity(result)
+  return new Quantity(result, resultUnit)
 }
 
 // ============================================
@@ -316,36 +327,21 @@ export function min(a: Quantity, b: Quantity): Quantity {
   if (!a.unit.equalBase(b.unit)) {
     throw new Error(`min() requires arguments with compatible units, got ${a.unit} and ${b.unit}`)
   }
-  return applyBinary(a, b, Math.min)
+  return applyBinary(a, b, Math.min, a.unit.toString())
 }
 
 export function max(a: Quantity, b: Quantity): Quantity {
   if (!a.unit.equalBase(b.unit)) {
     throw new Error(`max() requires arguments with compatible units, got ${a.unit} and ${b.unit}`)
   }
-  return applyBinary(a, b, Math.max)
+  return applyBinary(a, b, Math.max, a.unit.toString())
 }
 
 export function hypot(a: Quantity, b: Quantity): Quantity {
   if (!a.unit.equalBase(b.unit)) {
     throw new Error(`hypot() requires arguments with same units, got ${a.unit} and ${b.unit}`)
   }
-
-  const aParticles = a.toParticles()
-  const bParticles = b.toParticles()
-  const maxLength = Math.max(aParticles.length, bParticles.length)
-  const result: number[] = new Array(maxLength)
-
-  for (let i = 0; i < maxLength; i++) {
-    const x = aParticles[i % aParticles.length]
-    const y = bParticles[i % bParticles.length]
-    result[i] = Math.hypot(x, y)
-  }
-
-  if (aParticles.length === 1 && bParticles.length === 1) {
-    return new Quantity(result[0], a.unit.toString())
-  }
-  return new Quantity(result, a.unit.toString())
+  return applyBinary(a, b, Math.hypot, a.unit.toString())
 }
 
 // ============================================

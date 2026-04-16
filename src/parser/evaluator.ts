@@ -492,20 +492,14 @@ export class Evaluator {
     const leftHasUnit = left.unit && left.unit.toString() !== ''
     const rightHasUnit = right.unit && right.unit.toString() !== ''
 
-    // Check if the right operand's ORIGINAL AST node has a dimensionless multiplier
-    // This handles "100 to 200 million" where million should apply to both bounds
-    // The right.value already has the multiplier applied (200e6), so we just apply to left
-    if (
-      !leftHasUnit &&
-      !rightHasUnit &&
-      (node.right as any).type === 'Number' &&
-      (node.right as any).unit?.name
-    ) {
-      const rightMultiplier = this.getDimensionlessMultiplier((node.right as any).unit.name)
-      if (rightMultiplier !== null) {
-        // Right already has multiplier applied, apply it to left too
-        return distributions.to(leftVal * rightMultiplier, rightVal)
-      }
+    // "100 to 200 million": million attaches to the right bound but the user
+    // means it for both. The right value already has it applied (200e6), so we
+    // apply it to the left. Skip when the left has its own multiplier
+    // ("100 thousand to 1 million") to avoid double-applying.
+    const rightMultiplier = this.getNumberNodeMultiplier(node.right)
+    const leftMultiplier = this.getNumberNodeMultiplier(node.left)
+    if (!leftHasUnit && !rightHasUnit && leftMultiplier === null && rightMultiplier !== null) {
+      return distributions.to(leftVal * rightMultiplier, rightVal)
     }
 
     // Determine trailing unit from the range syntax
@@ -578,47 +572,91 @@ export class Evaluator {
   }
 
   private evaluateUniform(node: ASTNode & { type: 'Uniform' }): Quantity {
-    const left = this.evaluate(node.left)
-    const right = this.evaluate(node.right)
+    let left = this.evaluate(node.left)
+    let right = this.evaluate(node.right)
 
     if (!left || !right) {
       throw new EvaluationError('Uniform bounds evaluated to null')
     }
 
-    const leftVal = left.isScalar() ? (left.value as number) : left.mean()
-    const rightVal = right.isScalar() ? (right.value as number) : right.mean()
+    const leftUnitStr = left.unit.toString()
+    const rightUnitStr = right.unit.toString()
 
-    // Determine unit from trailing unit or from operands
+    if (
+      leftUnitStr !== '' &&
+      rightUnitStr !== '' &&
+      !left.unit.equalBase(right.unit)
+    ) {
+      throw new EvaluationError(
+        `Incompatible units in uniform(): ${left.unit} and ${right.unit}`,
+        (node as any).location,
+      )
+    }
+
+    // Precedence for output unit: trailing > right > left (matches prior policy)
     let unitStr: string | undefined
     if (node.unit) {
       unitStr = this.evaluateUnit(node.unit)
-    } else if (right.unit && right.unit.toString() !== '') {
-      unitStr = right.unit.toString()
-    } else if (left.unit && left.unit.toString() !== '') {
-      unitStr = left.unit.toString()
+    } else if (rightUnitStr !== '') {
+      unitStr = rightUnitStr
+    } else if (leftUnitStr !== '') {
+      unitStr = leftUnitStr
     }
+
+    // Align operand values with the resolved unit so mixed compatible units
+    // (e.g. `uniform(1 m, 50 cm)`) don't collapse to `uniform(1, 50)`.
+    if (unitStr && unitStr !== '') {
+      if (leftUnitStr !== '' && leftUnitStr !== unitStr) left = left.to(unitStr)
+      if (rightUnitStr !== '' && rightUnitStr !== unitStr) right = right.to(unitStr)
+    }
+
+    const leftVal = left.isScalar() ? (left.value as number) : left.mean()
+    const rightVal = right.isScalar() ? (right.value as number) : right.mean()
 
     return distributions.uniform(leftVal, rightVal, unitStr)
   }
 
   private evaluateNormal(node: ASTNode & { type: 'Normal' }): Quantity {
-    const mean = this.evaluate(node.mean)
-    const sigma = this.evaluate(node.sigma)
+    let mean = this.evaluate(node.mean)
+    let sigma = this.evaluate(node.sigma)
 
     if (!mean || !sigma) {
       throw new EvaluationError('Normal parameters evaluated to null')
     }
 
-    const meanVal = mean.isScalar() ? (mean.value as number) : mean.mean()
-    const sigmaVal = sigma.isScalar() ? (sigma.value as number) : sigma.mean()
+    const meanUnitStr = mean.unit.toString()
+    const sigmaUnitStr = sigma.unit.toString()
 
-    // Determine unit from trailing unit or from mean
+    if (
+      meanUnitStr !== '' &&
+      sigmaUnitStr !== '' &&
+      !mean.unit.equalBase(sigma.unit)
+    ) {
+      throw new EvaluationError(
+        `Incompatible units in normal(): ${mean.unit} and ${sigma.unit}`,
+        (node as any).location,
+      )
+    }
+
+    // Precedence for output unit: trailing > mean > sigma
     let unitStr: string | undefined
     if (node.unit) {
       unitStr = this.evaluateUnit(node.unit)
-    } else if (mean.unit && mean.unit.toString() !== '') {
-      unitStr = mean.unit.toString()
+    } else if (meanUnitStr !== '') {
+      unitStr = meanUnitStr
+    } else if (sigmaUnitStr !== '') {
+      unitStr = sigmaUnitStr
     }
+
+    // Align operand values with the resolved unit so `normal(1 m, 100 cm)`
+    // computes `1 ± 1` instead of `1 ± 100` in meters.
+    if (unitStr && unitStr !== '') {
+      if (meanUnitStr !== '' && meanUnitStr !== unitStr) mean = mean.to(unitStr)
+      if (sigmaUnitStr !== '' && sigmaUnitStr !== unitStr) sigma = sigma.to(unitStr)
+    }
+
+    const meanVal = mean.isScalar() ? (mean.value as number) : mean.mean()
+    const sigmaVal = sigma.isScalar() ? (sigma.value as number) : sigma.mean()
 
     // Create normal distribution: mean ± sigma represents 68% CI
     // So the 16th percentile is mean - sigma, 84th is mean + sigma
@@ -802,6 +840,18 @@ export class Evaluator {
 
     const unitStr = node.unit ? this.evaluateUnit(node.unit) : undefined
     return new Quantity(node.value, unitStr)
+  }
+
+  /**
+   * If the node is a Number literal whose unit slot is actually a dimensionless
+   * multiplier (hundred/thousand/million/...), return that multiplier. Returns
+   * null for any other node shape.
+   */
+  private getNumberNodeMultiplier(node: ASTNode): number | null {
+    if (node.type !== 'Number' || !node.unit?.name || node.unit.custom) {
+      return null
+    }
+    return this.getDimensionlessMultiplier(node.unit.name)
   }
 
   /**

@@ -74,6 +74,22 @@ describe('Quantity', () => {
       expect(() => a.add(b)).toThrow()
     })
 
+    it('add converts compatible units to this unit', () => {
+      const a = new Quantity(1, 'm')
+      const b = new Quantity(50, 'cm')
+      const c = a.add(b)
+      expect(c.value).toBeCloseTo(1.5)
+      expect(c.unit.toString()).toBe('m')
+    })
+
+    it('subtract converts compatible units to this unit', () => {
+      const a = new Quantity(1, 'm')
+      const b = new Quantity(50, 'cm')
+      const c = a.subtract(b)
+      expect(c.value).toBeCloseTo(0.5)
+      expect(c.unit.toString()).toBe('m')
+    })
+
     it('multiplies quantities', () => {
       const a = new Quantity(3, 'meters')
       const b = new Quantity(4, 'seconds')
