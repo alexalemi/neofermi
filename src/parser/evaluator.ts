@@ -289,6 +289,9 @@ export class Evaluator {
       case 'SigFigNumber':
         return this.evaluateSigFigNumber(node)
 
+      case 'Date':
+        return this.evaluateDate(node)
+
       case 'Identifier':
         const variable = this.variables.get(node.name)
         if (variable) {
@@ -876,6 +879,16 @@ export class Evaluator {
       T: 1e12,
     }
     return multipliers[name] ?? null
+  }
+
+  private evaluateDate(node: ASTNode & { type: 'Date' }): Quantity {
+    const ms = Date.parse(node.iso)
+    if (Number.isNaN(ms)) {
+      throw new EvaluationError(`Invalid date literal: #${node.iso}#`)
+    }
+    // Store dates as days-since-epoch in unit `day`. Date subtraction then
+    // reduces to ordinary Quantity subtraction (days − days → duration in days).
+    return new Quantity(ms / 86_400_000, 'day')
   }
 
   private evaluateSigFigNumber(node: ASTNode & { type: 'SigFigNumber' }): Quantity {

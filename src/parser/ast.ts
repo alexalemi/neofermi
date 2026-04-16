@@ -29,6 +29,7 @@ export type ASTNode =
   | FunctionCallNode
   | NumberNode
   | SigFigNumberNode
+  | DateNode
   | IdentifierNode
   | UnitNode
 
@@ -159,6 +160,12 @@ export interface SigFigNumberNode {
   type: 'SigFigNumber'
   raw: string // Raw string representation for sig fig analysis
   unit: UnitNode | null
+}
+
+export interface DateNode {
+  type: 'Date'
+  iso: string       // e.g., "2026-04-16" or "2026-04-16T12:30:45"
+  hasTime: boolean  // true if the literal included a time component
 }
 
 export interface IdentifierNode {

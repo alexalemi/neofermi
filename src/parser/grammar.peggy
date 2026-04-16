@@ -174,13 +174,28 @@ Conversion
 
 // Primary expressions
 Primary
-  = WeightedSet
+  = DateLiteral
+  / WeightedSet
   / SigFigNumber
   / PercentTwiddle
   / Number
   / FunctionCall
   / Identifier
   / "(" _ expr:Expression _ ")" { return expr }
+
+// ISO-8601 date literal: #2026-04-16# or #2026-04-16T12:30[:45]#
+// Modelled on Frink. The `#` delimiter collides with comments, so we
+// gate the Comment rule on `![0-9]` to keep this unambiguous.
+DateLiteral
+  = "#" iso:$(DateYMD DateTimePart?) "#" {
+      return node('Date', { iso, hasTime: iso.indexOf('T') >= 0 })
+    }
+
+DateYMD
+  = [0-9][0-9][0-9][0-9] "-" [0-9][0-9] "-" [0-9][0-9]
+
+DateTimePart
+  = "T" [0-9][0-9] ":" [0-9][0-9] (":" [0-9][0-9])?
 
 // Twiddle operators: 5% means percent(5), 3db means db(3)
 PercentTwiddle
@@ -326,8 +341,10 @@ _no_newline
 WhiteSpace
   = [ \t\n\r]
 
+// `#` also opens a date literal (#YYYY-MM-DD#), so don't treat `#<digit>`
+// as a comment — that case falls through to DateLiteral in Primary.
 Comment
-  = "#" [^\n]* ("\n" / !.)
+  = "#" ![0-9] [^\n]* ("\n" / !.)
 
 // End of file
 EOF
