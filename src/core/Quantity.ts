@@ -8,7 +8,7 @@
 
 import { unit, Unit } from 'mathjs'
 import { getDimensionName, formatUnitWithDimension } from './dimensions.js'
-import { normalizeUnitWithScale } from './unitUtils.js'
+import { normalizeUnit, normalizeUnitWithScale } from './unitUtils.js'
 
 export type Value = number | number[]
 
@@ -369,8 +369,11 @@ export class Quantity {
    * Unit conversion
    */
   to(targetUnit: string): Quantity {
-    // Use mathjs to do the conversion
-    const targetUnitObj = unit(targetUnit)
+    // Normalize aliases (e.g. `ly` → `lightyear`, `kcal` → `kilocalorie`) so mathjs
+    // can resolve the target. Construction already normalizes via Quantity's ctor,
+    // so `this.unit.toString()` is already a mathjs-valid string.
+    const normalizedTarget = normalizeUnit(targetUnit)
+    const targetUnitObj = unit(normalizedTarget)
 
     // Check if conversion is possible
     if (!this.unit.equalBase(targetUnitObj)) {
@@ -382,15 +385,15 @@ export class Quantity {
     // Fit conversion as an affine map y = scale*x + offset by sampling two points.
     // This handles affine units (degC↔degF, degC↔K) as well as linear ones (cm→m, offset=0).
     const sourceUnitStr = this.unit.toString()
-    const offset = unit(0, sourceUnitStr).toNumber(targetUnit)
-    const scale = unit(1, sourceUnitStr).toNumber(targetUnit) - offset
+    const offset = unit(0, sourceUnitStr).toNumber(normalizedTarget)
+    const scale = unit(1, sourceUnitStr).toNumber(normalizedTarget) - offset
 
     if (aParticles.length === 1) {
-      return new Quantity(scale * aParticles[0] + offset, targetUnit)
+      return new Quantity(scale * aParticles[0] + offset, normalizedTarget)
     }
 
     const result = aParticles.map((x) => scale * x + offset)
-    return new Quantity(result, targetUnit)
+    return new Quantity(result, normalizedTarget)
   }
 
   /**

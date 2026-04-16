@@ -59,6 +59,50 @@ describe('Unit system', () => {
     })
   })
 
+  describe('Extended unit catalog', () => {
+    it('calorie: 1 cal = 4.184 J', () => {
+      const result = parse('1 cal as J')
+      expect(result?.value).toBeCloseTo(4.184)
+    })
+
+    it('kilocalorie: 1 kcal = 4184 J', () => {
+      const result = parse('1 kcal as J')
+      expect(result?.value).toBeCloseTo(4184)
+    })
+
+    it('food calorie: 1 Cal = 1 kcal', () => {
+      const result = parse('1 Cal as J')
+      expect(result?.value).toBeCloseTo(4184)
+    })
+
+    it('lightyear as a unit (not just a constant)', () => {
+      const result = parse('1 ly as km')
+      // IAU 2012: 1 ly = 9 460 730 472 580.8 km / 1000 = 9.46e12 km
+      expect(result?.value).toBeCloseTo(9.4607e12, -9) // within ~1e9 km
+    })
+
+    it('parsec conversion to lightyear', () => {
+      const result = parse('1 parsec as ly')
+      expect(result?.value).toBeCloseTo(3.2616, 3)
+    })
+
+    it('kiloparsec alias kpc', () => {
+      const result = parse('1 kpc as parsec')
+      expect(result?.value).toBeCloseTo(1000)
+    })
+
+    it('barn: 1 barn = 1e-28 m^2', () => {
+      const result = parse('1 barn as m^2')
+      expect(result?.value).toBeCloseTo(1e-28)
+    })
+
+    it('knot: 1 knot = 1 nmi/hour', () => {
+      const result = parse('1 knot as m/s')
+      // 1852 m / 3600 s
+      expect(result?.value).toBeCloseTo(1852 / 3600, 5)
+    })
+  })
+
   describe('Compound units', () => {
     it('speed: meters per second', () => {
       const evaluator = new Evaluator()

@@ -7,13 +7,24 @@
 
 import { unit as mathjsUnit, createUnit as mathjsCreateUnit, Unit } from 'mathjs'
 
-// Register additional units not in mathjs by default
-try {
-  // Nautical mile: exactly 1852 meters by international agreement
-  mathjsCreateUnit('nmi', '1852 m')
-} catch {
-  // Unit may already be registered in tests
+// Register additional units not in mathjs by default.
+// Wrapped individually so one failure (e.g. already-registered in a test re-import)
+// doesn't block the others.
+function safeCreate(name: string, def: string | { definition: string; prefixes?: string }) {
+  try { mathjsCreateUnit(name, def as any) } catch { /* already registered */ }
 }
+
+// Nautical mile: exactly 1852 meters by international agreement
+safeCreate('nmi', '1852 m')
+// Energy — thermochemical calorie; 'long' prefixes give kilocalorie, megacalorie, etc.
+safeCreate('calorie', { definition: '4.184 J', prefixes: 'long' })
+// Astronomy — distance units (IAU 2012 exact value for lightyear)
+safeCreate('lightyear', { definition: '9460730472580800 m', prefixes: 'long' })
+safeCreate('parsec', { definition: '3.0856775814913673e16 m', prefixes: 'long' })
+// Nuclear/particle physics cross-section
+safeCreate('barn', '1e-28 m^2')
+// Speed — nautical mile per hour
+safeCreate('knot', '1 nmi/hour')
 
 /**
  * Common unit aliases - maps informal/abbreviated names to mathjs unit names
@@ -173,7 +184,13 @@ const UNIT_ALIASES: Record<string, string> = {
   AU: 'AU',
   ly: 'lightyear',
   lyr: 'lightyear',
+  kly: 'kilolightyear',
+  Mly: 'megalightyear',
+  Gly: 'gigalightyear',
   pc: 'parsec',
+  kpc: 'kiloparsec',
+  Mpc: 'megaparsec',
+  Gpc: 'gigaparsec',
 
   // Counts and quantities
   dozen: '12',
