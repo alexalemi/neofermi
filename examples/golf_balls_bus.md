@@ -38,9 +38,12 @@ packing_efficiency = 0.60 to 0.68
 
 ## Calculation
 
+Note: convert both volumes to the same unit before dividing — mixed
+length units (`feet^3 / mm^3`) don't auto-cancel in current NeoFermi.
+
 ```
-# Number of golf balls
-num_balls = (bus_volume * packing_efficiency) / ball_volume
+# Number of golf balls — convert to a common unit (m^3) before dividing
+num_balls = (bus_volume_m3 * packing_efficiency) / (ball_volume as m^3)
 ```
 
 ## Result
