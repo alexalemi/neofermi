@@ -313,6 +313,54 @@ describe('Unit system', () => {
     })
   })
 
+  describe('Opting out of dimensionless simplification via `as`', () => {
+    // `simplifyUnit` eagerly collapses `1 feet / 1 mm` to `304.8` dimensionless.
+    // Users can opt out by converting back to a dimensionally-equivalent
+    // compound unit: `as feet/mm` re-expresses the 304.8 factor as
+    // `1 feet/mm`. mathjs's `.to()` refuses "" → X, so `Quantity.to()`
+    // handles this case by reading the target's scale via `simplifyUnit`.
+    it('`1 feet / 1 mm as feet/mm` preserves as 1 feet/mm', () => {
+      const r = parse('1 feet / 1 mm as feet/mm')
+      expect(r?.value).toBeCloseTo(1, 6)
+      expect(r?.unit.toString()).toBe('feet / mm')
+    })
+
+    it('`1 feet^3 / 1 mm^3 as feet^3/mm^3` preserves as 1 feet^3/mm^3', () => {
+      const r = parse('1 feet^3 / 1 mm^3 as feet^3/mm^3')
+      expect(r?.value).toBeCloseTo(1, 6)
+      expect(r?.unit.toString()).toBe('feet^3 / mm^3')
+    })
+
+    it('`1 calorie / 1 joule as calorie/joule` preserves as 1 calorie/joule', () => {
+      const r = parse('1 calorie / 1 joule as calorie/joule')
+      expect(r?.value).toBeCloseTo(1, 6)
+      expect(r?.unit.toString()).toBe('calorie / joule')
+    })
+
+    it('`1 km / 1 m as km/m` preserves as 1 km/m', () => {
+      const r = parse('1 km / 1 m as km/m')
+      expect(r?.value).toBeCloseTo(1, 6)
+      expect(r?.unit.toString()).toBe('km / m')
+    })
+
+    it('`2 feet / 1 mm as feet/mm` gives 2 feet/mm', () => {
+      const r = parse('2 feet / 1 mm as feet/mm')
+      expect(r?.value).toBeCloseTo(2, 6)
+      expect(r?.unit.toString()).toBe('feet / mm')
+    })
+
+    it('rejects dimensionally-incompatible targets', () => {
+      expect(() => parse('1 feet / 1 mm as meter')).toThrow(/incompatible/)
+    })
+
+    it('grammar: numerator accepts powers in compound units (feet^3/mm^3)', () => {
+      // Previously CompoundUnit's numerator was SimpleUnit-only, so
+      // `feet^3/mm^3` would fail to parse anywhere (not just in `as` targets).
+      const r = parse('1 feet^3/mm^3')
+      expect(r?.unit.toString()).toBe('feet^3 / mm^3')
+    })
+  })
+
   describe('Quantity unit conversion method', () => {
     it('converts between compatible units', () => {
       const a = new Quantity(1000, 'meters')

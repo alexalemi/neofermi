@@ -403,10 +403,24 @@ export class Quantity {
     }
 
     const aParticles = this.toParticles()
+    const sourceUnitStr = this.unit.toString()
+
+    // Opt-out of dimensionless simplification: if the source is dimensionless
+    // (e.g. `1 feet / 1 mm` simplified to `304.8`), let the user re-express it
+    // in any equivalent compound unit (`feet/mm`, `feet^3/mm^3`, …). mathjs's
+    // `.to()` refuses to parse "" as a source, so we compute the target's
+    // scale ourselves via simplifyUnit (which returns 304.8 for "feet/mm").
+    if (sourceUnitStr === '') {
+      const { scaleFactor: targetScale } = simplifyUnit(targetUnitObj)
+      if (aParticles.length === 1) {
+        return new Quantity(aParticles[0] / targetScale, normalizedTarget)
+      }
+      const result = aParticles.map((x) => x / targetScale)
+      return new Quantity(result, normalizedTarget)
+    }
 
     // Fit conversion as an affine map y = scale*x + offset by sampling two points.
     // This handles affine units (degC↔degF, degC↔K) as well as linear ones (cm→m, offset=0).
-    const sourceUnitStr = this.unit.toString()
     const offset = unit(0, sourceUnitStr).toNumber(normalizedTarget)
     const scale = unit(1, sourceUnitStr).toNumber(normalizedTarget) - offset
 

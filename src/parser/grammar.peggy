@@ -305,7 +305,7 @@ CustomUnit
     }
 
 CompoundUnit
-  = numerator:SimpleUnit "/" denominator:UnitWithPower {
+  = numerator:UnitWithPower "/" denominator:UnitWithPower {
       return node('Unit', {
         type: 'compound',
         numerator,
