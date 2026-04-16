@@ -2,6 +2,8 @@
  * Abstract Syntax Tree node types for NeoFermi
  */
 
+import type { LongScaleWord } from '../core/scaleWords.js'
+
 // Source location info from peggy parser
 export interface SourceLocation {
   start: { offset: number; line: number; column: number }
@@ -153,6 +155,7 @@ export interface FunctionCallNode {
 export interface NumberNode {
   type: 'Number'
   value: number
+  scaleWord?: LongScaleWord | null
   unit: UnitNode | null
 }
 

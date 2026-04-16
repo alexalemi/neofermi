@@ -258,13 +258,25 @@ ArgumentList
 
 // Numbers with optional units
 // IMPORTANT: Use _no_newline to prevent "5\ny" from being parsed as "5 y"
+// Scale words (million, billion, …) may appear between value and unit:
+// "1 billion USD", "3 million years". They are also still accepted in the
+// unit slot for back-compat — see evaluateNumber.
 Number
-  = value:NumericLiteral unit:(_no_newline UnitWithReciprocal)? {
+  = value:NumericLiteral
+    scale:(_no_newline ScaleWord)?
+    unit:(_no_newline UnitWithReciprocal)? {
       return node('Number', {
         value: parseFloat(value),
+        scaleWord: scale ? scale[1] : null,
         unit: unit ? unit[1] : null
       })
     }
+
+// Keep in sync with LONG_SCALE_WORDS in src/core/scaleWords.ts.
+// Abbreviations (K/M/B/T) are intentionally not listed — they parse as
+// identifiers and resolve via the evaluator's back-compat path.
+ScaleWord "scale word"
+  = name:("septillion" / "sextillion" / "quintillion" / "quadrillion" / "trillion" / "billion" / "million" / "thousand" / "hundred") ![a-zA-Z0-9_] { return name }
 
 // Unit that can start with / or "per" for reciprocals
 UnitWithReciprocal

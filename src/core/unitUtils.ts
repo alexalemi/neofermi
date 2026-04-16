@@ -10,7 +10,10 @@ import { unit as mathjsUnit, createUnit as mathjsCreateUnit, Unit } from 'mathjs
 // Register additional units not in mathjs by default.
 // Wrapped individually so one failure (e.g. already-registered in a test re-import)
 // doesn't block the others.
-function safeCreate(name: string, def: string | { definition: string; prefixes?: string }) {
+function safeCreate(
+  name: string,
+  def: string | { definition?: string; prefixes?: string; baseName?: string },
+) {
   try { mathjsCreateUnit(name, def as any) } catch { /* already registered */ }
 }
 
@@ -25,6 +28,27 @@ safeCreate('parsec', { definition: '3.0856775814913673e16 m', prefixes: 'long' }
 safeCreate('barn', '1e-28 m^2')
 // Speed — nautical mile per hour
 safeCreate('knot', '1 nmi/hour')
+
+// Currencies. USD is the base for the `money` dimension; all other
+// currencies are declared relative to USD. Rates are a fixed snapshot
+// (approximately late-2025 / early-2026) — for precise work users should
+// redefine them locally via `1 'EUR = <rate> USD`. Fermi tolerance (±10×)
+// swamps any rate drift, so this is fine for the calculator's intended use.
+//
+// Rate precision is deliberately 3 sig figs — matches the calculator's
+// precision model and makes "as of a particular moment" semantics clear.
+safeCreate('USD', { baseName: 'money' })
+safeCreate('EUR', '1.05 USD')
+safeCreate('GBP', '1.25 USD')
+safeCreate('JPY', '0.00645 USD')
+safeCreate('CNY', '0.137 USD')
+safeCreate('INR', '0.0118 USD')
+safeCreate('CAD', '0.71 USD')
+safeCreate('AUD', '0.63 USD')
+safeCreate('CHF', '1.11 USD')
+safeCreate('MXN', '0.05 USD')
+safeCreate('BRL', '0.167 USD')
+safeCreate('KRW', '0.000712 USD')
 
 /**
  * Common unit aliases - maps informal/abbreviated names to mathjs unit names

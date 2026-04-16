@@ -10,6 +10,7 @@ import * as distributions from '../distributions/index.js'
 import * as mathFunctions from '../functions/index.js'
 import * as physicalConstants from '../constants/index.js'
 import { createUnit, getKnownUnitNames, ensureLabelUnitRegistered } from '../core/unitUtils.js'
+import { SCALE_WORDS } from '../core/scaleWords.js'
 
 /**
  * Calculate Levenshtein distance between two strings
@@ -495,21 +496,25 @@ export class Evaluator {
     const leftHasUnit = left.unit && left.unit.toString() !== ''
     const rightHasUnit = right.unit && right.unit.toString() !== ''
 
-    // "100 to 200 million": million attaches to the right bound but the user
-    // means it for both. The right value already has it applied (200e6), so we
-    // apply it to the left. Skip when the left has its own multiplier
-    // ("100 thousand to 1 million") to avoid double-applying.
+    // "100 to 200 million [UNIT]": the scale word attaches to the right bound
+    // but the user means it for both. Scale the left; right already has it
+    // applied. Skip when the left has its own multiplier ("100 thousand to 1
+    // million") to avoid double-applying.
     const rightMultiplier = this.getNumberNodeMultiplier(node.right)
     const leftMultiplier = this.getNumberNodeMultiplier(node.left)
-    if (!leftHasUnit && !rightHasUnit && leftMultiplier === null && rightMultiplier !== null) {
-      return distributions.to(leftVal * rightMultiplier, rightVal)
+    if (!leftHasUnit && leftMultiplier === null && rightMultiplier !== null) {
+      const scaledLeft = leftVal * rightMultiplier
+      if (rightHasUnit) {
+        return distributions.to(scaledLeft, rightVal, right.unit.toString())
+      }
+      return distributions.to(scaledLeft, rightVal)
     }
 
-    // Determine trailing unit from the range syntax
-    // First check if the "unit" is actually a dimensionless multiplier (million, billion, etc.)
+    // Trailing token on a Range AST (e.g. `1 to 10 million`) is parsed as a
+    // unit node. If it's actually a scale word, apply it to both bounds.
     let trailingMultiplier: number | null = null
     if (node.unit && node.unit.name && !node.unit.custom) {
-      trailingMultiplier = this.getDimensionlessMultiplier(node.unit.name)
+      trailingMultiplier = SCALE_WORDS[node.unit.name] ?? null
     }
 
     // If trailing token is a dimensionless multiplier, apply it to bounds
@@ -582,6 +587,14 @@ export class Evaluator {
       throw new EvaluationError('Uniform bounds evaluated to null')
     }
 
+    // "1 .. 2 million [UNIT]": scale word on the right bound applies to both.
+    // See evaluateRange for the equivalent rebalancing.
+    const leftMultiplier = this.getNumberNodeMultiplier(node.left)
+    const rightMultiplier = this.getNumberNodeMultiplier(node.right)
+    if (left.unit.toString() === '' && leftMultiplier === null && rightMultiplier !== null) {
+      left = new Quantity((left.value as number) * rightMultiplier, right.unit.toString() || undefined)
+    }
+
     const leftUnitStr = left.unit.toString()
     const rightUnitStr = right.unit.toString()
 
@@ -625,6 +638,14 @@ export class Evaluator {
 
     if (!mean || !sigma) {
       throw new EvaluationError('Normal parameters evaluated to null')
+    }
+
+    // "1 +/- 2 million [UNIT]": scale word on sigma applies to mean too.
+    // See evaluateRange for the equivalent rebalancing.
+    const meanMultiplier = this.getNumberNodeMultiplier(node.mean)
+    const sigmaMultiplier = this.getNumberNodeMultiplier(node.sigma)
+    if (mean.unit.toString() === '' && meanMultiplier === null && sigmaMultiplier !== null) {
+      mean = new Quantity((mean.value as number) * sigmaMultiplier, sigma.unit.toString() || undefined)
     }
 
     const meanUnitStr = mean.unit.toString()
@@ -820,65 +841,41 @@ export class Evaluator {
   }
 
   private evaluateNumber(node: ASTNode & { type: 'Number' }): Quantity {
-    // Check if this is a custom unit that we've defined
+    const scaleFactor = node.scaleWord ? SCALE_WORDS[node.scaleWord] : 1
+    const scaledValue = node.value * scaleFactor
+
     if (node.unit?.custom && node.unit?.name) {
       const customUnitDef = this.customUnits.get(node.unit.name)
       if (customUnitDef) {
-        // Multiply the value by the custom unit definition
-        // e.g., if 1 'widget = 5 kg, then 10 'widgets = 10 * 5 kg
-        return customUnitDef.multiply(new Quantity(node.value))
+        return customUnitDef.multiply(new Quantity(scaledValue))
       }
-      // Custom unit not defined - register as a label unit and use it
       ensureLabelUnitRegistered(node.unit.name)
-      return new Quantity(node.value, node.unit.name)
+      return new Quantity(scaledValue, node.unit.name)
     }
 
-    // Check if the "unit" is actually a dimensionless multiplier constant (million, billion, etc.)
-    if (node.unit && node.unit.name && !node.unit.custom) {
-      const multiplier = this.getDimensionlessMultiplier(node.unit.name)
-      if (multiplier !== null) {
+    // Short-form scale words (K/M/B/T) parse as identifiers and land here.
+    // Only applies when no long-form scaleWord was captured.
+    if (!node.scaleWord && node.unit && node.unit.name && !node.unit.custom) {
+      const multiplier = SCALE_WORDS[node.unit.name]
+      if (multiplier !== undefined) {
         return new Quantity(node.value * multiplier)
       }
     }
 
     const unitStr = node.unit ? this.evaluateUnit(node.unit) : undefined
-    return new Quantity(node.value, unitStr)
+    return new Quantity(scaledValue, unitStr)
   }
 
   /**
-   * If the node is a Number literal whose unit slot is actually a dimensionless
-   * multiplier (hundred/thousand/million/...), return that multiplier. Returns
-   * null for any other node shape.
+   * If the node is a Number literal with a scale word (as either its own
+   * grammar slot or a bare identifier in the unit slot), return that
+   * multiplier. Returns null for any other node shape.
    */
   private getNumberNodeMultiplier(node: ASTNode): number | null {
-    if (node.type !== 'Number' || !node.unit?.name || node.unit.custom) {
-      return null
-    }
-    return this.getDimensionlessMultiplier(node.unit.name)
-  }
-
-  /**
-   * Check if a name is a dimensionless multiplier constant (million, billion, etc.)
-   * Returns the multiplier value if it is, or null if not.
-   */
-  private getDimensionlessMultiplier(name: string): number | null {
-    const multipliers: Record<string, number> = {
-      hundred: 1e2,
-      thousand: 1e3,
-      million: 1e6,
-      billion: 1e9,
-      trillion: 1e12,
-      quadrillion: 1e15,
-      quintillion: 1e18,
-      sextillion: 1e21,
-      septillion: 1e24,
-      // Also support K, M, B abbreviations
-      K: 1e3,
-      M: 1e6,
-      B: 1e9,
-      T: 1e12,
-    }
-    return multipliers[name] ?? null
+    if (node.type !== 'Number') return null
+    if (node.scaleWord) return SCALE_WORDS[node.scaleWord]
+    if (!node.unit?.name || node.unit.custom) return null
+    return SCALE_WORDS[node.unit.name] ?? null
   }
 
   private evaluateDate(node: ASTNode & { type: 'Date' }): Quantity {
