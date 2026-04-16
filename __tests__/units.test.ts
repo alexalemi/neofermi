@@ -30,10 +30,32 @@ describe('Unit system', () => {
       expect(result?.value).toBeCloseTo(1.609, 2)
     })
 
-    it('Celsius to Fahrenheit not supported (offset)', () => {
-      // NeoFermi uses multiplicative conversion, not offset-based
-      // so temperature conversions like C -> F won't work correctly
-      // This is expected behavior for a physics calculator
+    it('Celsius to Fahrenheit (affine)', () => {
+      expect(new Quantity(0, 'degC').to('degF').value).toBeCloseTo(32)
+      expect(new Quantity(100, 'degC').to('degF').value).toBeCloseTo(212)
+      expect(new Quantity(-40, 'degC').to('degF').value).toBeCloseTo(-40)
+    })
+
+    it('Fahrenheit to Celsius (affine, round-trip)', () => {
+      expect(new Quantity(32, 'degF').to('degC').value).toBeCloseTo(0)
+      expect(new Quantity(212, 'degF').to('degC').value).toBeCloseTo(100)
+    })
+
+    it('Celsius to Kelvin (affine)', () => {
+      expect(new Quantity(0, 'degC').to('K').value).toBeCloseTo(273.15)
+      expect(new Quantity(100, 'degC').to('K').value).toBeCloseTo(373.15)
+    })
+
+    it('affine conversion applied across a distribution', () => {
+      const result = new Quantity([0, 100], 'degC').to('degF')
+      const particles = result.value as number[]
+      expect(particles[0]).toBeCloseTo(32)
+      expect(particles[1]).toBeCloseTo(212)
+    })
+
+    it('temperature conversion via parser (as keyword)', () => {
+      const result = parse('100 degC as degF')
+      expect(result?.value).toBeCloseTo(212)
     })
   })
 

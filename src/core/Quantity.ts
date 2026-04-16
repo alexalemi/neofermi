@@ -379,17 +379,17 @@ export class Quantity {
 
     const aParticles = this.toParticles()
 
-    // Get conversion factor
-    const sourceUnit = unit(1, this.unit.toString())
-    const converted = sourceUnit.to(targetUnit)
-    const conversionFactor = converted.toNumber()
+    // Fit conversion as an affine map y = scale*x + offset by sampling two points.
+    // This handles affine units (degC↔degF, degC↔K) as well as linear ones (cm→m, offset=0).
+    const sourceUnitStr = this.unit.toString()
+    const offset = unit(0, sourceUnitStr).toNumber(targetUnit)
+    const scale = unit(1, sourceUnitStr).toNumber(targetUnit) - offset
 
-    // Apply conversion
     if (aParticles.length === 1) {
-      return new Quantity(aParticles[0] * conversionFactor, targetUnit)
+      return new Quantity(scale * aParticles[0] + offset, targetUnit)
     }
 
-    const result = aParticles.map((x) => x * conversionFactor)
+    const result = aParticles.map((x) => scale * x + offset)
     return new Quantity(result, targetUnit)
   }
 
