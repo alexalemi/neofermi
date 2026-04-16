@@ -557,6 +557,12 @@
 100 * 0db            # Twiddle by factor of 2
 100 * -10db          # Twiddle by order of magnitude</pre>
 
+        <h4>Scale-word ranges</h4>
+        <p>Scale words on one side of a range expand onto the bare side:</p>
+        <pre>1 to 2 million       # 1e6 to 2e6
+1 .. 2 billion USD   # uniform 1e9 to 2e9 USD
+1 +/- 2 million      # normal mean 1e6, sigma 2e6</pre>
+
         <h4>Sig-Fig Numbers</h4>
         <pre>'3.14                # Uniform(3.135, 3.145)
 '130                 # Uniform(125, 135)
@@ -564,13 +570,34 @@
 '1.3e6 m             # With units</pre>
 
         <h4>Unit Conversion</h4>
-        <pre>100 meters as feet   # Convert to specific unit
-x -> km              # Alternative syntax
-100 miles as SI      # Convert to SI base units</pre>
+        <pre>100 meters as feet       # Convert to specific unit
+x -> km                  # Alternative syntax
+100 miles as SI          # Convert to SI base units
+98.6 degF as degC        # Affine (offset) conversions
+1 feet / 1 mm as feet/mm # Keep a dimensionless ratio in compound form
+1 feet^3/mm^3            # Powered numerators in compound units</pre>
 
         <p style="margin-top: 8px; color: #656d76; font-size: 11px;">
-          Results are displayed in SI units by default.
+          Results are displayed in SI units by default. Ratios of same-dimension
+          units (e.g. <code>1 feet / 1 mm</code>) collapse to a dimensionless
+          number unless you re-express them via <code>as</code>.
         </p>
+
+        <h4>Extended unit catalog</h4>
+        <pre>calorie, kcal, Cal   # Energy (thermochemical; Cal = kcal)
+parsec, lightyear    # Astronomy (aliases: pc, ly, kpc)
+barn                 # Cross-section (1e-28 m^2)
+knot                 # Speed (nautical mile / hour)
+atm, hp, kWh         # Pressure, power, energy
+USD, EUR, GBP, JPY,  # Currencies (USD is base)
+CNY, INR, CAD, AUD,
+CHF, MXN, BRL, KRW</pre>
+
+        <h4>Dates &amp; Durations</h4>
+        <pre>#2026-04-16#                          # Date literal
+#2026-04-16T12:30#                    # With time (optional :ss)
+#2027-01-01# - #2026-01-01#           # Duration (365 day)
+(#2026-04-17# - #2026-04-16#) as hour # Convert duration to hours</pre>
 
         <h4>Variables</h4>
         <pre>x = 10 to 100 meters

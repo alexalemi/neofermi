@@ -90,15 +90,37 @@ y = x * 2
         <pre>1 to 10 m            # Lognormal (68% CI)
 1 .. 10 m            # Uniform distribution
 100 +- 5 kg          # Normal (mean +/- sigma)
-3 of 10              # Beta (3 successes, 10 trials)</pre>
+3 of 10              # Beta (3 successes, 10 trials)
+100 * 10%            # Twiddle by ±10%
+{365: 303, 366: 97}  # Weighted set</pre>
+
+        <h4>Scale-word ranges</h4>
+        <pre>1 to 2 million       # 1e6 to 2e6
+1 .. 2 billion USD   # Uniform 1e9 to 2e9 USD
+1 +/- 2 million      # Normal mean 1e6, sigma 2e6</pre>
 
         <h4>Unit Conversion</h4>
-        <pre>100 meters as feet   # Convert to specific unit
-x -> km              # Alternative syntax</pre>
+        <pre>100 meters as feet       # Convert to specific unit
+x -> km                  # Alternative syntax
+98.6 degF as degC        # Affine temperature
+1 feet / 1 mm as feet/mm # Keep ratio in compound form
+100 miles as SI          # Convert to SI base units</pre>
 
-        <h4>Constants</h4>
-        <pre>c, h, G, k           # Physics constants
-M_earth, R_earth     # Earth properties
+        <h4>Dates &amp; Durations</h4>
+        <pre>#2026-04-16#                 # Date literal
+#2026-04-16T12:30#           # With time
+#2027-01-01# - #2026-01-01#  # Duration (365 day)</pre>
+
+        <h4>Units &amp; Constants</h4>
+        <pre>m, kg, s, A, K       # SI base units
+calorie, kcal, Cal   # Energy (Cal = kcal)
+parsec, ly, barn     # Astronomy / nuclear
+knot, mph, atm, hp   # Misc
+
+USD, EUR, GBP, JPY   # Currencies (12 supported)
+
+c, h, hbar, G, k     # Physics constants
+M_earth, R_earth     # Earth
 world_population     # Demographics</pre>
 
         <h4>LaTeX Math</h4>
