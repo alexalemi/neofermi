@@ -9,22 +9,29 @@ describe('Currency conversion', () => {
     expect(result?.unit.toString()).toBe('USD')
   })
 
-  it('USD to EUR via `as`', () => {
-    const result = parse('100 USD as EUR')
-    expect(result?.value).toBeCloseTo(100 / 1.05, 2)
-    expect(result?.unit.toString()).toBe('EUR')
+  it('USD to EUR round-trips to the original value', () => {
+    // Use round-trip rather than hardcoded rate so test doesn't break on
+    // snapshot updates. The rate itself is exercised by `plausible rate` tests.
+    const there = parse('100 USD as EUR')
+    expect(there?.unit.toString()).toBe('EUR')
+    const back = parse(`${there?.value} EUR as USD`)
+    expect(back?.value).toBeCloseTo(100, 4)
   })
 
-  it('EUR to USD via `as`', () => {
-    const result = parse('100 EUR as USD')
-    expect(result?.value).toBeCloseTo(105)
+  it('EUR rate is in a plausible modern range (0.9 < 1 EUR in USD < 1.6)', () => {
+    const result = parse('1 EUR as USD')
+    expect(result?.value).toBeGreaterThan(0.9)
+    expect(result?.value).toBeLessThan(1.6)
     expect(result?.unit.toString()).toBe('USD')
   })
 
   it('adding different currencies aligns to left unit', () => {
     const result = parse('5 EUR + 10 USD')
-    expect(result?.value).toBeCloseTo(5 + 10 / 1.05, 2)
     expect(result?.unit.toString()).toBe('EUR')
+    // Left summand contributes 5 EUR; right contributes 10 USD converted.
+    // Derive the expected rate from a separate `as` call to stay robust.
+    const tenUsdInEur = parse('10 USD as EUR')?.value as number
+    expect(result?.value).toBeCloseTo(5 + tenUsdInEur, 4)
   })
 
   it('JPY rate is plausible (1 USD ≈ 155 JPY)', () => {

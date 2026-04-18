@@ -31,24 +31,25 @@ safeCreate('knot', '1 nmi/hour')
 
 // Currencies. USD is the base for the `money` dimension; all other
 // currencies are declared relative to USD. Rates are a fixed snapshot
-// (approximately late-2025 / early-2026) — for precise work users should
-// redefine them locally via `1 'EUR = <rate> USD`. Fermi tolerance (±10×)
-// swamps any rate drift, so this is fine for the calculator's intended use.
+// (ECB reference rates as of 2026-04-17, via frankfurter.dev) — for
+// precise work users should redefine them locally via `1 'EUR = <rate> USD`.
+// Fermi tolerance (±10×) swamps any rate drift, so this is fine for the
+// calculator's intended use.
 //
 // Rate precision is deliberately 3 sig figs — matches the calculator's
 // precision model and makes "as of a particular moment" semantics clear.
 safeCreate('USD', { baseName: 'money' })
-safeCreate('EUR', '1.05 USD')
-safeCreate('GBP', '1.25 USD')
-safeCreate('JPY', '0.00645 USD')
-safeCreate('CNY', '0.137 USD')
-safeCreate('INR', '0.0118 USD')
-safeCreate('CAD', '0.71 USD')
-safeCreate('AUD', '0.63 USD')
-safeCreate('CHF', '1.11 USD')
-safeCreate('MXN', '0.05 USD')
-safeCreate('BRL', '0.167 USD')
-safeCreate('KRW', '0.000712 USD')
+safeCreate('EUR', '1.18 USD')
+safeCreate('GBP', '1.35 USD')
+safeCreate('JPY', '0.00628 USD')
+safeCreate('CNY', '0.147 USD')
+safeCreate('INR', '0.0108 USD')
+safeCreate('CAD', '0.731 USD')
+safeCreate('AUD', '0.718 USD')
+safeCreate('CHF', '1.28 USD')
+safeCreate('MXN', '0.0581 USD')
+safeCreate('BRL', '0.201 USD')
+safeCreate('KRW', '0.000676 USD')
 
 /**
  * Common unit aliases - maps informal/abbreviated names to mathjs unit names
