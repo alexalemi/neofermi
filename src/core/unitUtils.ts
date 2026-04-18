@@ -6,6 +6,7 @@
  */
 
 import { unit as mathjsUnit, createUnit as mathjsCreateUnit, Unit } from 'mathjs'
+import { registerInflationUnits } from './inflationUnits.js'
 
 // Register additional units not in mathjs by default.
 // Wrapped individually so one failure (e.g. already-registered in a test re-import)
@@ -230,6 +231,12 @@ const UNIT_ALIASES: Record<string, string> = {
   rps: '1/second',
   bpm: '1/minute', // beats per minute (same as rpm)
 }
+
+// Historical dollar purchasing-power units (`dollars_1913` … `dollars_2026`).
+// mathjs forbids underscores in unit names, so each year is registered as
+// `dollarsYYYY` and aliased from `dollars_YYYY` for Frink parity.
+// See inflationUnits.ts for source, anchor, and refresh notes.
+registerInflationUnits(safeCreate, UNIT_ALIASES)
 
 /**
  * SI prefixes - both full names and abbreviations

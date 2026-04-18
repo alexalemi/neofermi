@@ -593,6 +593,15 @@ USD, EUR, GBP, JPY,  # Currencies (USD is base)
 CNY, INR, CAD, AUD,
 CHF, MXN, BRL, KRW</pre>
 
+        <h4>Inflation-adjusted dollars</h4>
+        <pre>dollars_1960         # $1 in 1960 (also dollars1960)
+100 dollars_1960 as USD       # present-day equivalent
+1 dollars_1980 + 1 dollars_2020 as USD  # mixes fine</pre>
+        <p style="margin-top: 8px; color: #656d76; font-size: 11px;">
+          Years 1913–present, based on annual-average US CPI-U. Anchor is the
+          latest monthly CPI, so "as USD" gives today's purchasing power.
+        </p>
+
         <h4>Dates &amp; Durations</h4>
         <pre>#2026-04-16#                          # Date literal
 #2026-04-16T12:30#                    # With time (optional :ss)
