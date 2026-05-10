@@ -232,13 +232,13 @@ export class Evaluator {
         return unitValue
 
       case 'FunctionDef':
-        // Store user-defined function
+        // Store user-defined function. A definition produces no value, so a
+        // document ending in `f(x) = ...` renders nothing rather than a stray 0.
         this.userFunctions.set(node.name, {
           params: node.params,
           body: node.body
         })
-        // Return a placeholder quantity (function definitions don't produce values)
-        return new Quantity(0)
+        return null
 
       case 'LetBinding':
         return this.evaluateLetBinding(node)
@@ -369,6 +369,18 @@ export class Evaluator {
     right: Quantity,
     compareFn: (a: number, b: number) => boolean
   ): Quantity {
+    // Align the right operand to the left's unit so `5 m > 50 cm` compares
+    // 5 vs 0.5, not 5 vs 50. (toParticles() returns raw stored values.)
+    if (!left.unit.equalBase(right.unit)) {
+      throw new EvaluationError(
+        `Cannot compare quantities with incompatible units: ${left.unit} and ${right.unit}`
+      )
+    }
+    const leftUnitStr = left.unit.toString()
+    if (leftUnitStr !== '' && right.unit.toString() !== leftUnitStr) {
+      right = right.to(leftUnitStr)
+    }
+
     const leftParticles = left.toParticles()
     const rightParticles = right.toParticles()
     const maxLength = Math.max(leftParticles.length, rightParticles.length)
@@ -456,9 +468,23 @@ export class Evaluator {
 
     // For distributions, evaluate both branches and select element-wise
     const thenResult = this.evaluate(node.thenBranch)
-    const elseResult = this.evaluate(node.elseBranch)
+    let elseResult = this.evaluate(node.elseBranch)
     if (!thenResult || !elseResult) {
       throw new EvaluationError('If branch evaluated to null')
+    }
+
+    // Align the else branch to the then branch's unit when both carry one, so
+    // `if c then 1 m else 50 cm` yields metres throughout instead of mixing
+    // raw 1 with raw 50. Incompatible dimensions are an error.
+    const thenUnitStr = thenResult.unit.toString()
+    const elseUnitStr = elseResult.unit.toString()
+    if (thenUnitStr !== '' && elseUnitStr !== '') {
+      if (!thenResult.unit.equalBase(elseResult.unit)) {
+        throw new EvaluationError(
+          `Cannot combine if-branches with incompatible units: ${thenResult.unit} and ${elseResult.unit}`
+        )
+      }
+      if (elseUnitStr !== thenUnitStr) elseResult = elseResult.to(thenUnitStr)
     }
 
     const condParticles = condition.toParticles()
@@ -475,8 +501,8 @@ export class Evaluator {
       result[i] = c !== 0 ? t : e
     }
 
-    // Determine result unit (prefer then branch)
-    const unitStr = thenResult.unit.toString() || elseResult.unit.toString()
+    // Result is in the then branch's unit (or the else branch's if then is dimensionless)
+    const unitStr = thenUnitStr || elseUnitStr
     return new Quantity(result, unitStr || undefined)
   }
 
@@ -786,6 +812,9 @@ export class Evaluator {
 
       return func(...rawArgs) as Quantity
     } catch (error) {
+      // A nested EvaluationError already carries its own message and location —
+      // re-wrapping would double-append " at line N, column M".
+      if (error instanceof EvaluationError) throw error
       throw new EvaluationError(
         `Error calling function ${node.name}: ${(error as Error).message}`,
         (node as any).location

@@ -64,6 +64,25 @@ describe('Evaluator', () => {
       const result = parse('if x > 5 then x * 2 else x / 2', evaluator)
       expect(result?.value).toBe(20)
     })
+
+    it('aligns branch units when the condition is a distribution', () => {
+      const evaluator = new Evaluator()
+      parse('c = 1 to 100', evaluator)
+      // Every particle: c > 50 picks 1 m, else picks 100 cm == 1 m. So the
+      // result should be ~1 m throughout, not a mix of 1 and 100.
+      const result = parse('if c > 50 then 1 meter else 100 cm', evaluator)
+      expect(result?.unit.toString()).toBe('meter')
+      expect(result?.percentile(0.05)).toBeCloseTo(1, 6)
+      expect(result?.percentile(0.95)).toBeCloseTo(1, 6)
+    })
+
+    it('rejects dimensionally incompatible branches over a distribution', () => {
+      const evaluator = new Evaluator()
+      parse('c = 1 to 100', evaluator)
+      expect(() => parse('if c > 50 then 1 meter else 1 second', evaluator)).toThrow(
+        /incompatible units/,
+      )
+    })
   })
 
   describe('Comparison operators (via if expressions)', () => {
@@ -107,6 +126,16 @@ describe('Evaluator', () => {
       // Some fraction should be > 50
       expect(mean).toBeGreaterThan(0.05)
       expect(mean).toBeLessThan(0.95)
+    })
+
+    it('compares across compatible units (1 m > 50 cm)', () => {
+      expect(parse('if 1 meter > 50 cm then 1 else 0')?.value).toBe(1)
+      expect(parse('if 50 cm > 1 meter then 1 else 0')?.value).toBe(0)
+      expect(parse('if 100 cm == 1 meter then 1 else 0')?.value).toBe(1)
+    })
+
+    it('rejects comparison of dimensionally incompatible units', () => {
+      expect(() => parse('if 1 meter > 1 second then 1 else 0')).toThrow(/incompatible units/)
     })
   })
 

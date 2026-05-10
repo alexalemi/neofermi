@@ -361,7 +361,9 @@ UnitCore
   / SimpleUnit
 
 SimpleUnit
-  = name:IdentifierName !(_ "=") {
+  // `!(_ "=" !"=")` keeps `x = 5 meter` from parsing the LHS `x` as a bare
+  // unit, while still allowing a unit before `==` (e.g. `if a m == b cm ...`).
+  = name:IdentifierName !(_ "=" !"=") {
       return node('Unit', { name, custom: false })
     }
 

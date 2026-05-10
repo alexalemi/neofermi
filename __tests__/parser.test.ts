@@ -181,6 +181,15 @@ describe('Parser', () => {
       const result = parse('x = 2 m\n1 mm / x')
       expect(result?.value).toBeCloseTo(5e-4, 10)
     })
+
+    it('allows a unit immediately before `==` (not eaten by the assignment lookahead)', () => {
+      // SimpleUnit's `!(_ "=" !"=")` lookahead must reject `x =` (assignment)
+      // but not `cm ==` (comparison).
+      expect(parse('if 100 cm == 1 meter then 1 else 0')?.value).toBe(1)
+      expect(parse('if 1 meter == 50 cm then 1 else 0')?.value).toBe(0)
+      // ...while assignments still parse:
+      expect(parse('y = 3 meter\ny')?.value).toBe(3)
+    })
   })
 
   describe('Unit conversion', () => {
