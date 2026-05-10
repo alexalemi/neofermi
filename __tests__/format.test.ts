@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { formatNumber, formatQuantityConcise } from '../src/utils/format.js'
+import {
+  formatNumber,
+  formatQuantityConcise,
+  formatWithSigFigs,
+  sigFigsForUncertainty,
+} from '../src/utils/format.js'
 import { Quantity } from '../src/core/Quantity.js'
 import { getDimensionName } from '../src/core/dimensions.js'
 import { unit } from 'mathjs'
@@ -72,6 +77,67 @@ describe('Formatting', () => {
       const q = new Quantity(42, 'meters')
       const formatted = formatQuantityConcise(q, { html: true })
       expect(formatted).toContain('<span')
+    })
+  })
+
+  describe('Adaptive sig-figs (distribution display)', () => {
+    it('collapses median precision when CI spans an order of magnitude', () => {
+      // Mirrors the user-reported case: a wide interval shouldn't show
+      // six-digit medians. A 68% CI spanning ~10× should get 1 sig fig.
+      const particles: number[] = []
+      const lo = Math.log(1e5)
+      const hi = Math.log(3e6)
+      for (let i = 0; i < 1000; i++) {
+        const t = i / 999
+        particles.push(Math.exp(lo + t * (hi - lo)))
+      }
+      const q = new Quantity(particles)
+      const formatted = formatQuantityConcise(q)
+      // Median ~5e5 at 1 sig fig should end in at least five trailing
+      // zeros ("500000"), not arbitrary digits ("794015"). Also reject
+      // the pre-fix leading-digit patterns like "7", "8", "9".
+      const [medianStr] = formatted.split(' ')
+      expect(medianStr).toMatch(/^[1-9](?:e\+\d+|00000)$/)
+    })
+
+    it('preserves precision when CI is tight', () => {
+      // Uniform on [99.99, 100.01]: CI half-width ≈ 0.007, median ~100
+      // → value/halfWidth ~15000 → many sig figs.
+      const particles = Array.from(
+        { length: 1000 },
+        (_, i) => 99.99 + 0.02 * ((i + 0.5) / 1000),
+      )
+      const q = new Quantity(particles)
+      const formatted = formatQuantityConcise(q)
+      expect(formatted).toMatch(/100\.0\d/) // e.g. "100.00" for median
+    })
+  })
+
+  describe('sigFigsForUncertainty', () => {
+    it('gives 1 sig fig when CI half-width exceeds the value', () => {
+      expect(sigFigsForUncertainty(794015, 1e6)).toBe(1)
+    })
+
+    it('gives many sig figs when CI is tight', () => {
+      expect(sigFigsForUncertainty(100, 0.01)).toBeGreaterThanOrEqual(4)
+    })
+
+    it('handles zero uncertainty safely', () => {
+      expect(sigFigsForUncertainty(100, 0)).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  describe('formatWithSigFigs', () => {
+    it('rounds 794015 to 1 sig fig as 800000', () => {
+      expect(formatWithSigFigs(794015, 1)).toBe('800000')
+    })
+
+    it('switches to scientific for magnitudes >= 1e6', () => {
+      expect(formatWithSigFigs(2.44e6, 2)).toMatch(/^2\.4e\+6$/)
+    })
+
+    it('renders tight values with decimals', () => {
+      expect(formatWithSigFigs(1.234, 3)).toBe('1.23')
     })
   })
 

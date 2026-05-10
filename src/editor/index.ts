@@ -410,9 +410,6 @@ function setupSettingsModal() {
 
   // Apply settings
   applyBtn.addEventListener('click', () => {
-    // TODO: User implements validation logic here
-    // This function should parse the JSON, validate it, and return
-    // either the parsed config or an error message.
     const result = validateAndParseConfig(settingsJson.value)
 
     if (result.error) {
@@ -440,16 +437,10 @@ function setupSettingsModal() {
 }
 
 /**
- * Validate and parse the config JSON.
- * TODO: Implement your preferred validation/error display logic here.
+ * Parse the settings JSON, merging it over the defaults. Returns the merged
+ * config, or an error message if the text isn't valid JSON.
  */
 function validateAndParseConfig(jsonStr: string): { config?: EditorConfig; error?: string } {
-  // Your validation logic goes here. Consider:
-  // - Does the JSON parse correctly?
-  // - Are the types correct (booleans for lineNumbers, numbers for fontSize)?
-  // - Are values in reasonable ranges (fontSize > 0, tabSize 1-8)?
-  // Return { config: parsedConfig } on success, or { error: "message" } on failure.
-
   try {
     const parsed = JSON.parse(jsonStr)
     return { config: { ...DEFAULT_CONFIG, ...parsed } }
