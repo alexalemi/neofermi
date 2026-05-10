@@ -117,15 +117,19 @@ function executeCode(code: string, evaluator: Evaluator): CellResult {
  * evaluator, so earlier `=` bindings are visible. Any `}` inside `expr`
  * ends the interpolation — use a variable assignment in a code block if
  * you need braces (e.g. weighted sets).
+ *
+ * A parse/eval failure is surfaced inline (`«error: …»`) rather than
+ * silently leaving the raw `${…}` in the rendered document.
  */
 function interpolateText(text: string, evaluator: Evaluator): string {
-  return text.replace(/\$\{([^}]+)\}/g, (match, expr) => {
+  return text.replace(/\$\{([^}]+)\}/g, (_match, expr) => {
     try {
       const value = parse(expr, evaluator)
-      if (!value) return match
+      if (!value) return `«${expr.trim()}: no value»`
       return formatQuantityConcise(value)
-    } catch {
-      return match
+    } catch (err) {
+      const msg = err instanceof EvaluationError ? err.message : (err as Error).message
+      return `«${expr.trim()}: ${msg}»`
     }
   })
 }

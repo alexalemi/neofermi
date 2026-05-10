@@ -12,7 +12,7 @@
 import { parse, Evaluator, EvaluationError } from './parser/index.js'
 import type { Quantity } from './core/Quantity.js'
 import { createDotplotCanvas, calculateDotplotData } from './visualization/quantileDotplot.js'
-import { formatNumber, formatQuantityConcise } from './utils/format.js'
+import { formatQuantityConcise } from './utils/format.js'
 import { escapeHtml } from './utils/html.js'
 
 // Capture currentScript eagerly — it's null inside DOMContentLoaded callbacks
@@ -162,18 +162,15 @@ function evaluateBlock(
   code: string,
   evaluator: Evaluator
 ): { html: string } {
-  const lines = code.split('\n')
-  let lastResult: Quantity | null = null
-
-  for (const line of lines) {
-    if (!line.trim()) continue
-    try {
-      const result = parse(line, evaluator)
-      if (result) lastResult = result
-    } catch (err) {
-      const msg = err instanceof EvaluationError ? err.message : (err as Error).message
-      return { html: `<div class="nf-embed-error">${escapeHtml(msg)}</div>` }
-    }
+  // Parse the whole block at once — the grammar's statement-list rule handles
+  // multi-line constructs (`let … in …`, parenthesized expressions, weighted
+  // sets) that splitting on '\n' would break.
+  let lastResult: Quantity | null
+  try {
+    lastResult = parse(code, evaluator)
+  } catch (err) {
+    const msg = err instanceof EvaluationError ? err.message : (err as Error).message
+    return { html: `<div class="nf-embed-error">${escapeHtml(msg)}</div>` }
   }
 
   if (!lastResult) return { html: '' }
@@ -277,24 +274,15 @@ function createRepl(evaluator: Evaluator): void {
         if (result) {
           const resultLine = document.createElement('div')
           resultLine.className = 'repl-result'
-          const u = result.unit.toString()
-          const dimName = result.dimensionName?.() || null
-          const dimSuffix = dimName && dimName !== 'dimensionless'
-            ? ` <span class="repl-dim">{${dimName}}</span>`
-            : ''
+          resultLine.innerHTML = formatQuantityConcise(result, {
+            html: true,
+            classPrefix: 'nf-embed',
+          })
           if (result.isDistribution()) {
-            const median = formatNumber(result.median())
-            const p16 = formatNumber(result.percentile(0.16))
-            const p84 = formatNumber(result.percentile(0.84))
-            resultLine.innerHTML = `${median} [${p16}, ${p84}] ${escapeHtml(u)}${dimSuffix}`
-            // Render dotplot
-            const samples = result.toParticles()
-            const canvas = createDotplotCanvas(samples, u, {
+            const canvas = createDotplotCanvas(result.toParticles(), result.unit.toString(), {
               width: 280, height: 90, numDots: 20, dotRadius: 5, padding: 25,
             })
             resultLine.appendChild(canvas)
-          } else {
-            resultLine.innerHTML = `${formatNumber(result.value as number)} ${escapeHtml(u)}${dimSuffix}`
           }
           output.appendChild(resultLine)
         }
