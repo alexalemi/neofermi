@@ -238,12 +238,7 @@ export class Quantity {
   }
 
   median(): number {
-    if (!Array.isArray(this.value)) {
-      return this.value
-    }
-    const sorted = [...this.value].sort((a, b) => a - b)
-    const mid = Math.floor(sorted.length / 2)
-    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
+    return this.percentile(0.5)
   }
 
   std(): number {
@@ -263,8 +258,13 @@ export class Quantity {
       throw new Error('Percentile must be between 0 and 1')
     }
     const sorted = [...this.value].sort((a, b) => a - b)
-    const index = Math.floor(p * sorted.length)
-    return sorted[Math.min(index, sorted.length - 1)]
+    if (sorted.length === 1) return sorted[0]
+    // Linear interpolation between adjacent order statistics (numpy's default
+    // "linear" method). Guarantees median() === percentile(0.5).
+    const pos = p * (sorted.length - 1)
+    const lo = Math.floor(pos)
+    const hi = Math.ceil(pos)
+    return lo === hi ? sorted[lo] : sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo)
   }
 
   /**

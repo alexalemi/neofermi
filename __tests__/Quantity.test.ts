@@ -57,6 +57,23 @@ describe('Quantity', () => {
       expect(q.std()).toBe(0)
       expect(q.percentile(0.5)).toBe(42)
     })
+
+    it('median() agrees with percentile(0.5) for even and odd lengths', () => {
+      expect(new Quantity([1, 2, 3, 4, 5]).median()).toBe(
+        new Quantity([1, 2, 3, 4, 5]).percentile(0.5),
+      )
+      const even = new Quantity([10, 20, 30, 40])
+      expect(even.median()).toBe(even.percentile(0.5))
+      expect(even.median()).toBe(25) // linear interpolation between 20 and 30
+    })
+
+    it('percentile interpolates linearly between order statistics', () => {
+      const q = new Quantity([0, 10])
+      expect(q.percentile(0.25)).toBeCloseTo(2.5, 10)
+      expect(q.percentile(0.5)).toBeCloseTo(5, 10)
+      expect(q.percentile(0.0)).toBe(0)
+      expect(q.percentile(1.0)).toBe(10)
+    })
   })
 
   describe('arithmetic', () => {
