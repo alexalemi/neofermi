@@ -44,8 +44,9 @@ export function evaluateExpressions(
         ...result,
       })
     } else {
-      // Inline expressions: look up the variable
-      const result = evaluateVariable(expr.varName!, evaluator)
+      // Inline expressions: parse and evaluate arbitrary expression text
+      // (falls back to variable lookup for simple `${x}` references).
+      const result = evaluateInline(expr.expression!, evaluator)
       results.set(expr.id, {
         source: expr.source,
         ...result,
@@ -83,33 +84,40 @@ function evaluateCode(
 }
 
 /**
- * Look up a variable and format its value
+ * Evaluate an inline `${...}` expression.
+ *
+ * Shares the document's Evaluator so earlier `=` bindings are visible.
+ * Any parse/eval error is reported in the `error` field; callers decide
+ * how to render (editor shows an error span; CLI keeps raw `${…}`).
  */
-function evaluateVariable(
-  varName: string,
+function evaluateInline(
+  expression: string,
   evaluator: Evaluator
 ): Omit<EvaluationResult, 'source'> {
-  const value = evaluator.getVariable(varName)
-
-  if (!value) {
+  try {
+    const value = parse(expression, evaluator)
+    if (!value) {
+      return {
+        output: '',
+        inlineOutput: undefined,
+        error: `Expression produced no value: ${expression}`,
+        quantity: null,
+        vizData: null,
+      }
+    }
+    const output = formatQuantityConcise(value, { html: true })
+    const inlineOutput = formatQuantityConcise(value)
+    return { output, inlineOutput, error: null, quantity: value, vizData: null }
+  } catch (err) {
+    const errorMessage =
+      err instanceof EvaluationError ? err.message : `Error: ${(err as Error).message}`
     return {
       output: '',
       inlineOutput: undefined,
-      error: `Variable '${varName}' not defined`,
+      error: errorMessage,
       quantity: null,
       vizData: null,
     }
-  }
-
-  const output = formatQuantityConcise(value, { html: true })
-  const inlineOutput = formatQuantityConcise(value)
-
-  return {
-    output,
-    inlineOutput,
-    error: null,
-    quantity: value,
-    vizData: null, // No viz for inline
   }
 }
 

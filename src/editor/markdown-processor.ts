@@ -14,8 +14,8 @@ export interface ParsedExpression {
   id: string
   type: 'block' | 'inline'
   source: string
-  /** For inline expressions, the variable name being referenced */
-  varName?: string
+  /** For inline expressions, the raw expression text (bare var name or arbitrary expression) */
+  expression?: string
 }
 
 export interface ProcessedDocument {
@@ -85,20 +85,22 @@ export function processMarkdown(content: string): ProcessedDocument {
 
   // Extract inline expressions from the content
   // We parse the original content, not the rendered HTML
-  const inlineRegex = /\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g
+  // Matches ${...} with any non-} content — supports bare variables AND
+  // arbitrary expressions (`${x * 2}`, `${100 m as feet}`, etc.).
+  const inlineRegex = /\$\{([^}]+)\}/g
   let match
-  const inlineExprs: Array<{ varName: string; id: string; fullMatch: string }> = []
+  const inlineExprs: Array<{ expression: string; id: string; fullMatch: string }> = []
 
   while ((match = inlineRegex.exec(content)) !== null) {
-    const varName = match[1]
+    const expression = match[1]
     const exprId = `inline-${inlineCounter++}`
     expressions.push({
       id: exprId,
       type: 'inline',
-      source: varName, // For inline, source is just the var name
-      varName,
+      source: expression,
+      expression,
     })
-    inlineExprs.push({ varName, id: exprId, fullMatch: match[0] })
+    inlineExprs.push({ expression, id: exprId, fullMatch: match[0] })
   }
 
   /**

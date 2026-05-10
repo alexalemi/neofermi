@@ -110,13 +110,23 @@ function executeCode(code: string, evaluator: Evaluator): CellResult {
 
 
 /**
- * Interpolate ${var} references in text
+ * Interpolate ${expr} references in text.
+ *
+ * `expr` may be a bare variable name (`${x}`) or any NeoFermi expression
+ * (`${x * 2}`, `${100 m as feet}`). Expressions share the document
+ * evaluator, so earlier `=` bindings are visible. Any `}` inside `expr`
+ * ends the interpolation — use a variable assignment in a code block if
+ * you need braces (e.g. weighted sets).
  */
 function interpolateText(text: string, evaluator: Evaluator): string {
-  return text.replace(/\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g, (match, varName) => {
-    const value = evaluator.getVariable(varName)
-    if (!value) return match
-    return formatQuantityConcise(value)
+  return text.replace(/\$\{([^}]+)\}/g, (match, expr) => {
+    try {
+      const value = parse(expr, evaluator)
+      if (!value) return match
+      return formatQuantityConcise(value)
+    } catch {
+      return match
+    }
   })
 }
 
