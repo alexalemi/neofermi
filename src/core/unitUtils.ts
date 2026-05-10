@@ -564,13 +564,6 @@ export function ensureLabelUnitRegistered(labelName: string): void {
 }
 
 /**
- * Check if a unit name is a dynamically registered label unit
- */
-export function isLabelUnit(name: string): boolean {
-  return registeredLabelUnits.has(name)
-}
-
-/**
  * Get all known unit alias names for autocomplete and error suggestions
  */
 export function getKnownUnitNames(): string[] {

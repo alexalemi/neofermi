@@ -116,14 +116,6 @@ export function getDimensionName(unit: Unit): string | null {
 }
 
 /**
- * Get full dimension info for a unit
- */
-export function getDimensionInfo(unit: Unit): DimensionInfo | null {
-  const sig = getDimensionSignature(unit)
-  return DIMENSION_NAMES[sig] || null
-}
-
-/**
  * Format a unit with its dimension name in curly braces
  * e.g., "m^3" -> "m^3 {volume}"
  */
@@ -135,13 +127,4 @@ export function formatUnitWithDimension(unit: Unit): string {
     return `${unitStr} {${dimName}}`
   }
   return unitStr
-}
-
-/**
- * Check if a unit represents a specific dimension type
- */
-export function isDimension(unit: Unit, dimensionName: string): boolean {
-  const sig = getDimensionSignature(unit)
-  const info = DIMENSION_NAMES[sig]
-  return info?.name === dimensionName
 }
