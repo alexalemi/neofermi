@@ -58,12 +58,12 @@ Expression
   / ConversionExpr
 
 ConversionExpr
-  = value:Range conversions:(_ Conversion)+ {
+  = value:Additive conversions:(_ Conversion)+ {
       return conversions.reduce((val, [, conv]) => {
         return node('Conversion', { value: val, unit: conv })
       }, value)
     }
-  / Range
+  / Additive
 
 // Let binding: let x = 10 in x + 5
 LetBinding
@@ -79,10 +79,10 @@ IfExpr
 
 // Comparison operators for conditions
 Comparison
-  = left:Range _ op:ComparisonOp _ right:Range {
+  = left:Additive _ op:ComparisonOp _ right:Additive {
       return node('BinaryOp', { op, left, right })
     }
-  / Range
+  / Additive
 
 ComparisonOp
   = ">=" { return ">=" }
@@ -91,46 +91,6 @@ ComparisonOp
   / "==" { return "==" }
   / ">" { return ">" }
   / "<" { return "<" }
-
-// Distribution operators: lowest precedence
-// Includes range (to), uniform (.., thru), normal (pm, +-, +/-), beta (of, against)
-// Keywords must be followed by non-identifier chars to avoid matching prefixes like "total"
-// IMPORTANT: Use _no_newline for unit attachment to prevent "1 to 2 m\nx" being parsed as "1 to 2 mx"
-Range
-  = left:Additive _ "to" ![a-zA-Z0-9_] _ right:Additive unit:(_no_newline Unit)? {
-      return node('Range', {
-        left,
-        right,
-        unit: unit ? unit[1] : null
-      })
-    }
-  / left:Additive _ (".." / "thru" ![a-zA-Z0-9_]) _ right:Additive unit:(_no_newline Unit)? {
-      return node('Uniform', {
-        left,
-        right,
-        unit: unit ? unit[1] : null
-      })
-    }
-  / mean:Additive _ ("+/-" / "+-" / "pm" ![a-zA-Z0-9_]) _ sigma:Additive unit:(_no_newline Unit)? {
-      return node('Normal', {
-        mean,
-        sigma,
-        unit: unit ? unit[1] : null
-      })
-    }
-  / successes:Additive _ "of" ![a-zA-Z0-9_] _ total:Additive {
-      return node('BetaOf', {
-        successes,
-        total
-      })
-    }
-  / successes:Additive _ "against" ![a-zA-Z0-9_] _ failures:Additive {
-      return node('BetaAgainst', {
-        successes,
-        failures
-      })
-    }
-  / Additive
 
 // Addition and Subtraction
 // Note: Use negative lookahead to avoid matching +- or +/- as separate operators
@@ -147,11 +107,54 @@ AddOp
 
 // Multiplication and Division
 Multiplicative
-  = head:Power tail:(_ ("*" / "/") _ Power)* {
+  = head:Range tail:(_ ("*" / "/") _ Range)* {
       return tail.reduce((left, [, op, , right]) => {
         return node('BinaryOp', { op, left, right })
       }, head)
     }
+
+// Distribution operators: bind tighter than * / + - so that
+//   `3 to 4 'car * 6 to 10 feet/'car`  parses as (3 to 4 'car) * (6 to 10 feet/'car)
+// and
+//   `3 to 4 * 6 to 10 feet`            parses as (3 to 4) * (6 to 10 feet)
+// Use parens for the old Additive-wide behavior: `(2 * 5) to (3 * 10)`.
+// Keywords must be followed by non-identifier chars to avoid matching prefixes like "total".
+// IMPORTANT: Use _no_newline for unit attachment to prevent "1 to 2 m\nx" being parsed as "1 to 2 mx"
+Range
+  = left:Power _ "to" ![a-zA-Z0-9_] _ right:Power unit:(_no_newline Unit)? {
+      return node('Range', {
+        left,
+        right,
+        unit: unit ? unit[1] : null
+      })
+    }
+  / left:Power _ (".." / "thru" ![a-zA-Z0-9_]) _ right:Power unit:(_no_newline Unit)? {
+      return node('Uniform', {
+        left,
+        right,
+        unit: unit ? unit[1] : null
+      })
+    }
+  / mean:Power _ ("+/-" / "+-" / "pm" ![a-zA-Z0-9_]) _ sigma:Power unit:(_no_newline Unit)? {
+      return node('Normal', {
+        mean,
+        sigma,
+        unit: unit ? unit[1] : null
+      })
+    }
+  / successes:Power _ "of" ![a-zA-Z0-9_] _ total:Power {
+      return node('BetaOf', {
+        successes,
+        total
+      })
+    }
+  / successes:Power _ "against" ![a-zA-Z0-9_] _ failures:Power {
+      return node('BetaAgainst', {
+        successes,
+        failures
+      })
+    }
+  / Power
 
 // Power (exponentiation) - right associative
 Power
@@ -294,9 +297,10 @@ NumericLiteral
     }
 
 // Units
+// Try CompoundUnit first so that `'car/'foo` doesn't prematurely match
+// the bare CustomUnit alternative and strand the `/'foo`.
 Unit
-  = CustomUnit
-  / CompoundUnit
+  = CompoundUnit
   / UnitWithPower
 
 CustomUnit
@@ -304,8 +308,21 @@ CustomUnit
       return node('Unit', { name, custom: true })
     }
 
+// Compound unit like `feet/s` or `feet/'car`.
+//
+// Whitespace around `/` is only tolerated when the denominator is a
+// custom unit (`'car`). That's because `1 mm / R_sun` (where R_sun is
+// a *variable* holding a Quantity) must remain a division — we can't
+// greedily absorb `mm / R_sun` into a compound unit.
 CompoundUnit
-  = numerator:UnitWithPower "/" denominator:UnitWithPower {
+  = numerator:UnitWithPower [ \t]* "/" [ \t]* denominator:CustomUnitWithPower {
+      return node('Unit', {
+        type: 'compound',
+        numerator,
+        denominator
+      })
+    }
+  / numerator:UnitWithPower "/" denominator:UnitWithPower {
       return node('Unit', {
         type: 'compound',
         numerator,
@@ -313,8 +330,8 @@ CompoundUnit
       })
     }
 
-UnitWithPower
-  = unit:SimpleUnit power:(_ ("^" / "**") _ NumericLiteral)? {
+CustomUnitWithPower
+  = unit:CustomUnit power:(_ ("^" / "**") _ NumericLiteral)? {
       if (power) {
         return node('Unit', {
           type: 'power',
@@ -324,6 +341,24 @@ UnitWithPower
       }
       return unit
     }
+
+UnitWithPower
+  = unit:UnitCore power:(_ ("^" / "**") _ NumericLiteral)? {
+      if (power) {
+        return node('Unit', {
+          type: 'power',
+          unit,
+          power: parseFloat(power[3])
+        })
+      }
+      return unit
+    }
+
+// Atomic unit: either a bare identifier (`feet`) or a custom unit (`'car`).
+// Used inside UnitWithPower so that `feet/'car` and `'car^2` parse.
+UnitCore
+  = CustomUnit
+  / SimpleUnit
 
 SimpleUnit
   = name:IdentifierName !(_ "=") {

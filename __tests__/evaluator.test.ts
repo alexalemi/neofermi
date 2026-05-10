@@ -459,9 +459,11 @@ describe('Evaluator', () => {
       expect(result?.value).toBe(512)
     })
 
-    it('range has lower precedence than arithmetic', () => {
-      const result = parse('2 * 5 to 3 * 10')
-      // Should be (2*5) to (3*10) = 10 to 30
+    it('range binds tighter than arithmetic; parens give Additive-wide bounds', () => {
+      // With Range between Multiplicative and Power, `2 * 5 to 3 * 10` parses
+      // as `2 * (5 to 3) * 10` (bounds inverted — would throw). Users who
+      // want arithmetic inside bounds must parenthesize.
+      const result = parse('(2 * 5) to (3 * 10)')
       expect(result?.isDistribution()).toBe(true)
     })
 

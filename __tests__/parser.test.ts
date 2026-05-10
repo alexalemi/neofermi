@@ -129,8 +129,10 @@ describe('Parser', () => {
       expect(result?.unit.toString()).toBe('meters')
     })
 
-    it('handles ranges in expressions', () => {
-      const result = parse('2 * 5 to 3 * 10')
+    it('handles ranges in expressions (use parens for Additive-wide bounds)', () => {
+      // Range now binds tighter than `*`, so `(2 * 5) to (3 * 10)` must be
+      // explicit — see grammar.peggy's Range rule for the rationale.
+      const result = parse('(2 * 5) to (3 * 10)')
       expect(result?.isDistribution()).toBe(true)
       const mean = result?.mean()
       expect(mean).toBeGreaterThan(10)
@@ -139,6 +141,45 @@ describe('Parser', () => {
 
     it('errors on mixed unit/unitless', () => {
       expect(() => parse('1 meters to 10')).toThrow('Cannot mix')
+    })
+
+    it('two ranges separated by * parse as Range * Range', () => {
+      // Before the precedence fix, this threw a parse error because the
+      // first `to` greedy-consumed `4 * 6` as its right-Additive, stranding
+      // the second `to`.
+      const result = parse('3 to 4 * 6 to 10 feet')
+      expect(result?.isDistribution()).toBe(true)
+      expect(result?.unit.toString()).toBe('feet')
+      const mean = result?.mean()
+      // Product of two lognormals ~3.5 * ~7.7 ≈ 27 feet, modulo distribution bias
+      expect(mean).toBeGreaterThan(15)
+      expect(mean).toBeLessThan(60)
+    })
+
+    it('two ranges with custom unit cancellation', () => {
+      // Same shape, but both sides have units that should cancel.
+      // Requires CompoundUnit to accept `'car` in its denominator.
+      const result = parse(`3 to 4 'car * 6 to 10 feet / 'car`)
+      expect(result?.isDistribution()).toBe(true)
+    })
+  })
+
+  describe('CompoundUnit with custom units', () => {
+    it('parses `feet / \'car` (custom unit in denominator)', () => {
+      const result = parse(`10 feet / 'car`)
+      expect(result?.value).toBe(10)
+    })
+
+    it(`parses 'car/'foo (custom units on both sides)`, () => {
+      const result = parse(`1 'car = 1 m\n1 'foo = 2 m\n5 'car/'foo`)
+      expect(result?.value).toBeCloseTo(5, 10)
+    })
+
+    it('still treats `mm / varname` as division (not compound)', () => {
+      // Guard against the greedy-CompoundUnit regression: `R_sun` is a
+      // variable, so `1 mm / R_sun` must parse as arithmetic division.
+      const result = parse('x = 2 m\n1 mm / x')
+      expect(result?.value).toBeCloseTo(5e-4, 10)
     })
   })
 
