@@ -34,10 +34,16 @@ describe('Utility math functions', () => {
     })
 
     it('erfinv round-trips with erf', () => {
-      const values = [0.1, 0.3, 0.5, 0.7, 0.9]
+      const values = [0.1, 0.3, 0.5, 0.7, 0.9, 0.99, -0.4]
       for (const v of values) {
-        expect(erf(erfinv(v))).toBeCloseTo(v, 2)
+        // Newton-refined against erf(): round-trip is exact to ~1e-9, not 1e-2.
+        expect(erf(erfinv(v))).toBeCloseTo(v, 8)
       }
+    })
+
+    it('erfinv matches the textbook value after refinement', () => {
+      // erf⁻¹(0.5) = 0.476936276204…
+      expect(erfinv(0.5)).toBeCloseTo(0.476936276, 6)
     })
 
     it('erfinv(-1) returns -Infinity', () => {
@@ -74,7 +80,12 @@ describe('Utility math functions', () => {
     })
 
     it('factor(0.025) ≈ -1.96 (2.5th percentile)', () => {
-      expect(factor(0.025)).toBeCloseTo(-1.96, 1)
+      // z_{0.025} = -1.959963985…; refinement gets us well past 2 digits.
+      expect(factor(0.025)).toBeCloseTo(-1.959963985, 4)
+    })
+
+    it('factor(0.95) ≈ 1.6449 (95th percentile)', () => {
+      expect(factor(0.95)).toBeCloseTo(1.6448536270, 4)
     })
   })
 

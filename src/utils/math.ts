@@ -27,8 +27,10 @@ export function erf(x: number): number {
 }
 
 /**
- * Inverse error function
- * Used to convert from percentiles to standard deviations
+ * Inverse error function. Winitzki's closed-form estimate (~2e-3 relative
+ * error) refined with Newton's method against the accurate `erf` above, which
+ * brings it to roughly `erf`'s own precision (~1e-7). Used to convert
+ * confidence levels into standard-deviation multipliers (`factor`).
  */
 export function erfinv(y: number): number {
   if (y < -1 || y > 1) {
@@ -39,15 +41,23 @@ export function erfinv(y: number): number {
   if (y === 1) return Infinity
   if (y === 0) return 0
 
+  // Winitzki's initial approximation.
   const a = 0.147
-
   const ln1 = Math.log(1 - y * y)
   const part1 = 2 / (Math.PI * a) + ln1 / 2
   const part2 = ln1 / a
+  let x = Math.sqrt(Math.sqrt(part1 * part1 - part2) - part1)
+  if (y < 0) x = -x
 
-  const erfInvValue = Math.sqrt(Math.sqrt(part1 * part1 - part2) - part1)
-
-  return y < 0 ? -erfInvValue : erfInvValue
+  // Newton refinement: erf'(x) = (2/√π)·e^{-x²}. Bail in the far tails where
+  // the derivative underflows and `erf`'s absolute error would blow up the step.
+  const twoOverSqrtPi = 2 / Math.sqrt(Math.PI)
+  for (let i = 0; i < 2; i++) {
+    const deriv = twoOverSqrtPi * Math.exp(-x * x)
+    if (deriv < 1e-12) break
+    x -= (erf(x) - y) / deriv
+  }
+  return x
 }
 
 /**

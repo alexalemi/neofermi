@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { calculateDotplotData, calculateHistogramData } from '../src/visualization/index.js'
+import { niceNumber, generateLinearTicks } from '../src/visualization/axisUtils.js'
 
 describe('Visualization', () => {
   describe('calculateDotplotData', () => {
@@ -91,6 +92,34 @@ describe('Visualization', () => {
       const data = calculateHistogramData(samples, 3, 'kg')
 
       expect(data.unit).toBe('kg')
+    })
+
+    it('handles an empty sample array without producing NaN', () => {
+      const data = calculateHistogramData([], 5)
+      expect(data.min).toBe(0)
+      expect(data.max).toBe(0)
+      expect(calculateDotplotData([], 10).quantiles).toEqual([])
+    })
+
+    it('survives a very large explicit sample count (no Math.min spread overflow)', () => {
+      const samples = Array.from({ length: 200_000 }, (_, i) => i)
+      const data = calculateHistogramData(samples, 25)
+      expect(data.min).toBe(0)
+      expect(data.max).toBe(199_999)
+    })
+  })
+
+  describe('axis ticks', () => {
+    it('niceNumber preserves sign and magnitude', () => {
+      expect(niceNumber(0)).toBe(0)
+      expect(niceNumber(7)).toBe(10)
+      expect(niceNumber(0.3)).toBe(0.5)
+      expect(niceNumber(-7)).toBe(-10) // was a positive 1 before the sign fix
+    })
+
+    it('generateLinearTicks gives one tick for a degenerate range', () => {
+      expect(generateLinearTicks(5, 5)).toEqual([5])
+      expect(generateLinearTicks(0, 10).length).toBeGreaterThan(1)
     })
   })
 })

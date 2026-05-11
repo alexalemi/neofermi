@@ -24,7 +24,7 @@ export function niceNumber(x: number, round: boolean = false): number {
   if (x === 0) return 0
 
   const exp = Math.floor(Math.log10(Math.abs(x)))
-  const f = x / Math.pow(10, exp) // Fraction between 1-10
+  const f = Math.abs(x) / Math.pow(10, exp) // Mantissa in [1, 10)
 
   let nf: number
   if (round) {
@@ -39,7 +39,7 @@ export function niceNumber(x: number, round: boolean = false): number {
     else nf = 10
   }
 
-  return nf * Math.pow(10, exp)
+  return Math.sign(x) * nf * Math.pow(10, exp)
 }
 
 /**
@@ -47,6 +47,9 @@ export function niceNumber(x: number, round: boolean = false): number {
  * Returns 3-5 tick values that are "nice" numbers.
  */
 export function generateLinearTicks(min: number, max: number, maxTicks: number = 5): number[] {
+  // Degenerate range (point-mass distribution): one tick at the value.
+  if (!(max > min)) return Number.isFinite(min) ? [min] : []
+
   const range = niceNumber(max - min, false)
   const tickSpacing = niceNumber(range / (maxTicks - 1), true)
 
