@@ -55,6 +55,9 @@ export function calculateDotplotData(
   numDots: number,
   unit: string = ''
 ): DotplotData {
+  if (samples.length === 0) {
+    return { quantiles: [], min: 0, max: 0, unit }
+  }
   const sorted = [...samples].sort((a, b) => a - b)
   const n = sorted.length
   const quantiles: number[] = []

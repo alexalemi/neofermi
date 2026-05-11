@@ -47,6 +47,20 @@ export interface HistogramData {
   unit: string
 }
 
+/** Min and max of an array via a single pass — `Math.min(...arr)` overflows
+ *  the call stack for large sample counts and gives ±Infinity for an empty
+ *  array; this returns `{ min: 0, max: 0 }` for the empty case. */
+function minMax(values: number[]): { min: number; max: number } {
+  if (values.length === 0) return { min: 0, max: 0 }
+  let min = values[0]
+  let max = values[0]
+  for (let i = 1; i < values.length; i++) {
+    if (values[i] < min) min = values[i]
+    if (values[i] > max) max = values[i]
+  }
+  return { min, max }
+}
+
 /**
  * Calculate histogram bins from particle samples
  * Uses log-spaced bins when data spans multiple orders of magnitude
@@ -56,8 +70,7 @@ export function calculateHistogramData(
   numBins: number,
   unit: string = ''
 ): HistogramData {
-  const min = Math.min(...samples)
-  const max = Math.max(...samples)
+  const { min, max } = minMax(samples)
 
   // Determine if we should use log-spaced bins
   const useLogBins = shouldUseLogScale(min, max)
