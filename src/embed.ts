@@ -11,6 +11,7 @@
 
 import { parse, Evaluator, EvaluationError } from './parser/index.js'
 import type { Quantity } from './core/Quantity.js'
+import { runCell } from './core/runCell.js'
 import { createDotplotCanvas, calculateDotplotData } from './visualization/quantileDotplot.js'
 import { formatQuantityConcise } from './utils/format.js'
 import { escapeHtml } from './utils/html.js'
@@ -158,38 +159,28 @@ function injectStyles(): void {
 
 const pendingCanvases = new Map<string, HTMLCanvasElement>()
 
+/** A dotplot canvas for a distribution Quantity, sized for embed/REPL output. */
+function dotplotCanvas(q: Quantity): HTMLCanvasElement {
+  return createDotplotCanvas(q.toParticles(), q.unit.toString(), {
+    width: 280, height: 90, numDots: 20, dotRadius: 5, padding: 25,
+  })
+}
+
 function evaluateBlock(
   code: string,
   evaluator: Evaluator
 ): { html: string } {
-  // Parse the whole block at once — the grammar's statement-list rule handles
-  // multi-line constructs (`let … in …`, parenthesized expressions, weighted
-  // sets) that splitting on '\n' would break.
-  let lastResult: Quantity | null
-  try {
-    lastResult = parse(code, evaluator)
-  } catch (err) {
-    const msg = err instanceof EvaluationError ? err.message : (err as Error).message
-    return { html: `<div class="nf-embed-error">${escapeHtml(msg)}</div>` }
-  }
+  const r = runCell(code, evaluator)
+  if (r.error) return { html: `<div class="nf-embed-error">${escapeHtml(r.error)}</div>` }
+  if (!r.quantity) return { html: '' }
 
-  if (!lastResult) return { html: '' }
-
-  let resultHtml = `<div class="nf-embed-result">${formatQuantityConcise(lastResult, { html: true, classPrefix: 'nf-embed' })}`
-
-  if (lastResult.isDistribution()) {
-    const samples = lastResult.toParticles()
-    const unit = lastResult.unit.toString()
-    const canvas = createDotplotCanvas(samples, unit, {
-      width: 280, height: 90, numDots: 20, dotRadius: 5, padding: 25,
-    })
+  let resultHtml = `<div class="nf-embed-result">${formatQuantityConcise(r.quantity, { html: true, classPrefix: 'nf-embed' })}`
+  if (r.quantity.isDistribution()) {
     const vizId = 'nf-viz-' + Math.random().toString(36).slice(2, 10)
     resultHtml += `<div class="nf-embed-viz" id="${vizId}"></div>`
-    pendingCanvases.set(vizId, canvas)
+    pendingCanvases.set(vizId, dotplotCanvas(r.quantity))
   }
-
-  resultHtml += '</div>'
-  return { html: resultHtml }
+  return { html: resultHtml + '</div>' }
 }
 
 function flushCanvases(): void {
@@ -269,28 +260,18 @@ function createRepl(evaluator: Evaluator): void {
       inputLine.textContent = '\u276F ' + code
       output.appendChild(inputLine)
 
-      try {
-        const result = parse(code, evaluator)
-        if (result) {
-          const resultLine = document.createElement('div')
-          resultLine.className = 'repl-result'
-          resultLine.innerHTML = formatQuantityConcise(result, {
-            html: true,
-            classPrefix: 'nf-embed',
-          })
-          if (result.isDistribution()) {
-            const canvas = createDotplotCanvas(result.toParticles(), result.unit.toString(), {
-              width: 280, height: 90, numDots: 20, dotRadius: 5, padding: 25,
-            })
-            resultLine.appendChild(canvas)
-          }
-          output.appendChild(resultLine)
-        }
-      } catch (err) {
+      const r = runCell(code, evaluator)
+      if (r.error) {
         const errLine = document.createElement('div')
         errLine.className = 'repl-error'
-        errLine.textContent = err instanceof EvaluationError ? err.message : (err as Error).message
+        errLine.textContent = r.error
         output.appendChild(errLine)
+      } else if (r.quantity) {
+        const resultLine = document.createElement('div')
+        resultLine.className = 'repl-result'
+        resultLine.innerHTML = formatQuantityConcise(r.quantity, { html: true, classPrefix: 'nf-embed' })
+        if (r.quantity.isDistribution()) resultLine.appendChild(dotplotCanvas(r.quantity))
+        output.appendChild(resultLine)
       }
 
       output.scrollTop = output.scrollHeight

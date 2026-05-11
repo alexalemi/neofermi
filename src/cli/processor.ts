@@ -12,10 +12,9 @@ import remarkRehype from 'remark-rehype'
 import rehypeStringify from 'rehype-stringify'
 import { visit } from 'unist-util-visit'
 import type { Root, Code, Text, Html } from 'mdast'
-import { parse, Evaluator, EvaluationError } from '../parser/index.js'
-import { getVizData } from '../visualization/index.js'
-import { formatQuantityConcise } from '../utils/format.js'
-import { buildCellHtml, type CellResult } from '../utils/html.js'
+import { Evaluator } from '../parser/index.js'
+import { runCell } from '../core/runCell.js'
+import { buildCellHtml } from '../utils/html.js'
 
 /**
  * Process a markdown file and return rendered HTML
@@ -66,7 +65,7 @@ function remarkNeoFermi(options: { evaluator: Evaluator }) {
       if (!node.value.trim()) return
 
       // Execute the code
-      const result = executeCode(node.value, evaluator)
+      const result = runCell(node.value, evaluator)
 
       // Replace with HTML node containing the cell
       const htmlContent = buildCellHtml(node.value, result)
@@ -87,29 +86,6 @@ function remarkNeoFermi(options: { evaluator: Evaluator }) {
 
 
 /**
- * Execute NeoFermi code and return formatted result
- */
-function executeCode(code: string, evaluator: Evaluator): CellResult {
-  try {
-    const result = parse(code, evaluator)
-
-    if (!result) {
-      return { output: '', error: null, vizData: null }
-    }
-
-    const output = formatQuantityConcise(result, { html: true })
-    const vizData = result.isDistribution() ? getVizData(result) : null
-
-    return { output, error: null, vizData }
-  } catch (err) {
-    const errorMessage =
-      err instanceof EvaluationError ? err.message : `Error: ${(err as Error).message}`
-    return { output: '', error: errorMessage, vizData: null }
-  }
-}
-
-
-/**
  * Interpolate ${expr} references in text.
  *
  * `expr` may be a bare variable name (`${x}`) or any NeoFermi expression
@@ -118,19 +94,13 @@ function executeCode(code: string, evaluator: Evaluator): CellResult {
  * ends the interpolation — use a variable assignment in a code block if
  * you need braces (e.g. weighted sets).
  *
- * A parse/eval failure is surfaced inline (`«error: …»`) rather than
+ * A parse/eval failure is surfaced inline (`«expr: message»`) rather than
  * silently leaving the raw `${…}` in the rendered document.
  */
 function interpolateText(text: string, evaluator: Evaluator): string {
   return text.replace(/\$\{([^}]+)\}/g, (_match, expr) => {
-    try {
-      const value = parse(expr, evaluator)
-      if (!value) return `«${expr.trim()}: no value»`
-      return formatQuantityConcise(value)
-    } catch (err) {
-      const msg = err instanceof EvaluationError ? err.message : (err as Error).message
-      return `«${expr.trim()}: ${msg}»`
-    }
+    const r = runCell(expr, evaluator, { requireValue: true })
+    return r.error ? `«${expr.trim()}: ${r.error}»` : r.inlineOutput
   })
 }
 
