@@ -25,7 +25,7 @@ function poissonSample(lambda: number): number {
     return k - 1
   } else {
     // Normal approximation for large lambda
-    const u1 = Math.random()
+    const u1 = 1 - Math.random()  // (0, 1] so log(u1) ≠ -Infinity
     const u2 = Math.random()
     const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
     return Math.max(0, Math.round(lambda + Math.sqrt(lambda) * z))

@@ -21,7 +21,7 @@ function binomialSample(n: number, p: number): number {
     // Normal approximation for large n*p
     const mean = n * p
     const stddev = Math.sqrt(n * p * (1 - p))
-    const u1 = Math.random()
+    const u1 = 1 - Math.random()  // (0, 1] so log(u1) ≠ -Infinity
     const u2 = Math.random()
     const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
     return Math.max(0, Math.min(n, Math.round(mean + stddev * z)))

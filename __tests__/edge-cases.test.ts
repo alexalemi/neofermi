@@ -180,6 +180,17 @@ describe('Edge cases', () => {
       expect(q.toParticles().every(v => !isNaN(v))).toBe(true)
     })
 
+    it('against(0, 0) is the uniform prior, not all-NaN', () => {
+      const q = against(0, 0, 2000)
+      expect(q.toParticles().every(v => !isNaN(v) && v >= 0 && v <= 1)).toBe(true)
+      expect(q.mean()).toBeCloseTo(0.5, 1) // Beta(1,1) — uniform
+    })
+
+    it('against(X, Y) matches outof(X, X+Y) (same Laplace smoothing)', () => {
+      // Beta(6,3) either way → mean 6/9 ≈ 0.667.
+      expect(against(5, 2, 4000).mean()).toBeCloseTo(outof(5, 7, 4000).mean(), 1)
+    })
+
     it('against rejects negative counts', () => {
       expect(() => against(-1, 10)).toThrow()
       expect(() => against(10, -1)).toThrow()

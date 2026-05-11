@@ -61,10 +61,11 @@ function gammaSample(shape: number): number {
 }
 
 /**
- * Generate a single standard normal sample using Box-Muller
+ * Generate a single standard normal sample using Box-Muller.
+ * Draw u1 from (0, 1] (via 1 - random()) so log(u1) can't be -Infinity.
  */
 function randomNormal(): number {
-  const u1 = Math.random()
+  const u1 = 1 - Math.random()
   const u2 = Math.random()
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
 }
@@ -105,14 +106,17 @@ export function outof(
 }
 
 /**
- * Alternative phrasing for beta distribution
+ * Alternative phrasing for beta distribution.
  *
- * "X for, Y against" instead of "X out of (X+Y)"
+ * "X for, Y against" — equivalent to `outof(X, X + Y)`, including the Laplace
+ * smoothing: parameters are `Beta(X + 1, Y + 1)`. So `5 against 0` is a sharp
+ * but not point-mass distribution near 1, and `0 against 0` is `Beta(1, 1)`
+ * (uniform) rather than the all-NaN result raw counts would give.
  *
- * @param forCount - Count in favor
- * @param againstCount - Count against
+ * @param forCount - Count in favor (≥ 0)
+ * @param againstCount - Count against (≥ 0)
  * @param n - Number of samples
- * @returns Quantity with beta distribution
+ * @returns Quantity with beta distribution (no units, between 0 and 1)
  */
 export function against(
   forCount: number,
@@ -123,10 +127,7 @@ export function against(
     throw new Error('Counts must be non-negative')
   }
 
-  const alpha = forCount
-  const beta = againstCount
-
-  const samples = betaSamples(alpha, beta, n)
+  const samples = betaSamples(forCount + 1, againstCount + 1, n)
   return new Quantity(samples) // No units (proportion)
 }
 

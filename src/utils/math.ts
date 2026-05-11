@@ -72,8 +72,8 @@ export function randn(n: number): number[] {
   const result: number[] = new Array(n)
 
   for (let i = 0; i < n; i += 2) {
-    // Box-Muller transform
-    const u1 = Math.random()
+    // Box-Muller transform. Draw u1 from (0, 1] so log(u1) is never -Infinity.
+    const u1 = 1 - Math.random()
     const u2 = Math.random()
 
     const r = Math.sqrt(-2.0 * Math.log(u1))

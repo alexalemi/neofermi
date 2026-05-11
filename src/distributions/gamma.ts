@@ -43,10 +43,11 @@ function gammaSample(shape: number, scale: number = 1): number {
 }
 
 /**
- * Generate a single standard normal sample using Box-Muller
+ * Generate a single standard normal sample using Box-Muller.
+ * Draw u1 from (0, 1] (via 1 - random()) so log(u1) can't be -Infinity.
  */
 function randomNormal(): number {
-  const u1 = Math.random()
+  const u1 = 1 - Math.random()
   const u2 = Math.random()
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
 }
