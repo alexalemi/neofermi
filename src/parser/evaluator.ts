@@ -11,59 +11,8 @@ import * as mathFunctions from '../functions/index.js'
 import * as physicalConstants from '../constants/index.js'
 import { createUnit, getKnownUnitNames, ensureLabelUnitRegistered } from '../core/unitUtils.js'
 import { SCALE_WORDS } from '../core/scaleWords.js'
-
-/**
- * Calculate Levenshtein distance between two strings
- */
-function levenshteinDistance(a: string, b: string): number {
-  const matrix: number[][] = []
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i]
-  }
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j
-  }
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1]
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        )
-      }
-    }
-  }
-  return matrix[b.length][a.length]
-}
-
-/**
- * Find similar strings from a list of candidates
- * Returns up to 3 suggestions with distance <= 3
- */
-function findSimilar(target: string, candidates: string[], maxDistance = 3): string[] {
-  const targetLower = target.toLowerCase()
-  const scored = candidates
-    .map(c => ({
-      name: c,
-      distance: levenshteinDistance(targetLower, c.toLowerCase())
-    }))
-    .filter(s => s.distance <= maxDistance && s.distance > 0)
-    .sort((a, b) => a.distance - b.distance)
-    .slice(0, 3)
-  return scored.map(s => s.name)
-}
-
-/**
- * Format a suggestion message
- */
-function formatSuggestion(suggestions: string[]): string {
-  if (suggestions.length === 0) return ''
-  if (suggestions.length === 1) return `. Did you mean '${suggestions[0]}'?`
-  return `. Did you mean ${suggestions.slice(0, -1).map(s => `'${s}'`).join(', ')} or '${suggestions[suggestions.length - 1]}'?`
-}
+import { findSimilar, formatSuggestion } from './suggestions.js'
+import { parseSigFigs } from '../core/sigfigs.js'
 
 export class EvaluationError extends Error {
   location?: SourceLocation
@@ -79,19 +28,10 @@ export class EvaluationError extends Error {
   }
 }
 
-// Math functions that take Quantity objects (not raw values)
-const MATH_FUNCTIONS = new Set([
-  'abs', 'sign', 'floor', 'ceil', 'round', 'trunc',
-  'sqrt', 'cbrt', 'exp', 'expm1', 'pow',
-  'log', 'ln', 'log10', 'log2', 'log1p',
-  'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2',
-  'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
-  'min', 'max', 'hypot', 'clamp',
-  'quantile', 'percentile', 'p5', 'p10', 'p25', 'median', 'p75', 'p90', 'p95', 'p99',
-  'mean', 'std', 'crps', 'crps_reliability', 'crps_resolution',
-  'logcrps', 'logcrps_reliability', 'logcrps_resolution',
-  'dbcrps', 'dbcrps_reliability', 'dbcrps_resolution'
-])
+// Functions from src/functions/ take Quantity arguments directly; the
+// distribution constructors registered below take raw numbers instead. Both
+// lists are derived from a single source so they can't drift.
+const MATH_FUNCTION_NAMES = new Set(Object.keys(mathFunctions))
 
 // User-defined function storage
 interface UserFunction {
@@ -120,81 +60,13 @@ export class Evaluator {
     this.functions.set('exponential', distributions.exponential)
     this.functions.set('binomial', distributions.binomial)
 
-    // Register math functions (these take Quantity objects)
-    this.registerMathFunctions()
+    // Register math functions (these take Quantity objects directly)
+    for (const [name, fn] of Object.entries(mathFunctions)) {
+      this.functions.set(name, fn as Function)
+    }
 
     // Register physical constants
     this.registerPhysicalConstants()
-  }
-
-  private registerMathFunctions(): void {
-    // Basic math
-    this.functions.set('abs', mathFunctions.abs)
-    this.functions.set('sign', mathFunctions.sign)
-    this.functions.set('floor', mathFunctions.floor)
-    this.functions.set('ceil', mathFunctions.ceil)
-    this.functions.set('round', mathFunctions.round)
-    this.functions.set('trunc', mathFunctions.trunc)
-
-    // Power and roots
-    this.functions.set('sqrt', mathFunctions.sqrt)
-    this.functions.set('cbrt', mathFunctions.cbrt)
-    this.functions.set('exp', mathFunctions.exp)
-    this.functions.set('expm1', mathFunctions.expm1)
-    this.functions.set('pow', mathFunctions.pow)
-
-    // Logarithms
-    this.functions.set('log', mathFunctions.log)
-    this.functions.set('ln', mathFunctions.ln)
-    this.functions.set('log10', mathFunctions.log10)
-    this.functions.set('log2', mathFunctions.log2)
-    this.functions.set('log1p', mathFunctions.log1p)
-
-    // Trigonometry
-    this.functions.set('sin', mathFunctions.sin)
-    this.functions.set('cos', mathFunctions.cos)
-    this.functions.set('tan', mathFunctions.tan)
-    this.functions.set('asin', mathFunctions.asin)
-    this.functions.set('acos', mathFunctions.acos)
-    this.functions.set('atan', mathFunctions.atan)
-    this.functions.set('atan2', mathFunctions.atan2)
-
-    // Hyperbolic
-    this.functions.set('sinh', mathFunctions.sinh)
-    this.functions.set('cosh', mathFunctions.cosh)
-    this.functions.set('tanh', mathFunctions.tanh)
-    this.functions.set('asinh', mathFunctions.asinh)
-    this.functions.set('acosh', mathFunctions.acosh)
-    this.functions.set('atanh', mathFunctions.atanh)
-
-    // Binary math
-    this.functions.set('min', mathFunctions.min)
-    this.functions.set('max', mathFunctions.max)
-    this.functions.set('hypot', mathFunctions.hypot)
-    this.functions.set('clamp', mathFunctions.clamp)
-
-    // Statistical functions for distributions
-    this.functions.set('quantile', mathFunctions.quantile)
-    this.functions.set('percentile', mathFunctions.percentile)
-    this.functions.set('p5', mathFunctions.p5)
-    this.functions.set('p10', mathFunctions.p10)
-    this.functions.set('p25', mathFunctions.p25)
-    this.functions.set('median', mathFunctions.median)
-    this.functions.set('p75', mathFunctions.p75)
-    this.functions.set('p90', mathFunctions.p90)
-    this.functions.set('p95', mathFunctions.p95)
-    this.functions.set('p99', mathFunctions.p99)
-    this.functions.set('mean', mathFunctions.mean)
-    this.functions.set('std', mathFunctions.std)
-    this.functions.set('crps', mathFunctions.crps)
-    this.functions.set('crps_reliability', mathFunctions.crps_reliability)
-    this.functions.set('crps_resolution', mathFunctions.crps_resolution)
-    this.functions.set('logcrps', mathFunctions.logcrps)
-    this.functions.set('logcrps_reliability', mathFunctions.logcrps_reliability)
-    this.functions.set('logcrps_resolution', mathFunctions.logcrps_resolution)
-    this.functions.set('dbcrps', mathFunctions.dbcrps)
-    this.functions.set('dbcrps_reliability', mathFunctions.dbcrps_reliability)
-    this.functions.set('dbcrps_resolution', mathFunctions.dbcrps_resolution)
   }
 
   private registerPhysicalConstants(): void {
@@ -797,7 +669,7 @@ export class Evaluator {
 
     try {
       // Math functions take Quantity objects directly
-      if (MATH_FUNCTIONS.has(node.name)) {
+      if (MATH_FUNCTION_NAMES.has(node.name)) {
         return func(...args) as Quantity
       }
 
@@ -919,76 +791,9 @@ export class Evaluator {
 
   private evaluateSigFigNumber(node: ASTNode & { type: 'SigFigNumber' }): Quantity {
     const unitStr = node.unit ? this.evaluateUnit(node.unit) : undefined
-    const { value, uncertainty } = this.parseSigFigs(node.raw)
-
-    // Create uniform distribution: [value - uncertainty, value + uncertainty]
-    const low = value - uncertainty
-    const high = value + uncertainty
-    return distributions.uniform(low, high, unitStr)
-  }
-
-  /**
-   * Parse a number string and determine its uncertainty from significant figures.
-   *
-   * Rules:
-   * - "3.14" → 3 sig figs, uncertainty = 0.005 (half of last digit place)
-   * - "130" → 2 sig figs (trailing zeros ambiguous), uncertainty = 5
-   * - "130." → 3 sig figs (decimal indicates precision), uncertainty = 0.5
-   * - "1.30" → 3 sig figs (trailing zero significant), uncertainty = 0.005
-   * - "1.3e6" → 2 sig figs, uncertainty = 0.05e6 = 50000
-   */
-  private parseSigFigs(raw: string): { value: number; uncertainty: number } {
-    const value = parseFloat(raw)
-
-    // Handle scientific notation: extract mantissa and exponent
-    const eMatch = raw.toLowerCase().match(/^([^e]+)e([+-]?\d+)$/)
-    let mantissa = raw
-    let exponent = 0
-
-    if (eMatch) {
-      mantissa = eMatch[1]
-      exponent = parseInt(eMatch[2], 10)
-    }
-
-    // Determine the place value of the last significant digit
-    let lastDigitPlace: number
-
-    if (mantissa.includes('.')) {
-      // Has decimal point
-      const decimalIndex = mantissa.indexOf('.')
-      const afterDecimal = mantissa.slice(decimalIndex + 1)
-
-      if (afterDecimal.length === 0) {
-        // Trailing decimal like "130." - precision is ones place
-        lastDigitPlace = 0
-      } else {
-        // Normal decimal: "3.14" or "1.30"
-        // Last digit is at position -(afterDecimal.length)
-        lastDigitPlace = -afterDecimal.length
-      }
-    } else {
-      // No decimal point: find last non-zero digit position
-      // "130" → last sig fig is at position 1 (tens place)
-      // "1300" → last sig fig is at position 2 (hundreds place)
-      const reversed = mantissa.split('').reverse()
-      let trailingZeros = 0
-      for (const char of reversed) {
-        if (char === '0') {
-          trailingZeros++
-        } else {
-          break
-        }
-      }
-      lastDigitPlace = trailingZeros
-    }
-
-    // Apply exponent to get actual place value
-    const actualPlace = lastDigitPlace + exponent
-
-    // Uncertainty is half of the last digit place value
-    const uncertainty = 0.5 * Math.pow(10, actualPlace)
-
-    return { value, uncertainty }
+    const { value, uncertainty } = parseSigFigs(node.raw)
+    // Represent the implied precision as a uniform on [value ± uncertainty].
+    return distributions.uniform(value - uncertainty, value + uncertainty, unitStr)
   }
 
   private evaluateUnit(unitNode: UnitNode): string {
