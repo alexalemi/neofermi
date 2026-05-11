@@ -24,6 +24,7 @@ export const KEYWORDS: Completion[] = [
   { label: 'if', type: 'keyword', description: 'Conditional expression' },
   { label: 'then', type: 'keyword', description: 'Then branch of conditional' },
   { label: 'else', type: 'keyword', description: 'Else branch of conditional' },
+  { label: 'per', type: 'keyword', description: 'Division in compound units (e.g. miles per hour)' },
 ]
 
 // Distribution functions
@@ -37,6 +38,9 @@ export const DISTRIBUTION_FUNCTIONS: Completion[] = [
   { label: 'plusminus', type: 'function', signature: 'plusminus(center, error, unit?)', description: 'Normal distribution from center ± error' },
   { label: 'percent', type: 'function', signature: 'percent(pct)', description: 'Multiplicative error (e.g., ±10%)' },
   { label: 'db', type: 'function', signature: 'db(decibels)', description: 'Precision in decibels (higher = more precise)' },
+  { label: 'poisson', type: 'function', signature: 'poisson(lambda)', description: 'Poisson distribution (count of rare events)' },
+  { label: 'exponential', type: 'function', signature: 'exponential(rate)', description: 'Exponential distribution (waiting time)' },
+  { label: 'binomial', type: 'function', signature: 'binomial(n, p)', description: 'Binomial distribution (successes in n trials)' },
 ]
 
 // Math functions
@@ -52,12 +56,14 @@ export const MATH_FUNCTIONS: Completion[] = [
   { label: 'sqrt', type: 'function', signature: 'sqrt(x)', description: 'Square root' },
   { label: 'cbrt', type: 'function', signature: 'cbrt(x)', description: 'Cube root' },
   { label: 'exp', type: 'function', signature: 'exp(x)', description: 'e^x' },
+  { label: 'expm1', type: 'function', signature: 'expm1(x)', description: 'e^x − 1 (accurate for small x)' },
   { label: 'pow', type: 'function', signature: 'pow(base, exp)', description: 'Power function' },
   // Logarithms
   { label: 'log', type: 'function', signature: 'log(x)', description: 'Natural logarithm' },
   { label: 'ln', type: 'function', signature: 'ln(x)', description: 'Natural logarithm' },
   { label: 'log10', type: 'function', signature: 'log10(x)', description: 'Base-10 logarithm' },
   { label: 'log2', type: 'function', signature: 'log2(x)', description: 'Base-2 logarithm' },
+  { label: 'log1p', type: 'function', signature: 'log1p(x)', description: 'ln(1 + x) (accurate for small x)' },
   // Trigonometry
   { label: 'sin', type: 'function', signature: 'sin(x)', description: 'Sine (radians)' },
   { label: 'cos', type: 'function', signature: 'cos(x)', description: 'Cosine (radians)' },
@@ -70,11 +76,29 @@ export const MATH_FUNCTIONS: Completion[] = [
   { label: 'sinh', type: 'function', signature: 'sinh(x)', description: 'Hyperbolic sine' },
   { label: 'cosh', type: 'function', signature: 'cosh(x)', description: 'Hyperbolic cosine' },
   { label: 'tanh', type: 'function', signature: 'tanh(x)', description: 'Hyperbolic tangent' },
+  { label: 'asinh', type: 'function', signature: 'asinh(x)', description: 'Inverse hyperbolic sine' },
+  { label: 'acosh', type: 'function', signature: 'acosh(x)', description: 'Inverse hyperbolic cosine' },
+  { label: 'atanh', type: 'function', signature: 'atanh(x)', description: 'Inverse hyperbolic tangent' },
   // Binary
   { label: 'min', type: 'function', signature: 'min(a, b)', description: 'Minimum of two values' },
   { label: 'max', type: 'function', signature: 'max(a, b)', description: 'Maximum of two values' },
   { label: 'hypot', type: 'function', signature: 'hypot(a, b)', description: 'Hypotenuse (sqrt(a² + b²))' },
   { label: 'clamp', type: 'function', signature: 'clamp(x, min, max)', description: 'Clamp value to range' },
+  // Distribution summaries
+  { label: 'mean', type: 'function', signature: 'mean(dist)', description: 'Mean of a distribution' },
+  { label: 'std', type: 'function', signature: 'std(dist)', description: 'Standard deviation of a distribution' },
+  { label: 'median', type: 'function', signature: 'median(dist)', description: 'Median (50th percentile)' },
+  { label: 'quantile', type: 'function', signature: 'quantile(dist, p)', description: 'p-th quantile (p in 0..1)' },
+  { label: 'percentile', type: 'function', signature: 'percentile(dist, p)', description: 'p-th percentile (p in 0..100)' },
+  { label: 'p5', type: 'function', signature: 'p5(dist)', description: '5th percentile' },
+  { label: 'p10', type: 'function', signature: 'p10(dist)', description: '10th percentile' },
+  { label: 'p25', type: 'function', signature: 'p25(dist)', description: '25th percentile (lower quartile)' },
+  { label: 'p75', type: 'function', signature: 'p75(dist)', description: '75th percentile (upper quartile)' },
+  { label: 'p90', type: 'function', signature: 'p90(dist)', description: '90th percentile' },
+  { label: 'p95', type: 'function', signature: 'p95(dist)', description: '95th percentile' },
+  { label: 'p99', type: 'function', signature: 'p99(dist)', description: '99th percentile' },
+  { label: 'crps', type: 'function', signature: 'crps(dist, obs)', description: 'Continuous ranked probability score' },
+  { label: 'logcrps', type: 'function', signature: 'logcrps(dist, obs)', description: 'CRPS in log space' },
 ]
 
 // Physical constants
@@ -91,7 +115,8 @@ export const CONSTANTS: Completion[] = [
   { label: 'q', type: 'constant', description: 'Elementary charge' },
   { label: 'k', type: 'constant', description: 'Boltzmann constant' },
   { label: 'kB', type: 'constant', description: 'Boltzmann constant (alias)' },
-  { label: 'NA', type: 'constant', description: 'Avogadro number' },
+  { label: 'NA', type: 'constant', description: 'Avogadro constant' },
+  { label: 'N_A', type: 'constant', description: 'Avogadro constant (alias)' },
   // Derived constants
   { label: 'G', type: 'constant', description: 'Gravitational constant' },
   { label: 'g', type: 'constant', description: 'Standard gravity (9.80665 m/s²)' },
