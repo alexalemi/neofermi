@@ -466,6 +466,12 @@ describe('Evaluator', () => {
       expect(result?.value).toBeCloseTo(Math.E)
     })
 
+    it('Avogadro constant available under several spellings', () => {
+      for (const name of ['NA', 'N_A', 'avogadro', 'avogadro_constant']) {
+        expect(parse(name)?.value).toBeCloseTo(6.02214076e23, 15)
+      }
+    })
+
     it('constants have correct units', () => {
       const evaluator = new Evaluator()
       const c = parse('c', evaluator)

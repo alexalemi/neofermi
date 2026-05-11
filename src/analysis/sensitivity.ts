@@ -103,15 +103,9 @@ export function analyzeSensitivity(
   }
 }
 
-/**
- * Compute variance of a Quantity
- */
+/** Population variance of a Quantity's particles (0 for a scalar). */
 function variance(q: Quantity): number {
-  if (q.isScalar()) return 0
-  const values = q.value as number[]
-  const mean = q.mean()
-  const sumSquaredDiff = values.reduce((sum, v) => sum + (v - mean) ** 2, 0)
-  return sumSquaredDiff / values.length
+  return q.std() ** 2
 }
 
 /**

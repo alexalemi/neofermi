@@ -105,7 +105,9 @@ export const boltzmanns_constant = k
 
 /** Avogadro constant (exact since 2019) */
 export const NA = new Quantity(6.02214076e23, '1/mol')
+export const N_A = NA
 export const avogadro = NA
+export const avogadro_constant = NA
 
 /** Cesium hyperfine transition frequency (defines the second) */
 export const vcs = new Quantity(9192631770, '1/s')
@@ -579,7 +581,7 @@ export const constants: Record<string, Quantity> = {
   // SI Defining (exact)
   c, speed_of_light, h, Planck, planck, plancks_constant, hbar,
   q, elementary_charge, k, kB, boltzmann, boltzmann_constant, boltzmanns_constant,
-  NA, avogadro, vcs, kcd,
+  NA, N_A, avogadro, avogadro_constant, vcs, kcd,
   // Measured
   G, g, standard_gravity, alpha, u, amu, atomic_mass_unit,
   r_e, classical_electron_radius, thomson_cross_section,
