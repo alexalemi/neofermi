@@ -663,10 +663,12 @@ Escape               # Unfocus cell</pre>
   </div>
 
   <script type="module">
-    import { parse, Evaluator } from './src/parser/index.js'
+    import { Evaluator } from './src/parser/index.js'
+    import { runCell } from './src/core/runCell.js'
     import { visualize } from './src/visualization/index.js'
     import { getCompletions, getWordAtCursor } from './src/autocomplete/index.js'
     import { formatQuantityConcise } from './src/utils/format.js'
+    import { escapeHtml } from './src/utils/html.js'
 
 
     // State
@@ -831,7 +833,7 @@ Escape               # Unfocus cell</pre>
 
         clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
-          runCell(cell.id)
+          evaluateCell(cell.id)
         }, DEBOUNCE_MS)
       })
 
@@ -872,7 +874,7 @@ Escape               # Unfocus cell</pre>
         if (e.key === 'Enter' && e.shiftKey) {
           e.preventDefault()
           clearTimeout(debounceTimer)
-          runCell(cell.id)
+          evaluateCell(cell.id)
         }
       })
 
@@ -885,7 +887,7 @@ Escape               # Unfocus cell</pre>
       // Button handlers
       el.querySelector('.cell-btn.run').addEventListener('click', () => {
         clearTimeout(debounceTimer)
-        runCell(cell.id)
+        evaluateCell(cell.id)
       })
       el.querySelector('.cell-btn.delete').addEventListener('click', () => {
         deleteCell(cell.id)
@@ -957,54 +959,35 @@ Escape               # Unfocus cell</pre>
       }
     }
 
-    function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-    }
-
     // =====================
     // Evaluation
     // =====================
 
-    function runCell(id) {
-      const cell = cells.find(c => c.id === id)
-      if (!cell || !cell.code.trim()) {
-        if (cell) {
-          cell.result = null
-          cell.error = null
-          renderOutput(cell)
-        }
-        return
-      }
-
-      try {
-        const result = parse(cell.code, evaluator)
-        cell.result = result
-        cell.error = null
-      } catch (err) {
+    // Run one cell's code against the shared evaluator, stash the resulting
+    // Quantity / error string on the cell, and re-render it.
+    function evaluateCellInPlace(cell) {
+      if (!cell.code.trim()) {
         cell.result = null
-        cell.error = err.message
+        cell.error = null
+      } else {
+        const r = runCell(cell.code, evaluator)
+        cell.result = r.quantity
+        cell.error = r.error
       }
-
       renderOutput(cell)
+    }
+
+    function evaluateCell(id) {
+      const cell = cells.find(c => c.id === id)
+      if (!cell) return
+      evaluateCellInPlace(cell)
       saveToStorage()
     }
 
     function runAllCells() {
-      // Reset evaluator to clear variables, then run in order
+      // Reset evaluator to clear variables, then run in document order
       evaluator.reset()
-      for (const cell of cells) {
-        if (cell.code.trim()) {
-          try {
-            const result = parse(cell.code, evaluator)
-            cell.result = result
-            cell.error = null
-          } catch (err) {
-            cell.result = null
-            cell.error = err.message
-          }
-          renderOutput(cell)
-        }
-      }
+      for (const cell of cells) evaluateCellInPlace(cell)
       saveToStorage()
       setStatus('All cells evaluated')
     }
@@ -1442,7 +1425,7 @@ Escape               # Unfocus cell</pre>
             textarea.dispatchEvent(new Event('input'))
           }
         }
-        runCell(targetCell.id)
+        evaluateCell(targetCell.id)
         examplesBanner.style.display = 'none'
       })
     })
