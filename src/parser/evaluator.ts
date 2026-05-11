@@ -477,112 +477,75 @@ export class Evaluator {
     return distributions.to(leftVal, rightVal)
   }
 
-  private evaluateUniform(node: ASTNode & { type: 'Uniform' }): Quantity {
-    let left = this.evaluate(node.left)
-    let right = this.evaluate(node.right)
-
-    if (!left || !right) {
-      throw new EvaluationError('Uniform bounds evaluated to null')
+  /**
+   * Shared handling for two-operand distribution forms with an optional
+   * trailing unit (`a .. b [unit]`, `a ± b [unit]`). Steps:
+   *  1. evaluate both operand nodes;
+   *  2. if a scale word bound to only the second operand (`1 .. 2 million m`),
+   *     apply it to the first operand too;
+   *  3. require a common dimensional base when both operands carry units;
+   *  4. resolve the output unit — trailing wins, otherwise the operand named
+   *     by `prefer` (the bounds of `..` prefer the right bound; `±` prefers
+   *     the mean over the sigma);
+   *  5. convert both operands into that unit so mixed compatible units
+   *     (`normal(1 m, 100 cm)`) compute as `1 ± 1`, not `1 ± 100`.
+   * Returns the two operands as plain numbers (distributions collapse to their
+   * mean) plus the resolved unit string. `label` names the form for errors.
+   */
+  private resolveBinaryDistArgs(
+    aNode: ASTNode,
+    bNode: ASTNode,
+    trailingUnit: UnitNode | null | undefined,
+    label: string,
+    prefer: 'a' | 'b',
+    location?: SourceLocation,
+  ): { a: number; b: number; unitStr: string | undefined } {
+    let a = this.evaluate(aNode)
+    let b = this.evaluate(bNode)
+    if (!a || !b) {
+      throw new EvaluationError(`${label} parameters evaluated to null`, location)
     }
 
-    // "1 .. 2 million [UNIT]": scale word on the right bound applies to both.
-    // See evaluateRange for the equivalent rebalancing.
-    const leftMultiplier = this.getNumberNodeMultiplier(node.left)
-    const rightMultiplier = this.getNumberNodeMultiplier(node.right)
-    if (left.unit.toString() === '' && leftMultiplier === null && rightMultiplier !== null) {
-      left = new Quantity((left.value as number) * rightMultiplier, right.unit.toString() || undefined)
+    const aMult = this.getNumberNodeMultiplier(aNode)
+    const bMult = this.getNumberNodeMultiplier(bNode)
+    if (a.unit.toString() === '' && aMult === null && bMult !== null) {
+      a = new Quantity((a.value as number) * bMult, b.unit.toString() || undefined)
     }
 
-    const leftUnitStr = left.unit.toString()
-    const rightUnitStr = right.unit.toString()
-
-    if (
-      leftUnitStr !== '' &&
-      rightUnitStr !== '' &&
-      !left.unit.equalBase(right.unit)
-    ) {
-      throw new EvaluationError(
-        `Incompatible units in uniform(): ${left.unit} and ${right.unit}`,
-        (node as any).location,
-      )
+    const aUnit = a.unit.toString()
+    const bUnit = b.unit.toString()
+    if (aUnit !== '' && bUnit !== '' && !a.unit.equalBase(b.unit)) {
+      throw new EvaluationError(`Incompatible units in ${label}: ${a.unit} and ${b.unit}`, location)
     }
 
-    // Precedence for output unit: trailing > right > left (matches prior policy)
+    const [firstUnit, secondUnit] = prefer === 'a' ? [aUnit, bUnit] : [bUnit, aUnit]
     let unitStr: string | undefined
-    if (node.unit) {
-      unitStr = this.evaluateUnit(node.unit)
-    } else if (rightUnitStr !== '') {
-      unitStr = rightUnitStr
-    } else if (leftUnitStr !== '') {
-      unitStr = leftUnitStr
+    if (trailingUnit) unitStr = this.evaluateUnit(trailingUnit)
+    else if (firstUnit !== '') unitStr = firstUnit
+    else if (secondUnit !== '') unitStr = secondUnit
+
+    if (unitStr) {
+      if (aUnit !== '' && aUnit !== unitStr) a = a.to(unitStr)
+      if (bUnit !== '' && bUnit !== unitStr) b = b.to(unitStr)
     }
 
-    // Align operand values with the resolved unit so mixed compatible units
-    // (e.g. `uniform(1 m, 50 cm)`) don't collapse to `uniform(1, 50)`.
-    if (unitStr && unitStr !== '') {
-      if (leftUnitStr !== '' && leftUnitStr !== unitStr) left = left.to(unitStr)
-      if (rightUnitStr !== '' && rightUnitStr !== unitStr) right = right.to(unitStr)
-    }
+    const scalar = (q: Quantity) => (q.isScalar() ? (q.value as number) : q.mean())
+    return { a: scalar(a), b: scalar(b), unitStr }
+  }
 
-    const leftVal = left.isScalar() ? (left.value as number) : left.mean()
-    const rightVal = right.isScalar() ? (right.value as number) : right.mean()
-
-    return distributions.uniform(leftVal, rightVal, unitStr)
+  private evaluateUniform(node: ASTNode & { type: 'Uniform' }): Quantity {
+    const { a, b, unitStr } = this.resolveBinaryDistArgs(
+      node.left, node.right, node.unit, 'uniform()', 'b', (node as any).location,
+    )
+    return distributions.uniform(a, b, unitStr)
   }
 
   private evaluateNormal(node: ASTNode & { type: 'Normal' }): Quantity {
-    let mean = this.evaluate(node.mean)
-    let sigma = this.evaluate(node.sigma)
-
-    if (!mean || !sigma) {
-      throw new EvaluationError('Normal parameters evaluated to null')
-    }
-
-    // "1 +/- 2 million [UNIT]": scale word on sigma applies to mean too.
-    // See evaluateRange for the equivalent rebalancing.
-    const meanMultiplier = this.getNumberNodeMultiplier(node.mean)
-    const sigmaMultiplier = this.getNumberNodeMultiplier(node.sigma)
-    if (mean.unit.toString() === '' && meanMultiplier === null && sigmaMultiplier !== null) {
-      mean = new Quantity((mean.value as number) * sigmaMultiplier, sigma.unit.toString() || undefined)
-    }
-
-    const meanUnitStr = mean.unit.toString()
-    const sigmaUnitStr = sigma.unit.toString()
-
-    if (
-      meanUnitStr !== '' &&
-      sigmaUnitStr !== '' &&
-      !mean.unit.equalBase(sigma.unit)
-    ) {
-      throw new EvaluationError(
-        `Incompatible units in normal(): ${mean.unit} and ${sigma.unit}`,
-        (node as any).location,
-      )
-    }
-
-    // Precedence for output unit: trailing > mean > sigma
-    let unitStr: string | undefined
-    if (node.unit) {
-      unitStr = this.evaluateUnit(node.unit)
-    } else if (meanUnitStr !== '') {
-      unitStr = meanUnitStr
-    } else if (sigmaUnitStr !== '') {
-      unitStr = sigmaUnitStr
-    }
-
-    // Align operand values with the resolved unit so `normal(1 m, 100 cm)`
-    // computes `1 ± 1` instead of `1 ± 100` in meters.
-    if (unitStr && unitStr !== '') {
-      if (meanUnitStr !== '' && meanUnitStr !== unitStr) mean = mean.to(unitStr)
-      if (sigmaUnitStr !== '' && sigmaUnitStr !== unitStr) sigma = sigma.to(unitStr)
-    }
-
-    const meanVal = mean.isScalar() ? (mean.value as number) : mean.mean()
-    const sigmaVal = sigma.isScalar() ? (sigma.value as number) : sigma.mean()
-
-    // Create normal distribution: mean ± sigma represents 68% CI
-    // So the 16th percentile is mean - sigma, 84th is mean + sigma
-    return distributions.normal(meanVal - sigmaVal, meanVal + sigmaVal, unitStr)
+    const { a: mean, b: sigma, unitStr } = this.resolveBinaryDistArgs(
+      node.mean, node.sigma, node.unit, 'normal()', 'a', (node as any).location,
+    )
+    // `mean ± sigma` is the 68% CI: 16th percentile = mean - sigma, 84th = mean + sigma.
+    return distributions.normal(mean - sigma, mean + sigma, unitStr)
   }
 
   private evaluateBetaOf(node: ASTNode & { type: 'BetaOf' }): Quantity {
