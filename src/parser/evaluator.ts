@@ -743,7 +743,11 @@ export class Evaluator {
   }
 
   private evaluateDate(node: ASTNode & { type: 'Date' }): Quantity {
-    const ms = Date.parse(node.iso)
+    // JS parses `YYYY-MM-DD` as UTC midnight but `YYYY-MM-DDThh:mm` (no
+    // offset) as *local* time — mixing the two in subtraction would be off by
+    // the local UTC offset. Pin the time-bearing form to UTC by appending `Z`.
+    const iso = node.hasTime ? node.iso + 'Z' : node.iso
+    const ms = Date.parse(iso)
     if (Number.isNaN(ms)) {
       throw new EvaluationError(`Invalid date literal: #${node.iso}#`)
     }

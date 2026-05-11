@@ -31,6 +31,13 @@ describe('Date literals', () => {
     expect(result?.value).toBeCloseTo(12)
   })
 
+  it('mixing a date-only and a time-bearing literal stays timezone-stable', () => {
+    // Date-only is UTC midnight; time-bearing literals are pinned to UTC too,
+    // so this is exactly 12h regardless of the runner's local offset.
+    const result = parse('(#2026-04-16T12:00# - #2026-04-16#) as hour')
+    expect(result?.value).toBeCloseTo(12)
+  })
+
   it('does not collide with line comments', () => {
     // `# hello` at top of input must still be a comment — followed by a digit, we'd pick date.
     const result = parse('# this line is a comment\n42')
