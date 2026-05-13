@@ -33,6 +33,15 @@ export class EvaluationError extends Error {
 // lists are derived from a single source so they can't drift.
 const MATH_FUNCTION_NAMES = new Set(Object.keys(mathFunctions))
 
+// The physical-constants module exports only `Quantity` values (plus aliases),
+// so the name → Quantity map is just its namespace, reflected at load time.
+const PHYSICAL_CONSTANTS: Record<string, Quantity> = Object.fromEntries(
+  Object.entries(physicalConstants).filter(
+    (entry): entry is [string, Quantity] => entry[1] instanceof Quantity,
+  ),
+)
+const CONSTANT_NAMES: string[] = Object.keys(PHYSICAL_CONSTANTS)
+
 // User-defined function storage
 interface UserFunction {
   params: string[]
@@ -70,9 +79,7 @@ export class Evaluator {
   }
 
   private registerPhysicalConstants(): void {
-    // Get all exported constants from the constants module
-    const constantsMap = physicalConstants.constants
-    for (const [name, value] of Object.entries(constantsMap)) {
+    for (const [name, value] of Object.entries(PHYSICAL_CONSTANTS)) {
       this.variables.set(name, value)
     }
   }
@@ -175,10 +182,7 @@ export class Evaluator {
           return new Quantity(1, node.name)
         } catch {
           // Suggest similar variable/constant names
-          const allNames = [
-            ...this.variables.keys(),
-            ...Object.keys(physicalConstants.constants)
-          ]
+          const allNames = [...this.variables.keys(), ...CONSTANT_NAMES]
           const suggestions = findSimilar(node.name, allNames)
           throw new EvaluationError(
             `Undefined variable: ${node.name}${formatSuggestion(suggestions)}`,
@@ -824,7 +828,7 @@ export class Evaluator {
   }
 
   getUserVariableNames(): string[] {
-    const builtInNames = new Set(Object.keys(physicalConstants.constants))
+    const builtInNames = new Set(CONSTANT_NAMES)
     return Array.from(this.variables.keys()).filter(name => !builtInNames.has(name))
   }
 

@@ -162,18 +162,23 @@ export const planck_temperature = plusminus(1.416808e32, 0.000033e32, 'K')
 
 /** Electron mass */
 export const m_e = plusminus(9.1093837139e-31, 2.8e-40, 'kg')
+export const electron_mass = m_e
 
 /** Proton mass */
 export const m_p = plusminus(1.67262192595e-27, 5.2e-37, 'kg')
+export const proton_mass = m_p
 
 /** Neutron mass */
 export const m_n = plusminus(1.67492750056e-27, 8.5e-37, 'kg')
+export const neutron_mass = m_n
 
 /** Muon mass */
 export const m_muon = plusminus(1.883531627e-28, 4.2e-36, 'kg')
+export const muon_mass = m_muon
 
 /** Tau mass */
 export const m_tau = plusminus(3.16754e-27, 2.1e-31, 'kg')
+export const tau_mass = m_tau
 
 // ============================================
 // Magnetic Moments
@@ -249,27 +254,34 @@ export const pc = new Quantity(3.0856775814913673e16, 'm')
 
 /** Solar mass */
 export const M_sun = plusminus(1.98841e30, 4e25, 'kg')
+export const sun_mass = M_sun
 
 /** Solar radius */
 export const R_sun = plusminus(6.96342e8, 6.5e4, 'm')
+export const sun_radius = R_sun
 
 /** Solar luminosity */
 export const L_sun = plusminus(3.828e26, 8e22, 'W')
+export const sun_luminosity = L_sun
 
 /** Earth mass */
 export const M_earth = plusminus(5.9722e24, 6.0e20, 'kg')
+export const earth_mass = M_earth
 
 /** Earth radius (mean) */
 export const R_earth = plusminus(6.371e6, 1e4, 'm')
+export const earth_radius = R_earth
 
 /** Moon mass */
 export const M_moon = plusminus(7.342e22, 1e18, 'kg')
+export const moon_mass = M_moon
 
 /** Solar constant (power per area at 1 AU) */
 export const solar_constant = plusminus(1360.8, 0.5, 'W/m^2')
 
 /** Moon radius */
 export const R_moon = plusminus(1737.4e3, 100, 'm')
+export const moon_radius = R_moon
 
 // ============================================
 // Planetary Constants (JPL/NASA)
@@ -277,38 +289,52 @@ export const R_moon = plusminus(1737.4e3, 100, 'm')
 
 /** Mercury mass */
 export const M_mercury = plusminus(3.30103e23, 2.1e19, 'kg')
+export const mercury_mass = M_mercury
 /** Mercury radius (mean) */
 export const R_mercury = plusminus(2439.4e3, 100, 'm')
+export const mercury_radius = R_mercury
 
 /** Venus mass */
 export const M_venus = plusminus(4.86731e24, 2.3e20, 'kg')
+export const venus_mass = M_venus
 /** Venus radius (mean) */
 export const R_venus = plusminus(6051.8e3, 1000, 'm')
+export const venus_radius = R_venus
 
 /** Mars mass */
 export const M_mars = plusminus(6.41691e23, 3.0e19, 'kg')
+export const mars_mass = M_mars
 /** Mars radius (mean) */
 export const R_mars = plusminus(3389.5e3, 200, 'm')
+export const mars_radius = R_mars
 
 /** Jupiter mass */
 export const M_jupiter = plusminus(1.898125e27, 8.8e22, 'kg')
+export const jupiter_mass = M_jupiter
 /** Jupiter radius (mean) */
 export const R_jupiter = plusminus(69911e3, 6000, 'm')
+export const jupiter_radius = R_jupiter
 
 /** Saturn mass */
 export const M_saturn = plusminus(5.68317e26, 2.6e22, 'kg')
+export const saturn_mass = M_saturn
 /** Saturn radius (mean) */
 export const R_saturn = plusminus(58232e3, 6000, 'm')
+export const saturn_radius = R_saturn
 
 /** Uranus mass */
 export const M_uranus = plusminus(8.68099e25, 4.0e21, 'kg')
+export const uranus_mass = M_uranus
 /** Uranus radius (mean) */
 export const R_uranus = plusminus(25362e3, 7000, 'm')
+export const uranus_radius = R_uranus
 
 /** Neptune mass */
 export const M_neptune = plusminus(1.024092e26, 4.8e21, 'kg')
+export const neptune_mass = M_neptune
 /** Neptune radius (mean) */
 export const R_neptune = plusminus(24622e3, 19000, 'm')
+export const neptune_radius = R_neptune
 
 // ============================================
 // Stellar and Galactic Constants
@@ -567,85 +593,8 @@ export const webpage_size = plusminus(2.5e6, 1e6)
 /** Speed of light latency per km (in seconds) */
 export const fiber_latency_per_km = new Quantity(5e-6, 's')
 
-// ============================================
-// Export all constants as a map for easy access
-// ============================================
-
-export const constants: Record<string, Quantity> = {
-  // Mathematical
-  e, euler, pi, tau, googol,
-  // Dimensionless numbers
-  hundred, thousand, million, billion, trillion,
-  quadrillion, quintillion, sextillion, septillion,
-  percent, permille, ppm, ppb,
-  // SI Defining (exact)
-  c, speed_of_light, h, Planck, planck, plancks_constant, hbar,
-  q, elementary_charge, k, kB, boltzmann, boltzmann_constant, boltzmanns_constant,
-  NA, N_A, avogadro, avogadro_constant, vcs, kcd,
-  // Measured
-  G, g, standard_gravity, alpha, u, amu, atomic_mass_unit,
-  r_e, classical_electron_radius, thomson_cross_section,
-  b, wien_displacement, R_inf, Rydberg_constant, a0, bohr_radius, planck_temperature,
-  // Particles
-  m_e, m_p, m_n, m_muon, m_tau,
-  electron_mass: m_e, proton_mass: m_p, neutron_mass: m_n,
-  muon_mass: m_muon, tau_mass: m_tau,
-  // Magnetic moments and magnetons
-  muon_magnetic_moment, proton_magnetic_moment, electron_magnetic_moment,
-  neutron_magnetic_moment, deuteron_magnetic_moment,
-  bohr_magneton, mu_B, nuclear_magneton, mu_N,
-  // Compton wavelengths
-  lambda_C, compton_wavelength, lambda_C_p, lambda_C_n,
-  // Derived
-  sigma, stefan_boltzmann, epsilon0, mu0, R, gas_constant,
-  // Astronomical - Solar system
-  AU, ly, pc, M_sun, R_sun, L_sun, M_earth, R_earth, M_moon, R_moon, solar_constant,
-  // Planetary
-  M_mercury, R_mercury, M_venus, R_venus, M_mars, R_mars,
-  M_jupiter, R_jupiter, M_saturn, R_saturn, M_uranus, R_uranus, M_neptune, R_neptune,
-  // Planetary aliases
-  mercury_mass: M_mercury, mercury_radius: R_mercury,
-  venus_mass: M_venus, venus_radius: R_venus,
-  mars_mass: M_mars, mars_radius: R_mars,
-  jupiter_mass: M_jupiter, jupiter_radius: R_jupiter,
-  saturn_mass: M_saturn, saturn_radius: R_saturn,
-  uranus_mass: M_uranus, uranus_radius: R_uranus,
-  neptune_mass: M_neptune, neptune_radius: R_neptune,
-  // Stellar and galactic
-  d_proxima, d_sirius, milky_way_stars, milky_way_diameter,
-  // User-friendly astronomical aliases
-  earth_mass: M_earth, sun_mass: M_sun, moon_mass: M_moon,
-  earth_radius: R_earth, sun_radius: R_sun, moon_radius: R_moon,
-  sun_luminosity: L_sun,
-  // Time
-  year, yr, month, day, hour, hr, minute, min, week,
-  seconds_per_minute, seconds_per_hour, seconds_per_day, seconds_per_year,
-  minutes_per_day, hours_per_day, days_per_year, days_per_week, weeks_per_year,
-  // Everyday
-  atm, T0, rho_water,
-  // Earth geography
-  earth_surface_area, earth_land_area, earth_ocean_area, earth_circumference,
-  // Human/biology
-  human_basal_power, human_active_power, human_body_temperature,
-  human_blood_volume, human_caloric_intake, human_lifespan,
-  // Population
-  world_population, us_population,
-  // Material densities
-  rho_steel, rho_aluminum, rho_concrete, rho_wood, rho_air,
-  rho_copper, rho_gold, rho_ice,
-  // Energy densities
-  energy_density_gasoline, energy_density_diesel, energy_density_coal,
-  energy_density_hydrogen, energy_density_lithium_battery,
-  energy_density_tnt, energy_density_uranium,
-  calorie, kcal,
-  // Economic
-  us_gdp, world_gdp, us_median_income, us_minimum_wage,
-  us_national_debt, sp500_market_cap, bitcoin_market_cap,
-  // Computing
-  moores_law_doubling, cost_per_gb_ssd, cost_per_gb_hdd, cost_per_gb_cloud,
-  cpu_transistors, gpu_transistors, internet_users, google_searches_per_day,
-  data_created_per_day, smartphone_storage, emails_per_day, webpage_size,
-  fiber_latency_per_km,
-}
-
-export default constants
+// This module exports nothing but `Quantity` constants (and aliases like
+// `earth_mass = M_earth`), so consumers that need the full set as a lookup map
+// build it by reflecting over the module namespace — see `physicalConstants`
+// in src/parser/evaluator.ts. That keeps the catalog, autocomplete, and
+// "did you mean?" suggestions from drifting out of sync with a hand-listed map.

@@ -564,23 +564,12 @@ export function ensureLabelUnitRegistered(labelName: string): void {
 }
 
 /**
- * Get all known unit alias names for autocomplete and error suggestions
+ * Get all known unit names for autocomplete and error suggestions:
+ * mathjs's live unit registry (which already includes everything we register
+ * via `mathjsCreateUnit` — currencies, lightyear, inflation units, …) plus our
+ * informal aliases (`mph`, `kcal`, `ly`, …).
  */
 export function getKnownUnitNames(): string[] {
-  // Common mathjs base units + our aliases
-  const baseUnits = [
-    'meter', 'm', 'kilometer', 'km', 'centimeter', 'cm', 'millimeter', 'mm',
-    'inch', 'foot', 'yard', 'mile', 'lightyear',
-    'second', 'minute', 'hour', 'day', 'week', 'month', 'year',
-    'gram', 'g', 'kilogram', 'kg', 'pound', 'ounce', 'ton',
-    'liter', 'gallon', 'quart', 'pint', 'cup',
-    'joule', 'J', 'calorie', 'watt', 'W', 'kilowatt', 'horsepower',
-    'newton', 'N', 'pascal', 'Pa', 'bar', 'atmosphere', 'psi',
-    'kelvin', 'K', 'celsius', 'fahrenheit',
-    'ampere', 'A', 'volt', 'V', 'ohm', 'farad', 'coulomb', 'C',
-    'hertz', 'Hz', 'radian', 'degree', 'steradian',
-    'mole', 'mol', 'candela', 'lumen', 'lux',
-    'byte', 'bit', 'AU', 'parsec'
-  ]
-  return [...new Set([...Object.keys(UNIT_ALIASES), ...baseUnits])]
+  const builtin = Object.keys((Unit as unknown as { UNITS: Record<string, unknown> }).UNITS)
+  return [...new Set([...Object.keys(UNIT_ALIASES), ...builtin])]
 }
