@@ -5,27 +5,46 @@
  */
 
 import { Quantity } from '../core/Quantity.js'
+import { DEFAULT_SAMPLE_COUNT } from '../config.js'
+
+/** Draw one Poisson(λ) sample via Knuth's product method. Used here only for λ < 10. */
+function smallPoissonSample(lambda: number): number {
+  const L = Math.exp(-lambda)
+  let k = 0
+  let prod = 1
+  do {
+    k++
+    prod *= Math.random()
+  } while (prod > L)
+  return k - 1
+}
+
+/** Draw one standard-normal sample (Box–Muller; u1 ∈ (0,1] so log(u1) is finite). */
+function gaussianSample(): number {
+  const u1 = 1 - Math.random()
+  const u2 = Math.random()
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
+}
 
 /**
- * Generate a single binomial sample
+ * Generate a single Binomial(n, p) sample.
+ *
+ * - small n: simulate every trial (exact, and cheap in this regime);
+ * - rare successes (np < 10): Binomial(n, p) ≈ Poisson(np);
+ * - rare failures  (n(1−p) < 10): n − Poisson(n(1−p));
+ * - otherwise: normal approximation N(np, np(1−p)).
  */
 function binomialSample(n: number, p: number): number {
-  if (n * p < 10 && n * (1 - p) < 10) {
-    // Direct simulation for small n*p
+  if (n <= 1000) {
     let successes = 0
-    for (let i = 0; i < n; i++) {
-      if (Math.random() < p) successes++
-    }
+    for (let i = 0; i < n; i++) if (Math.random() < p) successes++
     return successes
-  } else {
-    // Normal approximation for large n*p
-    const mean = n * p
-    const stddev = Math.sqrt(n * p * (1 - p))
-    const u1 = 1 - Math.random()  // (0, 1] so log(u1) ≠ -Infinity
-    const u2 = Math.random()
-    const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
-    return Math.max(0, Math.min(n, Math.round(mean + stddev * z)))
   }
+  const mean = n * p
+  if (mean < 10) return smallPoissonSample(mean)
+  if (n - mean < 10) return n - smallPoissonSample(n - mean)
+  const z = gaussianSample()
+  return Math.max(0, Math.min(n, Math.round(mean + Math.sqrt(mean * (1 - p)) * z)))
 }
 
 /**
@@ -37,7 +56,7 @@ function binomialSample(n: number, p: number): number {
  * @param n - Number of trials (must be positive integer)
  * @param p - Probability of success per trial (must be between 0 and 1)
  * @param unitString - Optional unit string
- * @param samples - Number of samples (default 20,000)
+ * @param sampleCount - Number of samples (default 20,000)
  * @returns Quantity with binomial distribution
  *
  * @example
@@ -50,21 +69,18 @@ export function binomial(
   n: number,
   p: number,
   unitString?: string,
-  sampleCount: number = 20000
+  sampleCount: number = DEFAULT_SAMPLE_COUNT
 ): Quantity {
   if (n <= 0 || !Number.isInteger(n)) {
     throw new Error('Binomial n parameter must be a positive integer')
   }
-
   if (p < 0 || p > 1) {
     throw new Error('Binomial p parameter must be between 0 and 1')
   }
 
-  // Generate samples
   const samples: number[] = new Array(sampleCount)
   for (let i = 0; i < sampleCount; i++) {
     samples[i] = binomialSample(n, p)
   }
-
   return new Quantity(samples, unitString)
 }

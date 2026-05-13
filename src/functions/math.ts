@@ -6,27 +6,27 @@
 
 import { Quantity } from '../core/Quantity.js'
 
-/**
- * Helper to apply a unary function element-wise to a Quantity
- */
-function applyUnary(q: Quantity, fn: (x: number) => number, unitTransform?: (u: string) => string): Quantity {
-  const particles = q.toParticles()
-  const result = particles.map(fn)
-  const newUnit = unitTransform ? unitTransform(q.unit.toString()) : q.unit.toString()
+/** Wrap a particle array as a Quantity, collapsing a single particle to a scalar. */
+function wrap(values: number[], unitStr?: string): Quantity {
+  return new Quantity(values.length === 1 ? values[0] : values, unitStr)
+}
 
-  if (particles.length === 1) {
-    return new Quantity(result[0], newUnit)
-  }
-  return new Quantity(result, newUnit)
+/** Apply a unary numeric function element-wise, optionally transforming the unit. */
+function applyUnary(
+  q: Quantity,
+  fn: (x: number) => number,
+  unitTransform?: (u: string) => string,
+): Quantity {
+  const unitStr = q.unit.toString()
+  return wrap(q.toParticles().map(fn), unitTransform ? unitTransform(unitStr) : unitStr)
 }
 
 /**
- * Helper to apply a binary function element-wise to two Quantities.
+ * Apply a binary numeric function element-wise to two Quantities.
  *
- * When `resultUnit` is provided, `b` is first converted into that unit so the
- * element-wise operation compares like-for-like numeric values (e.g. meters vs
- * meters). When omitted, the result is dimensionless — appropriate for ratios
- * and log-scale operations.
+ * When `resultUnit` is given, `b` is converted into it first so the operation
+ * compares like-for-like numeric values (meters vs meters). When omitted the
+ * result is dimensionless — right for ratios and log-scale ops.
  */
 function applyBinary(
   a: Quantity,
@@ -38,776 +38,263 @@ function applyBinary(
   const bParticles = resultUnit && b.unit.toString() !== resultUnit
     ? b.to(resultUnit).toParticles()
     : b.toParticles()
-  const maxLength = Math.max(aParticles.length, bParticles.length)
-  const result: number[] = new Array(maxLength)
-
-  for (let i = 0; i < maxLength; i++) {
-    const x = aParticles[i % aParticles.length]
-    const y = bParticles[i % bParticles.length]
-    result[i] = fn(x, y)
+  const len = Math.max(aParticles.length, bParticles.length)
+  const result = new Array<number>(len)
+  for (let i = 0; i < len; i++) {
+    result[i] = fn(aParticles[i % aParticles.length], bParticles[i % bParticles.length])
   }
+  return wrap(result, resultUnit)
+}
 
-  if (aParticles.length === 1 && bParticles.length === 1) {
-    return new Quantity(result[0], resultUnit)
+/** Throw unless `q` is dimensionless (or, when `allowRadians`, an angle in radians). */
+function requireDimensionless(q: Quantity, fnName: string, allowRadians = false): void {
+  const u = q.unit.toString()
+  if (u === '' || (allowRadians && u === 'rad')) return
+  throw new Error(
+    `${fnName} requires a dimensionless${allowRadians ? ' or radian' : ''} argument, got ${u}`,
+  )
+}
+
+// ── Basic ────────────────────────────────────────────────────────────────────
+
+export const abs = (q: Quantity) => applyUnary(q, Math.abs)
+export const sign = (q: Quantity) => applyUnary(q, Math.sign, () => '')
+export const floor = (q: Quantity) => applyUnary(q, Math.floor)
+export const ceil = (q: Quantity) => applyUnary(q, Math.ceil)
+export const round = (q: Quantity) => applyUnary(q, Math.round)
+export const trunc = (q: Quantity) => applyUnary(q, Math.trunc)
+
+// ── Powers & roots ───────────────────────────────────────────────────────────
+
+/** Map values through `fn` and raise the unit to `exponent` (used by sqrt/cbrt). */
+function applyRoot(q: Quantity, exponent: number, fn: (x: number) => number): Quantity {
+  // @ts-ignore - mathjs types are wrong; Unit.pow() accepts a plain number
+  const resultUnit = q.unit.pow(exponent).toString()
+  return wrap(q.toParticles().map(fn), resultUnit)
+}
+export const sqrt = (q: Quantity) => applyRoot(q, 0.5, Math.sqrt)
+export const cbrt = (q: Quantity) => applyRoot(q, 1 / 3, Math.cbrt)
+
+// ── Exponential & logarithmic (dimensionless in, dimensionless out) ──────────
+
+/** Build a unary function that requires a dimensionless argument and result. */
+function dimlessFn(fnName: string, fn: (x: number) => number): (q: Quantity) => Quantity {
+  return (q: Quantity) => {
+    requireDimensionless(q, fnName)
+    return applyUnary(q, fn, () => '')
   }
-  return new Quantity(result, resultUnit)
 }
 
-// ============================================
-// Basic Math Functions
-// ============================================
+export const exp = dimlessFn('exp()', Math.exp)
+export const expm1 = dimlessFn('expm1()', Math.expm1)
+export const log = dimlessFn('log()', Math.log)
+export const ln = log // natural log alias
+export const log10 = dimlessFn('log10()', Math.log10)
+export const log2 = dimlessFn('log2()', Math.log2)
+export const log1p = dimlessFn('log1p()', Math.log1p)
 
-export function abs(q: Quantity): Quantity {
-  return applyUnary(q, Math.abs)
-}
+// ── Trigonometric (input in radians) ─────────────────────────────────────────
 
-export function sign(q: Quantity): Quantity {
-  return applyUnary(q, Math.sign, () => '')
-}
-
-export function floor(q: Quantity): Quantity {
-  return applyUnary(q, Math.floor)
-}
-
-export function ceil(q: Quantity): Quantity {
-  return applyUnary(q, Math.ceil)
-}
-
-export function round(q: Quantity): Quantity {
-  return applyUnary(q, Math.round)
-}
-
-export function trunc(q: Quantity): Quantity {
-  return applyUnary(q, Math.trunc)
-}
-
-// ============================================
-// Power and Root Functions
-// ============================================
-
-export function sqrt(q: Quantity): Quantity {
-  // Use Quantity.pow for proper unit handling
-  // This lets mathjs handle the unit transformation correctly
-  const particles = q.toParticles()
-  const sqrtValues = particles.map(Math.sqrt)
-
-  // Get properly transformed unit using mathjs
-  // @ts-ignore - mathjs types are incorrect, pow() accepts number
-  const resultUnit = q.unit.pow(0.5)
-
-  if (particles.length === 1) {
-    return new Quantity(sqrtValues[0], resultUnit.toString())
+/** sin/cos/tan: accept dimensionless or radians, return dimensionless. */
+function trigFn(fnName: string, fn: (x: number) => number): (q: Quantity) => Quantity {
+  return (q: Quantity) => {
+    requireDimensionless(q, fnName, true)
+    return applyUnary(q, fn, () => '')
   }
-  return new Quantity(sqrtValues, resultUnit.toString())
 }
+export const sin = trigFn('sin()', Math.sin)
+export const cos = trigFn('cos()', Math.cos)
+export const tan = trigFn('tan()', Math.tan)
 
-export function cbrt(q: Quantity): Quantity {
-  // Use Quantity.pow for proper unit handling
-  const particles = q.toParticles()
-  const cbrtValues = particles.map(Math.cbrt)
-
-  // Get properly transformed unit using mathjs
-  // @ts-ignore - mathjs types are incorrect, pow() accepts number
-  const resultUnit = q.unit.pow(1 / 3)
-
-  if (particles.length === 1) {
-    return new Quantity(cbrtValues[0], resultUnit.toString())
+/** asin/acos/atan: require dimensionless, return radians. */
+function inverseTrigFn(fnName: string, fn: (x: number) => number): (q: Quantity) => Quantity {
+  return (q: Quantity) => {
+    requireDimensionless(q, fnName)
+    return applyUnary(q, fn, () => 'rad')
   }
-  return new Quantity(cbrtValues, resultUnit.toString())
 }
-
-export function exp(q: Quantity): Quantity {
-  // e^x requires dimensionless x
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`exp() requires a dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.exp, () => '')
-}
-
-export function expm1(q: Quantity): Quantity {
-  // e^x - 1, requires dimensionless x
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`expm1() requires a dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.expm1, () => '')
-}
-
-// ============================================
-// Logarithmic Functions
-// ============================================
-
-export function log(q: Quantity): Quantity {
-  // ln(x), requires dimensionless x
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`log() requires a dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.log, () => '')
-}
-
-export function ln(q: Quantity): Quantity {
-  return log(q)
-}
-
-export function log10(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`log10() requires a dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.log10, () => '')
-}
-
-export function log2(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`log2() requires a dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.log2, () => '')
-}
-
-export function log1p(q: Quantity): Quantity {
-  // ln(1 + x), requires dimensionless x
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`log1p() requires a dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.log1p, () => '')
-}
-
-// ============================================
-// Trigonometric Functions (input in radians)
-// ============================================
-
-export function sin(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '' && unitStr !== 'rad') {
-    throw new Error(`sin() requires dimensionless or radian argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.sin, () => '')
-}
-
-export function cos(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '' && unitStr !== 'rad') {
-    throw new Error(`cos() requires dimensionless or radian argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.cos, () => '')
-}
-
-export function tan(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '' && unitStr !== 'rad') {
-    throw new Error(`tan() requires dimensionless or radian argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.tan, () => '')
-}
-
-export function asin(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`asin() requires dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.asin, () => 'rad')
-}
-
-export function acos(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`acos() requires dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.acos, () => 'rad')
-}
-
-export function atan(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`atan() requires dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.atan, () => 'rad')
-}
+export const asin = inverseTrigFn('asin()', Math.asin)
+export const acos = inverseTrigFn('acos()', Math.acos)
+export const atan = inverseTrigFn('atan()', Math.atan)
 
 export function atan2(y: Quantity, x: Quantity): Quantity {
-  // Both must have same units (they cancel out)
+  // y and x must share a dimensional base; their units cancel in the ratio.
   if (!y.unit.equalBase(x.unit)) {
     throw new Error(`atan2() requires arguments with same units, got ${y.unit} and ${x.unit}`)
   }
   return applyBinary(y, x, Math.atan2)
 }
 
-// ============================================
-// Hyperbolic Functions
-// ============================================
+// ── Hyperbolic (dimensionless in, dimensionless out) ─────────────────────────
 
-export function sinh(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`sinh() requires dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.sinh, () => '')
-}
+export const sinh = dimlessFn('sinh()', Math.sinh)
+export const cosh = dimlessFn('cosh()', Math.cosh)
+export const tanh = dimlessFn('tanh()', Math.tanh)
+export const asinh = dimlessFn('asinh()', Math.asinh)
+export const acosh = dimlessFn('acosh()', Math.acosh)
+export const atanh = dimlessFn('atanh()', Math.atanh)
 
-export function cosh(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`cosh() requires dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.cosh, () => '')
-}
-
-export function tanh(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`tanh() requires dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.tanh, () => '')
-}
-
-export function asinh(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`asinh() requires dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.asinh, () => '')
-}
-
-export function acosh(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`acosh() requires dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.acosh, () => '')
-}
-
-export function atanh(q: Quantity): Quantity {
-  const unitStr = q.unit.toString()
-  if (unitStr && unitStr !== '') {
-    throw new Error(`atanh() requires dimensionless argument, got ${unitStr}`)
-  }
-  return applyUnary(q, Math.atanh, () => '')
-}
-
-// ============================================
-// Binary Math Functions
-// ============================================
+// ── Binary ───────────────────────────────────────────────────────────────────
 
 export function pow(base: Quantity, exponent: Quantity): Quantity {
-  // Exponent must be dimensionless
-  const expUnit = exponent.unit.toString()
-  if (expUnit && expUnit !== '') {
-    throw new Error(`pow() exponent must be dimensionless, got ${expUnit}`)
-  }
-
-  // If exponent is scalar, use Quantity.pow for proper unit handling
-  if (exponent.isScalar()) {
-    return base.pow(exponent.value as number)
-  }
-
-  // Element-wise with distribution exponent (unusual but supported)
-  const baseParticles = base.toParticles()
-  const expParticles = exponent.toParticles()
-  const maxLength = Math.max(baseParticles.length, expParticles.length)
-  const result: number[] = new Array(maxLength)
-
-  for (let i = 0; i < maxLength; i++) {
-    const b = baseParticles[i % baseParticles.length]
-    const e = expParticles[i % expParticles.length]
-    result[i] = Math.pow(b, e)
-  }
-
-  // Unit handling is complex with distribution exponents, return dimensionless
-  if (baseParticles.length === 1 && expParticles.length === 1) {
-    return new Quantity(result[0])
-  }
-  return new Quantity(result)
+  requireDimensionless(exponent, 'pow() exponent')
+  // Scalar exponent: defer to Quantity.pow so the unit is raised correctly.
+  if (exponent.isScalar()) return base.pow(exponent.value as number)
+  // Distribution exponent (unusual): element-wise, dimensionless result.
+  return applyBinary(base, exponent, Math.pow)
 }
 
-export function min(a: Quantity, b: Quantity): Quantity {
-  if (!a.unit.equalBase(b.unit)) {
-    throw new Error(`min() requires arguments with compatible units, got ${a.unit} and ${b.unit}`)
+/** min/max/hypot all require a common dimensional base and report in `a`'s unit. */
+function binaryReducer(
+  fnName: string,
+  fn: (x: number, y: number) => number,
+  unitWord: string,
+): (a: Quantity, b: Quantity) => Quantity {
+  return (a: Quantity, b: Quantity) => {
+    if (!a.unit.equalBase(b.unit)) {
+      throw new Error(`${fnName} requires arguments with ${unitWord} units, got ${a.unit} and ${b.unit}`)
+    }
+    return applyBinary(a, b, fn, a.unit.toString())
   }
-  return applyBinary(a, b, Math.min, a.unit.toString())
 }
+export const min = binaryReducer('min()', Math.min, 'compatible')
+export const max = binaryReducer('max()', Math.max, 'compatible')
+export const hypot = binaryReducer('hypot()', Math.hypot, 'same')
 
-export function max(a: Quantity, b: Quantity): Quantity {
-  if (!a.unit.equalBase(b.unit)) {
-    throw new Error(`max() requires arguments with compatible units, got ${a.unit} and ${b.unit}`)
-  }
-  return applyBinary(a, b, Math.max, a.unit.toString())
-}
+// ── Distribution summaries ───────────────────────────────────────────────────
 
-export function hypot(a: Quantity, b: Quantity): Quantity {
-  if (!a.unit.equalBase(b.unit)) {
-    throw new Error(`hypot() requires arguments with same units, got ${a.unit} and ${b.unit}`)
-  }
-  return applyBinary(a, b, Math.hypot, a.unit.toString())
-}
-
-// ============================================
-// Statistical Functions for Distributions
-// ============================================
-
-/**
- * Get a specific percentile from a distribution
- * quantile(dist, 0.95) returns the 95th percentile
- */
+/** Get a specific quantile from a distribution: `quantile(dist, 0.95)` → P95. */
 export function quantile(q: Quantity, p: Quantity): Quantity {
   const pVal = p.isScalar() ? (p.value as number) : p.mean()
   if (pVal < 0 || pVal > 1) {
     throw new Error(`quantile() probability must be between 0 and 1, got ${pVal}`)
   }
-  const result = q.percentile(pVal)
-  return new Quantity(result, q.unit.toString())
+  return new Quantity(q.percentile(pVal), q.unit.toString())
 }
+/** Alias for {@link quantile}; the probability argument is in 0..1. */
+export const percentile = quantile
+
+/** Build a `(dist) => Quantity` returning a fixed percentile. */
+const atPercentile = (p: number) => (q: Quantity) =>
+  new Quantity(q.percentile(p), q.unit.toString())
+export const p5 = atPercentile(0.05)
+export const p10 = atPercentile(0.10)
+export const p25 = atPercentile(0.25)
+export const median = atPercentile(0.50)
+export const p75 = atPercentile(0.75)
+export const p90 = atPercentile(0.90)
+export const p95 = atPercentile(0.95)
+export const p99 = atPercentile(0.99)
+
+export const mean = (q: Quantity) => new Quantity(q.mean(), q.unit.toString())
+export const std = (q: Quantity) => new Quantity(q.std(), q.unit.toString())
+
+// ── CRPS family ──────────────────────────────────────────────────────────────
 
 /**
- * Alias for quantile
+ * Core of the CRPS family. Under an optional monotone transform `t`, computes
+ *
+ *   reliability = E|t(X) − t(y)|        (one value per observation particle)
+ *   resolution  = ½·E|t(X) − t(X′)|     (half the Gini mean difference of the sample)
+ *
+ * with CRPS = reliability − resolution. `t` = identity gives ordinary CRPS;
+ * `log` gives log-CRPS (relative error); `10·log10` gives dB-CRPS. The Gini
+ * term is read off the sorted sample in O(n log n) as (2/n²)·Σᵢ (2i − n + 1)·x₍ᵢ₎.
  */
-export function percentile(q: Quantity, p: Quantity): Quantity {
-  return quantile(q, p)
-}
-
-/**
- * Get the 5th percentile (low end of 90% CI)
- */
-export function p5(q: Quantity): Quantity {
-  return new Quantity(q.percentile(0.05), q.unit.toString())
-}
-
-/**
- * Get the 10th percentile
- */
-export function p10(q: Quantity): Quantity {
-  return new Quantity(q.percentile(0.10), q.unit.toString())
-}
-
-/**
- * Get the 25th percentile (first quartile)
- */
-export function p25(q: Quantity): Quantity {
-  return new Quantity(q.percentile(0.25), q.unit.toString())
-}
-
-/**
- * Get the 50th percentile (median)
- */
-export function median(q: Quantity): Quantity {
-  return new Quantity(q.percentile(0.50), q.unit.toString())
-}
-
-/**
- * Get the 75th percentile (third quartile)
- */
-export function p75(q: Quantity): Quantity {
-  return new Quantity(q.percentile(0.75), q.unit.toString())
-}
-
-/**
- * Get the 90th percentile
- */
-export function p90(q: Quantity): Quantity {
-  return new Quantity(q.percentile(0.90), q.unit.toString())
-}
-
-/**
- * Get the 95th percentile (high end of 90% CI)
- */
-export function p95(q: Quantity): Quantity {
-  return new Quantity(q.percentile(0.95), q.unit.toString())
-}
-
-/**
- * Get the 99th percentile
- */
-export function p99(q: Quantity): Quantity {
-  return new Quantity(q.percentile(0.99), q.unit.toString())
-}
-
-/**
- * Get the mean of a distribution
- */
-export function mean(q: Quantity): Quantity {
-  return new Quantity(q.mean(), q.unit.toString())
-}
-
-/**
- * Get the standard deviation of a distribution
- */
-export function std(q: Quantity): Quantity {
-  const particles = q.toParticles()
-  const m = q.mean()
-  const variance = particles.reduce((sum, x) => sum + (x - m) ** 2, 0) / particles.length
-  return new Quantity(Math.sqrt(variance), q.unit.toString())
-}
-
-/**
- * Internal helper to compute CRPS components.
- * Returns { reliability, resolution } where CRPS = reliability - resolution
- */
-function crpsComponents(dist: Quantity, observation: Quantity): {
-  reliability: number | number[]
-  resolution: number
-  unit: string
-} {
+function crpsCore(
+  dist: Quantity,
+  observation: Quantity,
+  label: string,
+  transform?: (x: number) => number,
+): { reliability: number[]; resolution: number } {
   if (!dist.unit.equalBase(observation.unit)) {
     throw new Error(
-      `crps functions require arguments with compatible units, got ${dist.unit} and ${observation.unit}`
+      `${label} requires arguments with compatible units, got ${dist.unit} and ${observation.unit}`,
     )
   }
 
-  const particles = dist.toParticles()
-  const n = particles.length
+  const requirePositive = (xs: number[], where: string) => {
+    if (!transform) return
+    for (const x of xs) {
+      if (x <= 0) throw new Error(`${label} requires all positive values, got ${x} in ${where}`)
+    }
+  }
+  const t = transform ?? ((x: number) => x)
 
-  // Sort particles for efficient E|X - X'| computation
-  const sorted = particles.slice().sort((a, b) => a - b)
+  const dParticles = dist.toParticles()
+  requirePositive(dParticles, 'forecast distribution')
+  const sorted = dParticles.map(t).sort((a, b) => a - b)
+  const n = sorted.length
 
-  // Compute E|X - X'| using sorted samples: (2/n²) * Σᵢ (2i - n + 1) * xᵢ
-  // This exploits the fact that for sorted values, we can compute the sum of
-  // all pairwise absolute differences in O(n) instead of O(n²)
   let pairwiseSum = 0
-  for (let i = 0; i < n; i++) {
-    pairwiseSum += (2 * i - n + 1) * sorted[i]
-  }
-  const giniMeanDiff = (2 / (n * n)) * pairwiseSum
-  const resolution = 0.5 * giniMeanDiff
+  for (let i = 0; i < n; i++) pairwiseSum += (2 * i - n + 1) * sorted[i]
+  const resolution = pairwiseSum / (n * n) // = ½·(2/n²)·Σ … = Σ … / n²
 
-  // Handle observation - could be scalar or distribution
   const obsParticles = observation.toParticles()
-
-  if (obsParticles.length === 1) {
-    const y = obsParticles[0]
+  requirePositive(obsParticles, 'observation')
+  const reliability = obsParticles.map((y) => {
+    const ty = t(y)
     let absSum = 0
-    for (let i = 0; i < n; i++) {
-      absSum += Math.abs(sorted[i] - y)
-    }
-    return { reliability: absSum / n, resolution, unit: dist.unit.toString() }
-  }
+    for (let i = 0; i < n; i++) absSum += Math.abs(sorted[i] - ty)
+    return absSum / n
+  })
 
-  // Distribution observation - compute reliability for each observation particle
-  const reliabilities: number[] = new Array(obsParticles.length)
-  for (let j = 0; j < obsParticles.length; j++) {
-    const y = obsParticles[j]
-    let absSum = 0
-    for (let i = 0; i < n; i++) {
-      absSum += Math.abs(sorted[i] - y)
-    }
-    reliabilities[j] = absSum / n
-  }
-  return { reliability: reliabilities, resolution, unit: dist.unit.toString() }
+  return { reliability, resolution }
 }
 
-/**
- * Compute CRPS (Continuous Ranked Probability Score) for a distribution against an observation.
- *
- * CRPS measures the accuracy of a probabilistic forecast. Lower scores are better.
- * Score of 0 means the distribution is a perfect point mass at the observation.
- *
- * CRPS = reliability - resolution = E|X - y| - 0.5 * E|X - X'|
- *
- * @param dist - The forecast distribution
- * @param observation - The observed value (scalar or distribution)
- * @returns CRPS score with same units as inputs
- */
-export function crps(dist: Quantity, observation: Quantity): Quantity {
-  const { reliability, resolution, unit } = crpsComponents(dist, observation)
-  if (typeof reliability === 'number') {
-    return new Quantity(reliability - resolution, unit)
+/** Build the `crps` / `*_reliability` / `*_resolution` trio for one transform. */
+function crpsFamily(label: string, opts: { transform?: (x: number) => number; resultUnit?: string }) {
+  const unitOf = (dist: Quantity) => opts.resultUnit ?? dist.unit.toString()
+  return {
+    /** CRPS score — lower is better; 0 iff the forecast is a point mass at `obs`. */
+    score: (dist: Quantity, obs: Quantity) => {
+      const { reliability, resolution } = crpsCore(dist, obs, label, opts.transform)
+      return wrap(reliability.map((r) => r - resolution), unitOf(dist))
+    },
+    /** Reliability term E|X − y|: how far the forecast centre sits from the truth. */
+    reliability: (dist: Quantity, obs: Quantity) => {
+      const { reliability } = crpsCore(dist, obs, label, opts.transform)
+      return wrap(reliability, unitOf(dist))
+    },
+    /** Resolution term ½·E|X − X′|: the forecast's spread (rewards sharpness). */
+    resolution: (dist: Quantity, obs: Quantity) => {
+      const { resolution } = crpsCore(dist, obs, label, opts.transform)
+      return new Quantity(resolution, unitOf(dist))
+    },
   }
-  return new Quantity(reliability.map(r => r - resolution), unit)
 }
 
-/**
- * Compute the reliability component of CRPS: E|X - y|
- *
- * This is the mean absolute error between the forecast samples and the observation.
- * Higher values indicate the forecast center is far from the truth.
- *
- * @param dist - The forecast distribution
- * @param observation - The observed value (scalar or distribution)
- * @returns Reliability term with same units as inputs
- */
-export function crps_reliability(dist: Quantity, observation: Quantity): Quantity {
-  const { reliability, unit } = crpsComponents(dist, observation)
-  if (typeof reliability === 'number') {
-    return new Quantity(reliability, unit)
-  }
-  return new Quantity(reliability, unit)
-}
+const _crps = crpsFamily('crps()', {})
+// log-CRPS / dB-CRPS act on transformed values, so they weigh relative rather
+// than absolute error; both require strictly positive inputs.
+const _logcrps = crpsFamily('logcrps()', { transform: Math.log, resultUnit: '' })
+const _dbcrps = crpsFamily('dbcrps()', { transform: (x) => 10 * Math.log10(x), resultUnit: 'dB' })
 
-/**
- * Compute the resolution component of CRPS: 0.5 * E|X - X'|
- *
- * This is half the Gini mean difference of the forecast distribution.
- * Higher values indicate a wider, less confident forecast.
- * This term rewards sharpness (narrow forecasts) in the CRPS score.
- *
- * @param dist - The forecast distribution
- * @param observation - The observed value (unused, for API consistency)
- * @returns Resolution term with same units as dist
- */
-export function crps_resolution(dist: Quantity, observation: Quantity): Quantity {
-  const { resolution, unit } = crpsComponents(dist, observation)
-  return new Quantity(resolution, unit)
-}
+export const crps = _crps.score
+export const crps_reliability = _crps.reliability
+export const crps_resolution = _crps.resolution
+export const logcrps = _logcrps.score
+export const logcrps_reliability = _logcrps.reliability
+export const logcrps_resolution = _logcrps.resolution
+export const dbcrps = _dbcrps.score
+export const dbcrps_reliability = _dbcrps.reliability
+export const dbcrps_resolution = _dbcrps.resolution
 
-/**
- * Internal helper to compute log-CRPS components.
- * Computes CRPS on log-transformed values, useful when relative errors matter.
- * Returns { reliability, resolution } where logCRPS = reliability - resolution
- */
-function logcrpsComponents(dist: Quantity, observation: Quantity): {
-  reliability: number | number[]
-  resolution: number
-} {
-  if (!dist.unit.equalBase(observation.unit)) {
-    throw new Error(
-      `logcrps functions require arguments with compatible units, got ${dist.unit} and ${observation.unit}`
-    )
-  }
-
-  const particles = dist.toParticles()
-  const n = particles.length
-
-  // Check for non-positive values
-  for (let i = 0; i < n; i++) {
-    if (particles[i] <= 0) {
-      throw new Error(`logcrps() requires all positive values, got ${particles[i]} in forecast distribution`)
-    }
-  }
-
-  // Log-transform and sort particles
-  const logParticles = particles.map(x => Math.log(x))
-  const sorted = logParticles.slice().sort((a, b) => a - b)
-
-  // Compute E|log(X) - log(X')| using sorted samples
-  let pairwiseSum = 0
-  for (let i = 0; i < n; i++) {
-    pairwiseSum += (2 * i - n + 1) * sorted[i]
-  }
-  const giniMeanDiff = (2 / (n * n)) * pairwiseSum
-  const resolution = 0.5 * giniMeanDiff
-
-  // Handle observation
-  const obsParticles = observation.toParticles()
-
-  for (let j = 0; j < obsParticles.length; j++) {
-    if (obsParticles[j] <= 0) {
-      throw new Error(`logcrps() requires all positive values, got ${obsParticles[j]} in observation`)
-    }
-  }
-
-  if (obsParticles.length === 1) {
-    const logY = Math.log(obsParticles[0])
-    let absSum = 0
-    for (let i = 0; i < n; i++) {
-      absSum += Math.abs(sorted[i] - logY)
-    }
-    return { reliability: absSum / n, resolution }
-  }
-
-  // Distribution observation
-  const reliabilities: number[] = new Array(obsParticles.length)
-  for (let j = 0; j < obsParticles.length; j++) {
-    const logY = Math.log(obsParticles[j])
-    let absSum = 0
-    for (let i = 0; i < n; i++) {
-      absSum += Math.abs(sorted[i] - logY)
-    }
-    reliabilities[j] = absSum / n
-  }
-  return { reliability: reliabilities, resolution }
-}
-
-/**
- * Compute log-CRPS for a distribution against an observation.
- *
- * This computes CRPS on log-transformed values, making the score sensitive to
- * relative errors rather than absolute errors. Useful for lognormal distributions
- * or when multiplicative errors matter more than additive ones.
- *
- * logCRPS = E|log(X) - log(y)| - 0.5 * E|log(X) - log(X')|
- *
- * @param dist - The forecast distribution (must be positive)
- * @param observation - The observed value (must be positive)
- * @returns Log-CRPS score (dimensionless)
- */
-export function logcrps(dist: Quantity, observation: Quantity): Quantity {
-  const { reliability, resolution } = logcrpsComponents(dist, observation)
-  if (typeof reliability === 'number') {
-    return new Quantity(reliability - resolution, '')
-  }
-  return new Quantity(reliability.map(r => r - resolution), '')
-}
-
-/**
- * Compute the reliability component of log-CRPS: E|log(X) - log(y)|
- *
- * @param dist - The forecast distribution (must be positive)
- * @param observation - The observed value (must be positive)
- * @returns Reliability term (dimensionless)
- */
-export function logcrps_reliability(dist: Quantity, observation: Quantity): Quantity {
-  const { reliability } = logcrpsComponents(dist, observation)
-  if (typeof reliability === 'number') {
-    return new Quantity(reliability, '')
-  }
-  return new Quantity(reliability, '')
-}
-
-/**
- * Compute the resolution component of log-CRPS: 0.5 * E|log(X) - log(X')|
- *
- * @param dist - The forecast distribution (must be positive)
- * @param observation - The observed value (unused, for API consistency)
- * @returns Resolution term (dimensionless)
- */
-export function logcrps_resolution(dist: Quantity, observation: Quantity): Quantity {
-  const { resolution } = logcrpsComponents(dist, observation)
-  return new Quantity(resolution, '')
-}
-
-/**
- * Internal helper to compute dB-CRPS components.
- * Computes CRPS on dB-transformed values (10 * log10), useful for power ratios.
- * Returns { reliability, resolution } where dbCRPS = reliability - resolution
- */
-function dbcrpsComponents(dist: Quantity, observation: Quantity): {
-  reliability: number | number[]
-  resolution: number
-} {
-  if (!dist.unit.equalBase(observation.unit)) {
-    throw new Error(
-      `dbcrps functions require arguments with compatible units, got ${dist.unit} and ${observation.unit}`
-    )
-  }
-
-  const particles = dist.toParticles()
-  const n = particles.length
-
-  // Check for non-positive values
-  for (let i = 0; i < n; i++) {
-    if (particles[i] <= 0) {
-      throw new Error(`dbcrps() requires all positive values, got ${particles[i]} in forecast distribution`)
-    }
-  }
-
-  // dB-transform (10 * log10) and sort particles
-  const dbParticles = particles.map(x => 10 * Math.log10(x))
-  const sorted = dbParticles.slice().sort((a, b) => a - b)
-
-  // Compute E|dB(X) - dB(X')| using sorted samples
-  let pairwiseSum = 0
-  for (let i = 0; i < n; i++) {
-    pairwiseSum += (2 * i - n + 1) * sorted[i]
-  }
-  const giniMeanDiff = (2 / (n * n)) * pairwiseSum
-  const resolution = 0.5 * giniMeanDiff
-
-  // Handle observation
-  const obsParticles = observation.toParticles()
-
-  for (let j = 0; j < obsParticles.length; j++) {
-    if (obsParticles[j] <= 0) {
-      throw new Error(`dbcrps() requires all positive values, got ${obsParticles[j]} in observation`)
-    }
-  }
-
-  if (obsParticles.length === 1) {
-    const dbY = 10 * Math.log10(obsParticles[0])
-    let absSum = 0
-    for (let i = 0; i < n; i++) {
-      absSum += Math.abs(sorted[i] - dbY)
-    }
-    return { reliability: absSum / n, resolution }
-  }
-
-  // Distribution observation
-  const reliabilities: number[] = new Array(obsParticles.length)
-  for (let j = 0; j < obsParticles.length; j++) {
-    const dbY = 10 * Math.log10(obsParticles[j])
-    let absSum = 0
-    for (let i = 0; i < n; i++) {
-      absSum += Math.abs(sorted[i] - dbY)
-    }
-    reliabilities[j] = absSum / n
-  }
-  return { reliability: reliabilities, resolution }
-}
-
-/**
- * Compute dB-CRPS for a distribution against an observation.
- *
- * This computes CRPS on dB-transformed values (10 * log10), making the score
- * sensitive to decibel-scale errors. Useful for power ratios, signal levels,
- * and other quantities naturally expressed in dB.
- *
- * dbCRPS = E|dB(X) - dB(y)| - 0.5 * E|dB(X) - dB(X')|
- * where dB(x) = 10 * log10(x)
- *
- * @param dist - The forecast distribution (must be positive)
- * @param observation - The observed value (must be positive)
- * @returns dB-CRPS score in dB units
- */
-export function dbcrps(dist: Quantity, observation: Quantity): Quantity {
-  const { reliability, resolution } = dbcrpsComponents(dist, observation)
-  if (typeof reliability === 'number') {
-    return new Quantity(reliability - resolution, 'dB')
-  }
-  return new Quantity(reliability.map(r => r - resolution), 'dB')
-}
-
-/**
- * Compute the reliability component of dB-CRPS: E|dB(X) - dB(y)|
- *
- * @param dist - The forecast distribution (must be positive)
- * @param observation - The observed value (must be positive)
- * @returns Reliability term in dB
- */
-export function dbcrps_reliability(dist: Quantity, observation: Quantity): Quantity {
-  const { reliability } = dbcrpsComponents(dist, observation)
-  if (typeof reliability === 'number') {
-    return new Quantity(reliability, 'dB')
-  }
-  return new Quantity(reliability, 'dB')
-}
-
-/**
- * Compute the resolution component of dB-CRPS: 0.5 * E|dB(X) - dB(X')|
- *
- * @param dist - The forecast distribution (must be positive)
- * @param observation - The observed value (unused, for API consistency)
- * @returns Resolution term in dB
- */
-export function dbcrps_resolution(dist: Quantity, observation: Quantity): Quantity {
-  const { resolution } = dbcrpsComponents(dist, observation)
-  return new Quantity(resolution, 'dB')
-}
-
-// ============================================
-// Clamp function
-// ============================================
+// ── Clamp ────────────────────────────────────────────────────────────────────
 
 export function clamp(value: Quantity, minVal: Quantity, maxVal: Quantity): Quantity {
   if (!value.unit.equalBase(minVal.unit) || !value.unit.equalBase(maxVal.unit)) {
-    throw new Error(`clamp() requires all arguments with compatible units`)
+    throw new Error('clamp() requires all arguments with compatible units')
   }
-
-  const vParticles = value.toParticles()
-  const minParticles = minVal.toParticles()
-  const maxParticles = maxVal.toParticles()
-  const maxLength = Math.max(vParticles.length, minParticles.length, maxParticles.length)
-  const result: number[] = new Array(maxLength)
-
-  for (let i = 0; i < maxLength; i++) {
-    const v = vParticles[i % vParticles.length]
-    const lo = minParticles[i % minParticles.length]
-    const hi = maxParticles[i % maxParticles.length]
-    result[i] = Math.max(lo, Math.min(hi, v))
+  const unitStr = value.unit.toString()
+  const align = (q: Quantity) => (unitStr !== '' && q.unit.toString() !== unitStr ? q.to(unitStr) : q)
+  const v = value.toParticles()
+  const lo = align(minVal).toParticles()
+  const hi = align(maxVal).toParticles()
+  const len = Math.max(v.length, lo.length, hi.length)
+  const result = new Array<number>(len)
+  for (let i = 0; i < len; i++) {
+    result[i] = Math.max(lo[i % lo.length], Math.min(hi[i % hi.length], v[i % v.length]))
   }
-
-  if (vParticles.length === 1 && minParticles.length === 1 && maxParticles.length === 1) {
-    return new Quantity(result[0], value.unit.toString())
-  }
-  return new Quantity(result, value.unit.toString())
+  return wrap(result, unitStr)
 }

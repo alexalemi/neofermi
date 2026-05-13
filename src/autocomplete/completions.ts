@@ -89,7 +89,7 @@ export const MATH_FUNCTIONS: Completion[] = [
   { label: 'std', type: 'function', signature: 'std(dist)', description: 'Standard deviation of a distribution' },
   { label: 'median', type: 'function', signature: 'median(dist)', description: 'Median (50th percentile)' },
   { label: 'quantile', type: 'function', signature: 'quantile(dist, p)', description: 'p-th quantile (p in 0..1)' },
-  { label: 'percentile', type: 'function', signature: 'percentile(dist, p)', description: 'p-th percentile (p in 0..100)' },
+  { label: 'percentile', type: 'function', signature: 'percentile(dist, p)', description: 'Alias for quantile (p in 0..1)' },
   { label: 'p5', type: 'function', signature: 'p5(dist)', description: '5th percentile' },
   { label: 'p10', type: 'function', signature: 'p10(dist)', description: '10th percentile' },
   { label: 'p25', type: 'function', signature: 'p25(dist)', description: '25th percentile (lower quartile)' },
