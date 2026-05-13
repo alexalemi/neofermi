@@ -1,11 +1,12 @@
 /**
  * Physical Constants Library
  *
- * Based on CODATA 2022 values. Constants with measured uncertainties
- * are represented as distributions.
+ * Based on the CODATA 2022 recommended values. Constants with measured
+ * uncertainties are represented as distributions.
  *
  * Sources:
  * - CODATA 2022: https://physics.nist.gov/cuu/Constants/
+ *   (Mohr, Newell, Taylor & Tiesinga, arXiv:2409.03787)
  * - Planetary data: https://ssd.jpl.nasa.gov/planets/phys_par.html
  * - IAU 2015 Resolution B3 for nominal solar/planetary constants
  */
@@ -119,8 +120,8 @@ export const kcd = new Quantity(683) // lumen/W - mathjs doesn't support lumen
 // Measured Constants (with uncertainty)
 // ============================================
 
-/** Gravitational constant G */
-export const G = plusminus(6.67408e-11, 0.00031e-11, 'N m^2 / kg^2')
+/** Newtonian constant of gravitation G — CODATA 2022: 6.67430(15)e-11 */
+export const G = plusminus(6.67430e-11, 0.00015e-11, 'N m^2 / kg^2')
 
 /** Standard gravity */
 export const g = new Quantity(9.80665, 'm/s^2')
@@ -129,32 +130,32 @@ export const standard_gravity = g
 /** Fine structure constant α ≈ 1/137 (CODATA 2022) */
 export const alpha = plusminus(7.2973525643e-3, 1.1e-12)
 
-/** Atomic mass unit */
-export const u = plusminus(1.660539040e-27, 0.000000020e-27, 'kg')
+/** Atomic mass constant (unified atomic mass unit) — CODATA 2022 */
+export const u = plusminus(1.66053906892e-27, 0.00000000052e-27, 'kg')
 export const amu = u
 export const atomic_mass_unit = u
 
-/** Classical electron radius */
-export const r_e = plusminus(2.8179403227e-15, 0.0000000019e-15, 'm')
+/** Classical electron radius — CODATA 2022: 2.8179403205(13)e-15 m */
+export const r_e = plusminus(2.8179403205e-15, 0.0000000013e-15, 'm')
 export const classical_electron_radius = r_e
 
-/** Thomson cross section */
-export const thomson_cross_section = plusminus(0.66524587158e-28, 0.00000000091e-28, 'm^2')
+/** Thomson cross section — CODATA 2022: 6.6524587051(62)e-29 m^2 */
+export const thomson_cross_section = plusminus(6.6524587051e-29, 0.0000000062e-29, 'm^2')
 
-/** Wien displacement constant */
-export const b = plusminus(2.8977729e-3, 0.0000017e-3, 'm K')
+/** Wien wavelength displacement law constant b — exact (b = hc/(x·k)) */
+export const b = new Quantity(2.897771955e-3, 'm K')
 export const wien_displacement = b
 
-/** Rydberg constant */
-export const R_inf = plusminus(10973731.568508, 0.000065, '1/m')
+/** Rydberg constant — CODATA 2022: 10973731.568157(12) m^-1 */
+export const R_inf = plusminus(10973731.568157, 0.000012, '1/m')
 export const Rydberg_constant = R_inf
 
 /** Bohr radius (CODATA 2022) */
 export const a0 = plusminus(5.29177210544e-11, 8.2e-21, 'm')
 export const bohr_radius = a0
 
-/** Planck temperature */
-export const planck_temperature = plusminus(1.416808e32, 0.000033e32, 'K')
+/** Planck temperature √(ℏc⁵/G)/k — CODATA 2022: 1.416784(16)e32 K */
+export const planck_temperature = plusminus(1.416784e32, 0.000016e32, 'K')
 
 // ============================================
 // Particle Masses (CODATA 2022)
@@ -184,26 +185,26 @@ export const tau_mass = m_tau
 // Magnetic Moments
 // ============================================
 
-/** Muon magnetic moment */
-export const muon_magnetic_moment = plusminus(-4.49044826e-26, 0.00000010e-26, 'J/T')
+/** Muon magnetic moment — CODATA 2022: -4.49044830(10)e-26 J/T */
+export const muon_magnetic_moment = plusminus(-4.49044830e-26, 0.00000010e-26, 'J/T')
 
-/** Proton magnetic moment */
-export const proton_magnetic_moment = plusminus(1.4106067873e-26, 0.0000000097e-26, 'J/T')
+/** Proton magnetic moment — CODATA 2022: 1.41060679545(60)e-26 J/T */
+export const proton_magnetic_moment = plusminus(1.41060679545e-26, 0.00000000060e-26, 'J/T')
 
-/** Electron magnetic moment */
-export const electron_magnetic_moment = plusminus(-928.4764520e-26, 0.0000057e-26, 'J/T')
+/** Electron magnetic moment — CODATA 2022: -9.2847646917(29)e-24 J/T */
+export const electron_magnetic_moment = plusminus(-9.2847646917e-24, 0.0000000029e-24, 'J/T')
 
-/** Neutron magnetic moment */
-export const neutron_magnetic_moment = plusminus(-0.96623650e-26, 0.00000023e-26, 'J/T')
+/** Neutron magnetic moment — CODATA 2022: -9.6623653(23)e-27 J/T */
+export const neutron_magnetic_moment = plusminus(-9.6623653e-27, 0.0000023e-27, 'J/T')
 
-/** Deuteron magnetic moment */
-export const deuteron_magnetic_moment = plusminus(0.4330735040e-26, 0.0000000036e-26, 'J/T')
+/** Deuteron magnetic moment — CODATA 2022: 4.330735087(11)e-27 J/T */
+export const deuteron_magnetic_moment = plusminus(4.330735087e-27, 0.000000011e-27, 'J/T')
 
-/** Bohr magneton (CODATA 2022) */
+/** Bohr magneton — CODATA 2022: 9.2740100657(29)e-24 J/T */
 export const bohr_magneton = plusminus(9.2740100657e-24, 2.9e-33, 'J/T')
 export const mu_B = bohr_magneton
 
-/** Nuclear magneton (CODATA 2022) */
+/** Nuclear magneton — CODATA 2022: 5.0507837393(16)e-27 J/T */
 export const nuclear_magneton = plusminus(5.0507837393e-27, 1.6e-36, 'J/T')
 export const mu_N = nuclear_magneton
 
@@ -229,11 +230,11 @@ export const lambda_C_n = plusminus(1.31959090382e-15, 6.7e-25, 'm')
 export const sigma = new Quantity(5.670374419e-8, 'W / m^2 / K^4')
 export const stefan_boltzmann = sigma
 
-/** Vacuum permittivity ε₀ */
-export const epsilon0 = new Quantity(8.8541878128e-12, 'F/m')
+/** Vacuum electric permittivity ε₀ — CODATA 2022: 8.8541878188(14)e-12 F/m (rel. unc. 1.6e-10, treated as exact here) */
+export const epsilon0 = new Quantity(8.8541878188e-12, 'F/m')
 
-/** Vacuum permeability μ₀ */
-export const mu0 = new Quantity(1.25663706212e-6, 'H/m')
+/** Vacuum magnetic permeability μ₀ — CODATA 2022: 1.25663706127(20)e-6 N/A² (rel. unc. 1.6e-10, treated as exact here) */
+export const mu0 = new Quantity(1.25663706127e-6, 'H/m')
 
 /** Molar gas constant R = NA × k */
 export const R = new Quantity(8.314462618, 'J / mol / K')
