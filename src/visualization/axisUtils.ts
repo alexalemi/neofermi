@@ -50,15 +50,24 @@ export function generateLinearTicks(min: number, max: number, maxTicks: number =
   // Degenerate range (point-mass distribution): one tick at the value.
   if (!(max > min)) return Number.isFinite(min) ? [min] : []
 
+  // Narrow plots can request 0 or 1 ticks — clamp to 2 so tickSpacing stays
+  // positive (0 ticks → negative spacing → infinite loop; 1 → NaN spacing).
+  maxTicks = Math.max(2, maxTicks)
+
   const range = niceNumber(max - min, false)
   const tickSpacing = niceNumber(range / (maxTicks - 1), true)
 
   const niceMin = Math.floor(min / tickSpacing) * tickSpacing
   const niceMax = Math.ceil(max / tickSpacing) * tickSpacing
 
+  // Index the ticks instead of accumulating, and compare with a tolerance —
+  // accumulated float error otherwise drops the final tick (0.1+0.1+0.1 > 0.3).
   const ticks: number[] = []
-  for (let tick = niceMin; tick <= niceMax + tickSpacing * 0.5; tick += tickSpacing) {
-    if (tick >= min && tick <= max) {
+  const epsilon = tickSpacing * 1e-9
+  for (let i = 0; ; i++) {
+    const tick = niceMin + i * tickSpacing
+    if (tick > niceMax + tickSpacing * 0.5) break
+    if (tick >= min - epsilon && tick <= max + epsilon) {
       ticks.push(tick)
     }
   }
@@ -70,7 +79,7 @@ export function generateLinearTicks(min: number, max: number, maxTicks: number =
  * Generate nice tick values for log scale.
  * Returns powers of 10 within the range.
  */
-export function generateLogTicks(min: number, max: number): number[] {
+export function generateLogTicks(min: number, max: number, maxTicks: number = 6): number[] {
   if (min <= 0 || max <= 0) return []
 
   const minExp = Math.floor(Math.log10(min))
@@ -78,7 +87,11 @@ export function generateLogTicks(min: number, max: number): number[] {
 
   const ticks: number[] = []
 
-  for (let exp = minExp; exp <= maxExp; exp++) {
+  // Stride over decades when the span is wide — Fermi outputs routinely span
+  // 10+ orders of magnitude, and one label per decade piles up unreadably.
+  const stride = Math.max(1, Math.ceil((maxExp - minExp) / maxTicks))
+
+  for (let exp = minExp; exp <= maxExp; exp += stride) {
     const tick = Math.pow(10, exp)
     if (tick >= min * 0.99 && tick <= max * 1.01) {
       ticks.push(tick)

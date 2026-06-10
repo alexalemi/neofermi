@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { calculateDotplotData, calculateHistogramData } from '../src/visualization/index.js'
-import { niceNumber, generateLinearTicks } from '../src/visualization/axisUtils.js'
+import { niceNumber, generateLinearTicks, generateLogTicks } from '../src/visualization/axisUtils.js'
 
 describe('Visualization', () => {
   describe('calculateDotplotData', () => {
@@ -121,5 +121,24 @@ describe('Visualization', () => {
       expect(generateLinearTicks(5, 5)).toEqual([5])
       expect(generateLinearTicks(0, 10).length).toBeGreaterThan(1)
     })
+  })
+})
+
+describe('axis tick regressions', () => {
+  it('generateLinearTicks does not hang or divide by zero for maxTicks <= 1', () => {
+    expect(generateLinearTicks(0, 10, 0).length).toBeGreaterThan(0)
+    expect(generateLinearTicks(0, 10, 1).length).toBeGreaterThan(0)
+  })
+
+  it('generateLinearTicks keeps the final tick despite float accumulation', () => {
+    const ticks = generateLinearTicks(0, 0.3, 5)
+    expect(ticks[ticks.length - 1]).toBeCloseTo(0.3, 10)
+  })
+
+  it('generateLogTicks strides wide ranges instead of one tick per decade', () => {
+    const ticks = generateLogTicks(1, 1e30)
+    expect(ticks.length).toBeLessThanOrEqual(8)
+    expect(ticks[0]).toBe(1)
+    expect(ticks[ticks.length - 1]).toBe(1e30)
   })
 })

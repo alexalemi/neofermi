@@ -86,13 +86,20 @@ export function renderDotplots(): void {
       bins.get(binIndex)!.push(v)
     }
 
-    // Draw stacked dots
+    // Draw stacked dots. Compress the spacing so the tallest stack fits —
+    // with fixed spacing, tall stacks clip and each missing dot silently
+    // drops 5% of the probability mass (mirrors renderDotplot's layout).
     const baseY = height - axisHeight - dotRadius - 2
+    let maxStack = 1
+    bins.forEach((dots) => {
+      maxStack = Math.max(maxStack, dots.length)
+    })
+    const dotSpacing = Math.min(dotRadius * 2.2, (baseY - dotRadius) / maxStack)
     ctx.fillStyle = dotColor
     bins.forEach((dots, binIndex) => {
       const x = binIndex * binWidth
       dots.forEach((_v, i) => {
-        const y = baseY - i * (dotRadius * 2.2)
+        const y = baseY - i * dotSpacing
         if (y > dotRadius) {
           ctx.beginPath()
           ctx.arc(x, y, dotRadius, 0, Math.PI * 2)
