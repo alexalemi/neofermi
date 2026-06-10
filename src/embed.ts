@@ -241,7 +241,7 @@ function createRepl(evaluator: Evaluator): void {
 
   toggle.addEventListener('click', () => setOpen(!isOpen))
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') setOpen(!isOpen)
+    if (e.key === 'Escape' && isOpen) setOpen(false)
   })
 
   const history: string[] = []

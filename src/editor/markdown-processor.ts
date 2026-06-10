@@ -27,11 +27,11 @@ export interface ProcessedDocument {
  * Process markdown content and extract neofermi expressions
  */
 export function processMarkdown(content: string): ProcessedDocument {
-  const expressions: ParsedExpression[] = []
+  const blockExpressions: ParsedExpression[] = []
+  const inlineExpressions: ParsedExpression[] = []
   // Track block index by source position to ensure stable IDs across renders
   const blockIdMap = new Map<number, string>()
   let blockCounter = 0
-  let inlineCounter = 0
 
   const md = new MarkdownIt({
     html: true,
@@ -68,7 +68,7 @@ export function processMarkdown(content: string): ProcessedDocument {
     if (!exprId) {
       exprId = `block-${blockCounter++}`
       blockIdMap.set(pos, exprId)
-      expressions.push({
+      blockExpressions.push({
         id: exprId,
         type: 'block',
         source: code,
@@ -79,59 +79,65 @@ export function processMarkdown(content: string): ProcessedDocument {
     return `<!--nf:${exprId}-->`
   }
 
-  // First pass: render markdown to get structure and extract block expressions
-  // We need to do this before inline processing to establish the expression order
-  md.render(content)
+  // Tokenize ${...} as a dedicated inline token — supports bare variables AND
+  // arbitrary expressions (`${x * 2}`, `${100 m as feet}`, etc.). Because this
+  // is an inline rule, it never fires inside code spans or fenced blocks, so
+  // literal ${...} in code examples is left alone.
+  md.inline.ruler.after('escape', 'nf_inline', (state, silent) => {
+    const src = state.src
+    if (src.charCodeAt(state.pos) !== 0x24 /* $ */ || src.charCodeAt(state.pos + 1) !== 0x7b /* { */) {
+      return false
+    }
+    const end = src.indexOf('}', state.pos + 2)
+    if (end === -1 || end === state.pos + 2) return false
+    if (!silent) {
+      const token = state.push('nf_inline', '', 0)
+      token.content = src.slice(state.pos + 2, end)
+    }
+    state.pos = end + 1
+    return true
+  })
 
-  // Extract inline expressions from the content
-  // We parse the original content, not the rendered HTML
-  // Matches ${...} with any non-} content — supports bare variables AND
-  // arbitrary expressions (`${x * 2}`, `${100 m as feet}`, etc.).
-  const inlineRegex = /\$\{([^}]+)\}/g
-  let match
-  const inlineExprs: Array<{ expression: string; id: string; fullMatch: string }> = []
-
-  while ((match = inlineRegex.exec(content)) !== null) {
-    const expression = match[1]
-    const exprId = `inline-${inlineCounter++}`
-    expressions.push({
-      id: exprId,
-      type: 'inline',
-      source: expression,
-      expression,
-    })
-    inlineExprs.push({ expression, id: exprId, fullMatch: match[0] })
+  // IDs are assigned by occurrence order during rendering, which is stable
+  // across re-renders of the same content. The first render registers the
+  // expressions; later renders just re-emit the same placeholder ids.
+  let inlineRenderCounter = 0
+  md.renderer.rules.nf_inline = (tokens, idx) => {
+    const expression = tokens[idx].content
+    const id = `inline-${inlineRenderCounter++}`
+    if (inlineRenderCounter > inlineExpressions.length) {
+      inlineExpressions.push({ id, type: 'inline', source: expression, expression })
+    }
+    return `<!--nf:${id}-->`
   }
+
+  function renderDocument(): string {
+    inlineRenderCounter = 0
+    return md.render(content)
+  }
+
+  // First pass: render to extract block and inline expressions in document order
+  renderDocument()
+
+  // Blocks evaluate before inline expressions (matching the CLI processor),
+  // so prose can reference variables defined anywhere in the document.
+  const expressions = [...blockExpressions, ...inlineExpressions]
 
   /**
    * Render the final HTML with evaluation results
    */
   function render(results: Map<string, EvaluationResult>): string {
-    // Re-render markdown with block placeholders replaced
-    let html = md.render(content)
-
-    // Replace block placeholders
-    html = html.replace(/<!--nf:(block-\d+)-->/g, (_, exprId) => {
+    const html = renderDocument()
+    return html.replace(/<!--nf:((?:block|inline)-\d+)-->/g, (_, exprId) => {
       const result = results.get(exprId)
+      if (exprId.startsWith('inline-')) {
+        return renderInlineResult(result)
+      }
       if (!result) {
         return '<div class="nf-cell"><div class="nf-error">Expression not evaluated</div></div>'
       }
       return buildCellHtml(result.source || '', result, exprId)
     })
-
-    // Replace inline expressions in the rendered HTML
-    // We need to be careful to only replace in text content, not in code blocks
-    for (const { id, fullMatch } of inlineExprs) {
-      const result = results.get(id)
-      const escapedMatch = escapeRegExp(fullMatch)
-      // Only replace outside of <code> and <pre> tags
-      // Simple approach: replace all occurrences (markdown-it should have already
-      // converted code blocks, so inline ${} in code will be escaped)
-      const replacement = renderInlineResult(result)
-      html = html.replace(new RegExp(escapedMatch, 'g'), replacement)
-    }
-
-    return html
   }
 
   return { expressions, render }
@@ -151,12 +157,4 @@ function renderInlineResult(result: EvaluationResult | undefined): string {
   }
 
   return `<span class="nf-inline">${result.inlineOutput || result.output || '???'}</span>`
-}
-
-
-/**
- * Escape special regex characters in a string
- */
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
