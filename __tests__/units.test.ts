@@ -383,3 +383,40 @@ describe('Unit system', () => {
     })
   })
 })
+
+describe('toSI affine units', () => {
+  it('10 degC as SI is 283.15 K, not a pure scale factor', () => {
+    const result = parse('10 degC as SI')
+    expect(result?.value).toBeCloseTo(283.15, 6)
+    expect(result?.unit.toString()).toBe('K')
+  })
+
+  it('dimensionless compounds still absorb their scale factor', () => {
+    const result = parse('1 feet/mm as SI')
+    expect(result?.value).toBeCloseTo(304.8, 6)
+    expect(result?.unit.toString()).toBe('')
+  })
+})
+
+describe('value-bearing units and micron aliases', () => {
+  it('micron/microns are micrometers, not micro-nanoseconds', () => {
+    const result = parse('5 microns as mm')
+    expect(result?.value).toBeCloseTo(0.005, 9)
+  })
+
+  it('century/decade/fortnight carry their numeric factor', () => {
+    expect(parse('1 century as year')?.value).toBeCloseTo(100, 6)
+    expect(parse('1 decade as year')?.value).toBeCloseTo(10, 6)
+    expect(parse('2 fortnight as day')?.value).toBeCloseTo(28, 9)
+  })
+
+  it('fortnight participates in mixed-unit arithmetic', () => {
+    const result = parse('1 fortnight + 1 day')
+    expect(result?.to('day').value).toBeCloseTo(15, 9)
+  })
+
+  it('counting units convert and cancel', () => {
+    expect(parse('3 score as dozen')?.value).toBeCloseTo(5, 9)
+    expect(parse('2 pair * 3')?.value).toBeCloseTo(12, 9)
+  })
+})

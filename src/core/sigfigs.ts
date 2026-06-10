@@ -33,6 +33,10 @@ export function parseSigFigs(raw: string): { value: number; uncertainty: number 
       if (ch === '0') trailingZeros++
       else break
     }
+    // An all-zero mantissa ("0") keeps its last digit significant — otherwise
+    // the lone digit counts as a non-significant trailing zero and the
+    // uncertainty lands in the tens place (5 instead of 0.5).
+    if (trailingZeros === mantissa.length) trailingZeros = mantissa.length - 1
     lastDigitPlace = trailingZeros
   }
 

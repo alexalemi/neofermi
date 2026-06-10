@@ -8,6 +8,7 @@ import type { Quantity } from '../core/Quantity.js'
  */
 export function formatNumber(n: number): string {
   if (!isFinite(n)) return String(n)
+  if (n === 0) return '0'
   const abs = Math.abs(n)
   if (abs >= 1e6 || (abs < 1e-3 && abs > 0)) return n.toExponential(2)
   if (abs >= 100) return n.toFixed(0)

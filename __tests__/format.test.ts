@@ -47,7 +47,8 @@ describe('Formatting', () => {
     })
 
     it('handles zero', () => {
-      expect(formatNumber(0)).toBe('0.00')
+      // Plain '0', consistent with formatWithSigFigs and formatAxisNumber
+      expect(formatNumber(0)).toBe('0')
     })
   })
 

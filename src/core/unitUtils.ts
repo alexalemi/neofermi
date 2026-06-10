@@ -30,6 +30,19 @@ safeCreate('barn', '1e-28 m^2')
 // Speed — nautical mile per hour
 safeCreate('knot', '1 nmi/hour')
 
+// Compound time spans and counting units. These must be REAL units, not
+// UNIT_ALIASES entries: an alias whose expansion embeds a number ('336 hour')
+// substitutes a value-bearing string into the unit slot, and Quantity
+// silently drops the numeric factor (1 century → 1 day).
+safeCreate('fortnight', '336 hour') // 14 days
+safeCreate('decade', '3652.425 day') // 10 average Gregorian years
+safeCreate('century', '36524.25 day')
+safeCreate('millennium', '365242.5 day')
+safeCreate('dozen', '12')
+safeCreate('gross', '144') // 12 dozen
+safeCreate('score', '20')
+safeCreate('pair', '2')
+
 // Currencies. USD is the base for the `money` dimension; all other
 // currencies are declared relative to USD. Rates are a fixed snapshot
 // (ECB reference rates as of 2026-04-17, via frankfurter.dev) — for
@@ -73,10 +86,6 @@ const UNIT_ALIASES: Record<string, string> = {
   ms: 'millisecond',
   us: 'microsecond',
   ns: 'nanosecond',
-  fortnight: '336 hour',  // 14 days
-  decade: '3652.425 day', // 10 years (average)
-  century: '36524.25 day', // 100 years (average)
-  millennium: '365242.5 day', // 1000 years
 
   // Length
   mi: 'mile',
@@ -84,6 +93,10 @@ const UNIT_ALIASES: Record<string, string> = {
   yds: 'yard',
   ft: 'foot',
   'in': 'inch',  // 'in' is a reserved word in JS but works as key
+  // Without these, "microns" greedily splits as SI prefix micro + ns and a
+  // length silently becomes 1e-6 nanoseconds.
+  micron: 'um',
+  microns: 'um',
 
   // Mass
   lb: 'pound',
@@ -218,12 +231,8 @@ const UNIT_ALIASES: Record<string, string> = {
   Mpc: 'megaparsec',
   Gpc: 'gigaparsec',
 
-  // Counts and quantities
-  dozen: '12',
-  doz: '12',
-  gross: '144', // 12 dozen
-  score: '20',
-  pair: '2',
+  // Counts and quantities (dozen/gross/score/pair are real units above)
+  doz: 'dozen',
   mol: 'mole',
 
   // Misc

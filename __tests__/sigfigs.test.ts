@@ -45,3 +45,9 @@ describe('suggestions', () => {
     expect(formatSuggestion(['a', 'b', 'c'])).toBe(". Did you mean 'a', 'b' or 'c'?")
   })
 })
+
+describe('parseSigFigs regressions', () => {
+  it("'0 is significant in the ones place (uncertainty 0.5, not 5)", () => {
+    expect(parseSigFigs('0')).toEqual({ value: 0, uncertainty: 0.5 })
+  })
+})

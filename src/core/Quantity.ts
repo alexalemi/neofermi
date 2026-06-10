@@ -444,22 +444,24 @@ export class Quantity {
       return new Quantity(this.value)
     }
 
-    const aParticles = this.toParticles()
-
-    // Get the SI representation of the unit
-    // mathjs can convert any unit to its SI base representation
-    const sourceUnit = unit(1, unitStr)
-    const siUnit = sourceUnit.toSI()
+    // Get the SI representation of the unit, then delegate to `to()` so affine
+    // units (degC, degF) get the same offset-aware treatment as explicit
+    // conversions — a pure scale factor here would turn 10 degC into 2741.5 K.
+    const siUnit = unit(1, unitStr).toSI()
     const siUnitString = siUnit.toString().replace(/^[\d.e+-]+\s*/, '') // Remove numeric prefix
-    const conversionFactor = siUnit.toNumber()
 
-    // Apply conversion
-    if (aParticles.length === 1) {
-      return new Quantity(aParticles[0] * conversionFactor, siUnitString)
+    // A compound that cancels to dimensionless (e.g. feet/mm) has no SI unit
+    // string for `to()` to target — absorb the scale factor directly.
+    if (siUnitString === '') {
+      const factor = siUnit.toNumber()
+      const aParticles = this.toParticles()
+      if (aParticles.length === 1) {
+        return new Quantity(aParticles[0] * factor)
+      }
+      return new Quantity(aParticles.map((x) => x * factor))
     }
 
-    const result = aParticles.map((x) => x * conversionFactor)
-    return new Quantity(result, siUnitString)
+    return this.to(siUnitString)
   }
 
   /**
