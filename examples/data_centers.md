@@ -35,11 +35,11 @@ total_power = hyperscale_total + enterprise_total
 
 ```
 # Hours per year
-hours_in_year = seconds_per_year / seconds_per_hour
+hours_in_year = year as hour
 
 # Annual energy consumption
 annual_energy = total_power * hours_in_year
-annual_energy_twh = annual_energy as GW hour
+annual_energy_twh = annual_energy as TWh
 ```
 
 ## Result

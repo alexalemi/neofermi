@@ -177,7 +177,7 @@ export interface IdentifierNode {
 }
 
 export interface UnitNode {
-  type: 'Unit' | 'reciprocal'
+  type: 'Unit' | 'reciprocal' | 'compound' | 'power'
   name?: string
   custom?: boolean
   special?: boolean // For special conversions like 'SI'

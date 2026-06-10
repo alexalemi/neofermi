@@ -42,6 +42,28 @@ const PHYSICAL_CONSTANTS: Record<string, Quantity> = Object.fromEntries(
 )
 const CONSTANT_NAMES: string[] = Object.keys(PHYSICAL_CONSTANTS)
 
+// Calling conventions for the distribution constructors registered in the
+// Evaluator. The grammar only produces numeric arguments, so the trailing
+// unitString/p/n parameters of the TS signatures are not reachable from the
+// language — without an arity check, an extra numeric argument lands in the
+// unitString slot and dies with an internal TypeError. `pair` marks the
+// two-argument same-dimension families whose arguments get unit-aligned
+// before the call ('a'/'b' = which argument's unit wins).
+const DIST_CALL_SPECS: Record<string, { minArgs: number; maxArgs: number; pair?: 'a' | 'b' }> = {
+  to: { minArgs: 2, maxArgs: 2, pair: 'b' },
+  lognormal: { minArgs: 2, maxArgs: 2, pair: 'b' },
+  normal: { minArgs: 2, maxArgs: 2, pair: 'b' },
+  uniform: { minArgs: 2, maxArgs: 2, pair: 'b' },
+  plusminus: { minArgs: 2, maxArgs: 2, pair: 'a' },
+  outof: { minArgs: 2, maxArgs: 2 },
+  gamma: { minArgs: 1, maxArgs: 2 },
+  percent: { minArgs: 1, maxArgs: 1 },
+  db: { minArgs: 1, maxArgs: 1 },
+  poisson: { minArgs: 1, maxArgs: 1 },
+  exponential: { minArgs: 1, maxArgs: 1 },
+  binomial: { minArgs: 2, maxArgs: 2 },
+}
+
 // User-defined function storage
 interface UserFunction {
   params: string[]
@@ -53,6 +75,9 @@ export class Evaluator {
   private functions: Map<string, Function> = new Map()
   private userFunctions: Map<string, UserFunction> = new Map()
   private customUnits: Map<string, Quantity> = new Map()
+  // One frame per active user-function call. Name lookup sees the innermost
+  // frame plus globals — never a caller's parameters (no dynamic scoping).
+  private localScopes: Array<Map<string, Quantity>> = []
 
   constructor() {
     // Register distribution functions
@@ -173,7 +198,8 @@ export class Evaluator {
         return this.evaluateDate(node)
 
       case 'Identifier':
-        const variable = this.variables.get(node.name)
+        const localScope = this.localScopes[this.localScopes.length - 1]
+        const variable = localScope?.get(node.name) ?? this.variables.get(node.name)
         if (variable) {
           return variable
         }
@@ -182,7 +208,11 @@ export class Evaluator {
           return new Quantity(1, node.name)
         } catch {
           // Suggest similar variable/constant names
-          const allNames = [...this.variables.keys(), ...CONSTANT_NAMES]
+          const allNames = [
+            ...(localScope?.keys() ?? []),
+            ...this.variables.keys(),
+            ...CONSTANT_NAMES,
+          ]
           const suggestions = findSimilar(node.name, allNames)
           throw new EvaluationError(
             `Undefined variable: ${node.name}${formatSuggestion(suggestions)}`,
@@ -213,9 +243,15 @@ export class Evaluator {
       case '/':
         return left.divide(right)
       case '^':
-        // Exponent must be a scalar number
+        // Exponent must be a dimensionless scalar number
         if (right.isDistribution()) {
           throw new EvaluationError('Exponent cannot be a distribution', (node as any).location)
+        }
+        if (right.unit.toString() !== '') {
+          throw new EvaluationError(
+            `Exponent must be dimensionless, got ${right.unit}`,
+            (node as any).location
+          )
         }
         const exponent = typeof right.value === 'number' ? right.value : right.value[0]
         return left.pow(exponent)
@@ -298,11 +334,14 @@ export class Evaluator {
       throw new EvaluationError('Let binding value evaluated to null')
     }
 
-    // Save any existing variable with this name
-    const previousValue = this.variables.get(node.name)
+    // Bind into the innermost call frame when one is active so the let can
+    // shadow a function parameter (`f(x) = let x = 2 in x`); otherwise bind
+    // globally as before. Restore the previous value on exit either way.
+    const target = this.localScopes[this.localScopes.length - 1] ?? this.variables
+    const hadPrevious = target.has(node.name)
+    const previousValue = target.get(node.name)
 
-    // Bind the new value
-    this.variables.set(node.name, boundValue)
+    target.set(node.name, boundValue)
 
     try {
       // Evaluate the body with the binding in scope
@@ -313,10 +352,10 @@ export class Evaluator {
       return result
     } finally {
       // Restore the previous value (or delete if there wasn't one)
-      if (previousValue !== undefined) {
-        this.variables.set(node.name, previousValue)
+      if (hadPrevious) {
+        target.set(node.name, previousValue!)
       } else {
-        this.variables.delete(node.name)
+        target.delete(node.name)
       }
     }
   }
@@ -431,17 +470,18 @@ export class Evaluator {
       return distributions.to(leftVal, rightVal, trailingUnit)
     }
 
+    // A converted bound may itself be a distribution — collapse to its mean
+    // (matching how leftVal/rightVal were extracted), never pass `.value` raw:
+    // an array would flow into Math.log() and yield an all-NaN distribution.
+    const scalarOf = (q: Quantity) => (q.isScalar() ? (q.value as number) : q.mean())
+
     // Rule 2: Trailing unit with explicit conversion (operands may have units)
     if (trailingUnit && (leftHasUnit || rightHasUnit)) {
       const leftConverted = leftHasUnit ? left.to(trailingUnit) : new Quantity(leftVal, trailingUnit)
       const rightConverted = rightHasUnit
         ? right.to(trailingUnit)
         : new Quantity(rightVal, trailingUnit)
-      return distributions.to(
-        leftConverted.value as number,
-        rightConverted.value as number,
-        trailingUnit
-      )
+      return distributions.to(scalarOf(leftConverted), scalarOf(rightConverted), trailingUnit)
     }
 
     // Rule 3: Both operands have units - prefer right side's unit
@@ -455,11 +495,7 @@ export class Evaluator {
       }
       // Convert left to right's unit
       const leftConverted = left.to(right.unit.toString())
-      return distributions.to(
-        leftConverted.value as number,
-        rightVal,
-        right.unit.toString()
-      )
+      return distributions.to(scalarOf(leftConverted), rightVal, right.unit.toString())
     }
 
     // Rule 4: Only left has unit - error
@@ -516,6 +552,23 @@ export class Evaluator {
       a = new Quantity((a.value as number) * bMult, b.unit.toString() || undefined)
     }
 
+    const trailingUnitStr = trailingUnit ? this.evaluateUnit(trailingUnit) : undefined
+    return this.alignDistPair(a, b, trailingUnitStr, label, prefer, location)
+  }
+
+  /**
+   * Steps 3-5 of resolveBinaryDistArgs, on already-evaluated Quantities —
+   * shared with the function-call forms (`uniform(1 m, 200 cm)`) so they get
+   * the same unit alignment as the infix operators.
+   */
+  private alignDistPair(
+    a: Quantity,
+    b: Quantity,
+    trailingUnitStr: string | undefined,
+    label: string,
+    prefer: 'a' | 'b',
+    location?: SourceLocation,
+  ): { a: number; b: number; unitStr: string | undefined } {
     const aUnit = a.unit.toString()
     const bUnit = b.unit.toString()
     if (aUnit !== '' && bUnit !== '' && !a.unit.equalBase(b.unit)) {
@@ -524,7 +577,7 @@ export class Evaluator {
 
     const [firstUnit, secondUnit] = prefer === 'a' ? [aUnit, bUnit] : [bUnit, aUnit]
     let unitStr: string | undefined
-    if (trailingUnit) unitStr = this.evaluateUnit(trailingUnit)
+    if (trailingUnitStr) unitStr = trailingUnitStr
     else if (firstUnit !== '') unitStr = firstUnit
     else if (secondUnit !== '') unitStr = secondUnit
 
@@ -604,6 +657,23 @@ export class Evaluator {
       return value.toSI()
     }
 
+    // Converting INTO a defined custom unit (`30 kg as 'widget` after
+    // `1 'widget = 5 kg`): divide by the definition and relabel.
+    if (node.unit.custom && node.unit.name) {
+      const customUnitDef = this.customUnits.get(node.unit.name)
+      if (customUnitDef) {
+        const ratio = value.divide(customUnitDef)
+        if (ratio.unit.toString() !== '') {
+          throw new EvaluationError(
+            `Cannot convert ${value.unit} to '${node.unit.name} (= ${customUnitDef.toString().trim()}): incompatible dimensions`,
+            (node as any).location
+          )
+        }
+        ensureLabelUnitRegistered(node.unit.name)
+        return new Quantity(ratio.value, node.unit.name)
+      }
+    }
+
     const targetUnit = this.evaluateUnit(node.unit)
     return value.to(targetUnit)
   }
@@ -640,7 +710,42 @@ export class Evaluator {
         return func(...args) as Quantity
       }
 
-      // Distribution functions take raw numeric values
+      // Distribution constructors take raw numbers and have a fixed arity
+      // from the language (their unitString/p/n parameters aren't reachable).
+      const spec = DIST_CALL_SPECS[node.name]
+      if (spec && (args.length < spec.minArgs || args.length > spec.maxArgs)) {
+        const want =
+          spec.minArgs === spec.maxArgs ? `${spec.minArgs}` : `${spec.minArgs}-${spec.maxArgs}`
+        throw new EvaluationError(
+          `${node.name}() expects ${want} argument${spec.maxArgs === 1 ? '' : 's'}, got ${args.length}`,
+          (node as any).location
+        )
+      }
+
+      // The two-argument same-dimension families get unit-aligned, so
+      // `uniform(1 m, 200 cm)` means [100 cm, 200 cm], not [1, 200] unitless.
+      if (spec?.pair) {
+        const { a, b, unitStr } = this.alignDistPair(
+          args[0], args[1], undefined, `${node.name}()`, spec.pair, (node as any).location,
+        )
+        return func(a, b, unitStr) as Quantity
+      }
+
+      // The remaining constructors take dimensionless parameters — stripping
+      // a unit silently would corrupt the estimate. Units can be attached to
+      // the result instead: `poisson(10) per hour`.
+      if (spec) {
+        for (const arg of args) {
+          if (arg.unit.toString() !== '') {
+            throw new EvaluationError(
+              `${node.name}() takes dimensionless arguments, got ${arg.unit}. ` +
+                `Attach units to the result instead, e.g. \`${node.name}(...) ${arg.unit}\``,
+              (node as any).location
+            )
+          }
+        }
+      }
+
       const rawArgs = args.map((arg) => {
         if (arg.isScalar()) {
           return arg.value
@@ -678,33 +783,23 @@ export class Evaluator {
       return result
     })
 
-    // Save current values of parameter names (if any exist)
-    const savedValues: Map<string, Quantity | undefined> = new Map()
-    for (const param of func.params) {
-      savedValues.set(param, this.variables.get(param))
+    // Bind arguments into a fresh call frame. Binding into the shared
+    // variables map would leak parameters into callees (dynamic scoping):
+    // `g(y) = w + y; f(w) = g(1)` must not let g read f's `w`.
+    const frame = new Map<string, Quantity>()
+    for (let i = 0; i < func.params.length; i++) {
+      frame.set(func.params[i], argValues[i])
     }
 
+    this.localScopes.push(frame)
     try {
-      // Bind arguments to parameters
-      for (let i = 0; i < func.params.length; i++) {
-        this.variables.set(func.params[i], argValues[i])
-      }
-
-      // Evaluate the function body
       const result = this.evaluate(func.body)
       if (!result) {
         throw new EvaluationError('Function body evaluated to null')
       }
       return result
     } finally {
-      // Restore previous values
-      for (const [param, value] of savedValues) {
-        if (value !== undefined) {
-          this.variables.set(param, value)
-        } else {
-          this.variables.delete(param)
-        }
-      }
+      this.localScopes.pop()
     }
   }
 
@@ -719,6 +814,15 @@ export class Evaluator {
       }
       ensureLabelUnitRegistered(node.unit.name)
       return new Quantity(scaledValue, node.unit.name)
+    }
+
+    // Power-wrapped custom unit (`3 'widget^2`): expand a definition if one
+    // exists — falling through would silently treat it as a bare label.
+    if (node.unit?.type === 'power' && node.unit.unit?.custom && node.unit.unit.name) {
+      const customUnitDef = this.customUnits.get(node.unit.unit.name)
+      if (customUnitDef) {
+        return customUnitDef.pow(node.unit.power!).multiply(new Quantity(scaledValue))
+      }
     }
 
     // Short-form scale words (K/M/B/T) parse as identifiers and land here.

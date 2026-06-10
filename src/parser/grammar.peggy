@@ -16,10 +16,16 @@ Program
   = _ statements:StatementList _ { return node('Program', { statements }) }
 
 StatementList
-  = head:Statement tail:(_ Statement)* {
+  = head:Statement tail:(StatementSep Statement)* {
       return [head, ...tail.map(t => t[1])]
     }
   / _ { return [] }
+
+// Statements are separated by newlines (or comments, which consume their own
+// trailing newline) — never by plain spaces. Otherwise `(5 + 3) m` parses as
+// two statements and silently evaluates to the trailing fragment (`1 m`).
+StatementSep
+  = [ \t]* ("\r\n" / "\n" / "\r" / Comment) _
 
 Statement
   = UnitDef
@@ -121,53 +127,55 @@ Multiplicative
 // Keywords must be followed by non-identifier chars to avoid matching prefixes like "total".
 // IMPORTANT: Use _no_newline for unit attachment to prevent "1 to 2 m\nx" being parsed as "1 to 2 mx"
 Range
-  = left:Power _ "to" ![a-zA-Z0-9_] _ right:Power unit:(_no_newline Unit)? {
+  = left:Unary _ "to" ![a-zA-Z0-9_] _ right:Unary unit:(_no_newline Unit)? {
       return node('Range', {
         left,
         right,
         unit: unit ? unit[1] : null
       })
     }
-  / left:Power _ (".." / "thru" ![a-zA-Z0-9_]) _ right:Power unit:(_no_newline Unit)? {
+  / left:Unary _ (".." / "thru" ![a-zA-Z0-9_]) _ right:Unary unit:(_no_newline Unit)? {
       return node('Uniform', {
         left,
         right,
         unit: unit ? unit[1] : null
       })
     }
-  / mean:Power _ ("+/-" / "+-" / "pm" ![a-zA-Z0-9_]) _ sigma:Power unit:(_no_newline Unit)? {
+  / mean:Unary _ ("+/-" / "+-" / "pm" ![a-zA-Z0-9_]) _ sigma:Unary unit:(_no_newline Unit)? {
       return node('Normal', {
         mean,
         sigma,
         unit: unit ? unit[1] : null
       })
     }
-  / successes:Power _ "of" ![a-zA-Z0-9_] _ total:Power {
+  / successes:Unary _ "of" ![a-zA-Z0-9_] _ total:Unary {
       return node('BetaOf', {
         successes,
         total
       })
     }
-  / successes:Power _ "against" ![a-zA-Z0-9_] _ failures:Power {
+  / successes:Unary _ "against" ![a-zA-Z0-9_] _ failures:Unary {
       return node('BetaAgainst', {
         successes,
         failures
       })
     }
-  / Power
-
-// Power (exponentiation) - right associative
-Power
-  = base:Unary _ op:("**" / "^") _ exp:Power {
-      return node('BinaryOp', { op: '^', left: base, right: exp })
-    }
   / Unary
 
-// Unary operations
+// Unary operations. Power binds tighter than unary minus so `-2^2` = `-(2^2)`
+// (matching Python, Mathematica, and Frink); use `(-2)^2` for the square.
 Unary
   = DbTwiddle    // Match signed db before unary minus can grab the sign
   / "-" _ value:Unary {
       return node('UnaryOp', { op: '-', value })
+    }
+  / Power
+
+// Power (exponentiation) - right associative. The exponent re-enters Unary
+// so `2^-3` parses.
+Power
+  = base:Primary _ op:("**" / "^") _ exp:Unary {
+      return node('BinaryOp', { op: '^', left: base, right: exp })
     }
   / Primary
 
@@ -184,7 +192,20 @@ Primary
   / Number
   / FunctionCall
   / Identifier
-  / "(" _ expr:Expression _ ")" { return expr }
+  / "(" _ expr:Expression _ ")" scale:(_no_newline ScaleWord)? unit:(_no_newline SuffixUnit)? {
+      // `(5 + 3) m` attaches the unit by multiplying with `1 m`, mirroring
+      // the Number rule's scale-word + unit suffix.
+      if (!scale && !unit) return expr
+      return node('BinaryOp', {
+        op: '*',
+        left: expr,
+        right: node('Number', {
+          value: 1,
+          scaleWord: scale ? scale[1] : null,
+          unit: unit ? unit[1] : null
+        })
+      })
+    }
 
 // ISO-8601 date literal: #2026-04-16# or #2026-04-16T12:30[:45]#
 // Modelled on Frink. The `#` delimiter collides with comments, so we
@@ -206,8 +227,10 @@ PercentTwiddle
       return node('PercentTwiddle', { value: parseFloat(value) })
     }
 
+// The word boundary keeps `3dbm` from matching as `3db` + stray `m`; the
+// optional space makes `3 db` the twiddle rather than mathjs's deci-bit unit.
 DbTwiddle
-  = sign:"-"? value:NumericLiteral "db" {
+  = sign:"-"? value:NumericLiteral [ \t]* "db" ![a-zA-Z0-9_] {
       return node('DbTwiddle', { value: sign ? -parseFloat(value) : parseFloat(value) })
     }
 
@@ -247,10 +270,21 @@ SigFigLiteral
   / [0-9]+ ([eE] [+-]? [0-9]+)? "."? { return text() }
   / "." [0-9]+ ([eE] [+-]? [0-9]+)? { return text() }
 
-// Function calls
+// Function calls — like parenthesized expressions, a trailing scale word or
+// unit multiplies the result: `sqrt(4) m` = 2 m, `poisson(3) million` = 3e6.
 FunctionCall
-  = name:IdentifierName _ "(" _ args:ArgumentList _ ")" {
-      return node('FunctionCall', { name, args })
+  = name:IdentifierName _ "(" _ args:ArgumentList _ ")" scale:(_no_newline ScaleWord)? unit:(_no_newline SuffixUnit)? {
+      const call = node('FunctionCall', { name, args })
+      if (!scale && !unit) return call
+      return node('BinaryOp', {
+        op: '*',
+        left: call,
+        right: node('Number', {
+          value: 1,
+          scaleWord: scale ? scale[1] : null,
+          unit: unit ? unit[1] : null
+        })
+      })
     }
 
 ArgumentList
@@ -284,6 +318,18 @@ ScaleWord "scale word"
 // Unit that can start with / or "per" for reciprocals
 UnitWithReciprocal
   = ("/" _ / "per" _) denominator:UnitWithPower {
+      return node('Unit', {
+        type: 'reciprocal',
+        denominator
+      })
+    }
+  / Unit
+
+// Suffix unit for parenthesized expressions and function calls. Accepts
+// `per day` but NOT the bare `/day` reciprocal form — a leading `/` after
+// `)` must stay a division (`(a - b) / some_variable`).
+SuffixUnit
+  = "per" _ denominator:UnitWithPower {
       return node('Unit', {
         type: 'reciprocal',
         denominator

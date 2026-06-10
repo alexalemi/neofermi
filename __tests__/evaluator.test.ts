@@ -502,16 +502,162 @@ describe('Evaluator', () => {
       expect(result?.isDistribution()).toBe(true)
     })
 
-    it('unary minus binds tighter than power', () => {
-      const result = parse('-2 ^ 2')
-      // Grammar: Unary is above Power, so this is (-2)^2 = 4
-      expect(result?.value).toBe(4)
+    it('power binds tighter than unary minus', () => {
+      // -(2^2) = -4, matching Python/Mathematica/Frink. Use (-2)^2 for the square.
+      expect(parse('-2 ^ 2')?.value).toBe(-4)
+      expect(parse('(-2) ^ 2')?.value).toBe(4)
     })
 
     it('conversion has lowest precedence', () => {
       const result = parse('1000 meters + 500 meters as km')
       // Should be (1000m + 500m) as km = 1.5 km
       expect(result?.value).toBeCloseTo(1.5, 1)
+    })
+  })
+})
+
+describe('Evaluator regressions (2026-06)', () => {
+  describe('statement separation', () => {
+    it('rejects space-separated statements instead of returning the last fragment', () => {
+      expect(() => parse('(5 + 3) garbage_trailing junk')).toThrow()
+      expect(() => parse('5 7')).toThrow(/Parse error/)
+    })
+
+    it('still allows newline-separated statements and trailing comments', () => {
+      const evaluator = new Evaluator()
+      const result = parse('x = 2 # two\ny = 3\nx * y', evaluator)
+      expect(result?.value).toBe(6)
+    })
+  })
+
+  describe('unit suffix on parens and function calls', () => {
+    it('(5 + 3) m is 8 m, not a discarded statement', () => {
+      const result = parse('(5 + 3) m')
+      expect(result?.value).toBe(8)
+      expect(result?.unit.toString()).toBe('m')
+    })
+
+    it('(10 to 20) degC converts like 10 to 20 degC', () => {
+      const result = parse('(10 to 20) degC as K')
+      expect(result?.mean()).toBeGreaterThan(280)
+      expect(result?.mean()).toBeLessThan(296)
+    })
+
+    it('sqrt(4) m is 2 m', () => {
+      const result = parse('sqrt(4) m')
+      expect(result?.value).toBe(2)
+      expect(result?.unit.toString()).toBe('m')
+    })
+
+    it('(2 to 4) million USD applies scale word and unit', () => {
+      const result = parse('(2 to 4) million USD')
+      expect(result?.mean()).toBeGreaterThan(1e6)
+      expect(result?.unit.toString()).toBe('USD')
+    })
+
+    it('a leading / after parens stays a division', () => {
+      const evaluator = new Evaluator()
+      parse('total = 10', evaluator)
+      const result = parse('(6 + 4) / total', evaluator)
+      expect(result?.value).toBe(1)
+    })
+  })
+
+  describe('distribution function calls are unit-aware', () => {
+    it('uniform(1 m, 200 cm) aligns to [100, 200] cm', () => {
+      const result = parse('uniform(1 m, 200 cm)')
+      expect(result?.unit.toString()).toBe('cm')
+      expect(result?.mean()).toBeCloseTo(150, 0)
+    })
+
+    it('uniform(1 m, 2 m) keeps meters', () => {
+      const result = parse('uniform(1 m, 2 m)')
+      expect(result?.unit.toString()).toBe('m')
+    })
+
+    it('extra numeric arguments are an arity error, not an internal TypeError', () => {
+      expect(() => parse('poisson(5, -3)')).toThrow(/expects 1 argument/)
+      expect(() => parse('percent(50, 2)')).toThrow(/expects 1 argument/)
+    })
+
+    it('unitful arguments to dimensionless constructors are an error', () => {
+      expect(() => parse('poisson(5 m)')).toThrow(/dimensionless/)
+    })
+  })
+
+  describe('user function scoping', () => {
+    it('callee cannot see caller parameters (no dynamic scoping)', () => {
+      const evaluator = new Evaluator()
+      parse('g(y) = w + y', evaluator)
+      parse('f(w) = g(1)', evaluator)
+      expect(() => parse('f(10)', evaluator)).toThrow(/Undefined variable: w/)
+    })
+
+    it('let can shadow a function parameter', () => {
+      const evaluator = new Evaluator()
+      parse('h(x) = let x = 2 in x', evaluator)
+      expect(parse('h(99)', evaluator)?.value).toBe(2)
+    })
+
+    it('parameters still shadow globals during the call and restore after', () => {
+      const evaluator = new Evaluator()
+      parse('x = 100', evaluator)
+      parse('f(x) = x * 2', evaluator)
+      expect(parse('f(5)', evaluator)?.value).toBe(10)
+      expect(parse('x', evaluator)?.value).toBe(100)
+    })
+  })
+
+  describe('range bounds that are distributions with units', () => {
+    it('collapses to the mean instead of producing NaN particles', () => {
+      const evaluator = new Evaluator()
+      parse('height = 1.7 to 1.9 m', evaluator)
+      const result = parse('height to 2 m', evaluator)
+      expect(Number.isFinite(result!.mean())).toBe(true)
+      expect(result?.mean()).toBeGreaterThan(1.7)
+      expect(result?.mean()).toBeLessThan(2.1)
+    })
+  })
+
+  describe('exponent dimensional analysis', () => {
+    it('rejects a unitful exponent instead of dropping the unit', () => {
+      expect(() => parse('2 ^ (3 m)')).toThrow(/dimensionless/)
+    })
+  })
+
+  describe('custom unit definitions', () => {
+    it('expands in power position', () => {
+      const evaluator = new Evaluator()
+      parse("1 'widget = 5 kg", evaluator)
+      const result = parse("3 'widget^2", evaluator)
+      expect(result?.value).toBe(75)
+      expect(result?.unit.toString()).toBe('kg^2')
+    })
+
+    it('converts into a defined custom unit', () => {
+      const evaluator = new Evaluator()
+      parse("1 'widget = 5 kg", evaluator)
+      const result = parse("30 kg as 'widget", evaluator)
+      expect(result?.value).toBe(6)
+      expect(result?.unit.toString()).toBe('widget')
+    })
+
+    it('rejects dimensionally incompatible custom conversions', () => {
+      const evaluator = new Evaluator()
+      parse("1 'widget = 5 kg", evaluator)
+      expect(() => parse("30 m as 'widget", evaluator)).toThrow(/incompatible/)
+    })
+  })
+
+  describe('db twiddle boundaries', () => {
+    it('3 db (spaced) is the twiddle, not deci-bits', () => {
+      const result = parse('3 db')
+      expect(result?.isDistribution()).toBe(true)
+      expect(result?.unit.toString()).toBe('')
+    })
+
+    it('3dbm does not silently split into 3db and a stray unit', () => {
+      expect(() => parse('3dbm')).toThrow()
     })
   })
 })
