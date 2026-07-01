@@ -94,12 +94,23 @@ async function runServer(inputPath: string, options: { port: string; host: strin
       title: state.currentFile ? basename(state.currentFile, '.md') : 'NeoFermi Notebook',
     }))
 
-    // Watch for changes
-    await watchFiles(resolvedPath, async (changedPath) => {
-      console.log(`Changed: ${changedPath}`)
-      state.currentFile = changedPath
-      state.html = await processMarkdown(changedPath)
-      notifyReload()
+    // Watch for changes. Renders are serialized so a slow render of one file
+    // can't finish after a newer one and clobber it, and errors are caught —
+    // an unhandled rejection (e.g. the file vanishing mid-save) would
+    // otherwise take down the whole server.
+    let renderChain = Promise.resolve()
+    await watchFiles(resolvedPath, (changedPath) => {
+      renderChain = renderChain
+        .then(async () => {
+          console.log(`Changed: ${changedPath}`)
+          const html = await processMarkdown(changedPath)
+          state.currentFile = changedPath
+          state.html = html
+          notifyReload()
+        })
+        .catch((err) => {
+          console.error(`Error processing ${changedPath}: ${(err as Error).message}`)
+        })
     })
 
     // Start server
@@ -230,7 +241,11 @@ async function runRepl() {
 async function run(inputPath: string | undefined, options: { port: string; host: string; open: boolean; output?: string; repl?: boolean; dark?: boolean }) {
   if (options.repl) {
     await runRepl()
-  } else if (options.output && inputPath) {
+  } else if (options.output) {
+    if (!inputPath) {
+      console.error('Error: --output requires an input markdown file')
+      process.exit(1)
+    }
     await runStatic(inputPath, options.output, options.dark ?? false)
   } else if (inputPath) {
     await runServer(inputPath, options)

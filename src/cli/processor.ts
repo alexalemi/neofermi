@@ -89,18 +89,46 @@ function remarkNeoFermi(options: { evaluator: Evaluator }) {
  * Interpolate ${expr} references in text.
  *
  * `expr` may be a bare variable name (`${x}`) or any NeoFermi expression
- * (`${x * 2}`, `${100 m as feet}`). Expressions share the document
- * evaluator, so earlier `=` bindings are visible. Any `}` inside `expr`
- * ends the interpolation — use a variable assignment in a code block if
- * you need braces (e.g. weighted sets).
+ * (`${x * 2}`, `${100 m as feet}`, `${ {1, 2, 3} * 2 }` — braces nest).
+ * Expressions share the document evaluator, so earlier `=` bindings are
+ * visible. An unclosed `${`, an empty body, or a body starting with a
+ * backslash (LaTeX grouping such as `${\bf x}$`) is left as literal text;
+ * expressions do not span lines.
  *
  * A parse/eval failure is surfaced inline (`«expr: message»`) rather than
  * silently leaving the raw `${…}` in the rendered document.
  */
 function interpolateText(text: string, evaluator: Evaluator): string {
-  return text.replace(/\$\{([^}]+)\}/g, (_match, expr) => {
+  let out = ''
+  let i = 0
+  while (i < text.length) {
+    const start = text.indexOf('${', i)
+    if (start === -1) {
+      out += text.slice(i)
+      break
+    }
+    out += text.slice(i, start)
+    let depth = 1
+    let end = -1
+    for (let j = start + 2; j < text.length; j++) {
+      const ch = text[j]
+      if (ch === '\n') break
+      if (ch === '{') depth++
+      else if (ch === '}' && --depth === 0) {
+        end = j
+        break
+      }
+    }
+    const expr = end === -1 ? '' : text.slice(start + 2, end)
+    if (end === -1 || expr.trim() === '' || expr.trimStart().startsWith('\\')) {
+      out += '${'
+      i = start + 2
+      continue
+    }
     const r = runCell(expr, evaluator, { requireValue: true })
-    return r.error ? `«${expr.trim()}: ${r.error}»` : r.inlineOutput
-  })
+    out += r.error ? `«${expr.trim()}: ${r.error}»` : r.inlineOutput
+    i = end + 1
+  }
+  return out
 }
 

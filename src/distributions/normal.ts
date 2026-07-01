@@ -34,8 +34,16 @@ export function normal(
   p: number = DEFAULT_CONFIDENCE,
   n: number = DEFAULT_SAMPLE_COUNT
 ): Quantity {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error(`Bounds must be finite numbers, got ${a} and ${b}`)
+  }
+
   if (a >= b) {
     throw new Error('Lower bound must be less than upper bound')
+  }
+
+  if (!(p > 0 && p < 1)) {
+    throw new Error(`Confidence level must be strictly between 0 and 1, got ${p}`)
   }
 
   // Calculate parameters
@@ -77,6 +85,10 @@ export function plusminus(
   unitString?: string,
   n: number = DEFAULT_SAMPLE_COUNT
 ): Quantity {
+  if (!Number.isFinite(mean) || !Number.isFinite(std)) {
+    throw new Error(`Mean and standard deviation must be finite numbers, got ${mean} and ${std}`)
+  }
+
   if (std < 0) {
     throw new Error('Standard deviation must be non-negative')
   }

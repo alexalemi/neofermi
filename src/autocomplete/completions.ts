@@ -223,14 +223,17 @@ export const UNITS: Completion[] = [
   { label: 'degF', type: 'unit', description: 'Fahrenheit' },
 ]
 
-// All completions combined
+// All completions combined. Some labels appear in more than one category
+// (`min` is a function and a constant, `hour` a constant and a unit, `to` a
+// keyword and a function) — keep only the first so the dropdown has no dupes.
+const seenLabels = new Set<string>()
 export const ALL_COMPLETIONS: Completion[] = [
   ...KEYWORDS,
   ...DISTRIBUTION_FUNCTIONS,
   ...MATH_FUNCTIONS,
   ...CONSTANTS,
   ...UNITS,
-]
+].filter((c) => !seenLabels.has(c.label) && seenLabels.add(c.label))
 
 /**
  * Get completions matching a prefix

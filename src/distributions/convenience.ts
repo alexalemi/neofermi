@@ -66,6 +66,14 @@ export function percent(
   p: number = DEFAULT_CONFIDENCE,
   n: number = DEFAULT_SAMPLE_COUNT
 ): Quantity {
+  // Written as !(x >= 0) so NaN is rejected too. Negative spreads are
+  // meaningless, and ±0% is exactly 1 (lognormal would reject a == b).
+  if (!(percentage >= 0)) {
+    throw new Error(`percent() requires a non-negative percentage, got ${percentage}`)
+  }
+  if (percentage === 0) {
+    return new Quantity(1)
+  }
   const top = 1.0 + percentage / 100.0
   return lognormal(1.0 / top, top, undefined, p, n)
 }
@@ -90,6 +98,9 @@ export function db(
   p: number = DEFAULT_CONFIDENCE,
   n: number = DEFAULT_SAMPLE_COUNT
 ): Quantity {
+  if (!Number.isFinite(decibels)) {
+    throw new Error(`db() requires a finite decibel value, got ${decibels}`)
+  }
   // Factor = 1 + 10^(-x/10)
   // Range from 1/factor to factor
   const factor = 1 + Math.pow(10, -decibels / 10.0)

@@ -37,8 +37,8 @@ export function exponential(
   unitString?: string,
   n: number = DEFAULT_SAMPLE_COUNT
 ): Quantity {
-  if (rate <= 0) {
-    throw new Error('Exponential rate parameter must be positive')
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new Error('Exponential rate parameter must be a positive finite number')
   }
 
   // Generate samples
@@ -63,8 +63,8 @@ export function exponentialMean(
   unitString?: string,
   n: number = DEFAULT_SAMPLE_COUNT
 ): Quantity {
-  if (mean <= 0) {
-    throw new Error('Exponential mean must be positive')
+  if (!Number.isFinite(mean) || mean <= 0) {
+    throw new Error('Exponential mean must be a positive finite number')
   }
   return exponential(1 / mean, unitString, n)
 }

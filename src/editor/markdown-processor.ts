@@ -32,6 +32,9 @@ export function processMarkdown(content: string): ProcessedDocument {
   // Track block index by source position to ensure stable IDs across renders
   const blockIdMap = new Map<number, string>()
   let blockCounter = 0
+  // Placeholders carry a per-document nonce so a literal `<!--nf:block-0-->`
+  // typed in prose (html is enabled) can't be mistaken for one of ours.
+  const nonce = Math.random().toString(36).slice(2, 10)
 
   const md = new MarkdownIt({
     html: true,
@@ -76,7 +79,7 @@ export function processMarkdown(content: string): ProcessedDocument {
     }
 
     // Return placeholder that will be replaced with results
-    return `<!--nf:${exprId}-->`
+    return `<!--nf-${nonce}:${exprId}-->`
   }
 
   // Tokenize ${...} as a dedicated inline token — supports bare variables AND
@@ -88,11 +91,28 @@ export function processMarkdown(content: string): ProcessedDocument {
     if (src.charCodeAt(state.pos) !== 0x24 /* $ */ || src.charCodeAt(state.pos + 1) !== 0x7b /* { */) {
       return false
     }
-    const end = src.indexOf('}', state.pos + 2)
-    if (end === -1 || end === state.pos + 2) return false
+    // Find the matching close brace: count nesting so mixture literals like
+    // ${ {1, 2, 3} * 2 } work, and stop at the end of the inline run or the
+    // line so an unclosed `${` can't swallow the rest of the paragraph.
+    let depth = 1
+    let end = -1
+    for (let i = state.pos + 2; i < state.posMax; i++) {
+      const ch = src.charCodeAt(i)
+      if (ch === 0x0a /* \n */) break
+      if (ch === 0x7b /* { */) depth++
+      else if (ch === 0x7d /* } */ && --depth === 0) {
+        end = i
+        break
+      }
+    }
+    if (end === -1) return false
+    const content = src.slice(state.pos + 2, end)
+    // A body starting with a backslash is LaTeX grouping right after `$`
+    // (e.g. `${\bf x}$`) — leave it for the math renderer.
+    if (content.trim() === '' || content.trimStart().startsWith('\\')) return false
     if (!silent) {
       const token = state.push('nf_inline', '', 0)
-      token.content = src.slice(state.pos + 2, end)
+      token.content = content
     }
     state.pos = end + 1
     return true
@@ -108,7 +128,7 @@ export function processMarkdown(content: string): ProcessedDocument {
     if (inlineRenderCounter > inlineExpressions.length) {
       inlineExpressions.push({ id, type: 'inline', source: expression, expression })
     }
-    return `<!--nf:${id}-->`
+    return `<!--nf-${nonce}:${id}-->`
   }
 
   function renderDocument(): string {
@@ -128,7 +148,8 @@ export function processMarkdown(content: string): ProcessedDocument {
    */
   function render(results: Map<string, EvaluationResult>): string {
     const html = renderDocument()
-    return html.replace(/<!--nf:((?:block|inline)-\d+)-->/g, (_, exprId) => {
+    const placeholder = new RegExp(`<!--nf-${nonce}:((?:block|inline)-\\d+)-->`, 'g')
+    return html.replace(placeholder, (_, exprId) => {
       const result = results.get(exprId)
       if (exprId.startsWith('inline-')) {
         return renderInlineResult(result)

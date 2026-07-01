@@ -33,6 +33,15 @@ export class EvaluationError extends Error {
 // lists are derived from a single source so they can't drift.
 const MATH_FUNCTION_NAMES = new Set(Object.keys(mathFunctions))
 
+/**
+ * Float equality for `==`/`!=`: relative tolerance, so small magnitudes
+ * (electron vs proton mass, both ~1e-27 kg) don't spuriously compare equal
+ * the way an absolute epsilon would.
+ */
+function approxEqual(a: number, b: number): boolean {
+  return a === b || Math.abs(a - b) <= 1e-9 * Math.max(Math.abs(a), Math.abs(b))
+}
+
 // The physical-constants module exports only `Quantity` values (plus aliases),
 // so the name → Quantity map is just its namespace, reflected at load time.
 const PHYSICAL_CONSTANTS: Record<string, Quantity> = Object.fromEntries(
@@ -49,12 +58,17 @@ const CONSTANT_NAMES: string[] = Object.keys(PHYSICAL_CONSTANTS)
 // unitString slot and dies with an internal TypeError. `pair` marks the
 // two-argument same-dimension families whose arguments get unit-aligned
 // before the call ('a'/'b' = which argument's unit wins).
-const DIST_CALL_SPECS: Record<string, { minArgs: number; maxArgs: number; pair?: 'a' | 'b' }> = {
+// `deltaB` marks forms whose second argument is a *difference* (a sigma), so
+// unit alignment must ignore affine offsets: ±5 degC is a spread of 9 degF.
+const DIST_CALL_SPECS: Record<
+  string,
+  { minArgs: number; maxArgs: number; pair?: 'a' | 'b'; deltaB?: boolean }
+> = {
   to: { minArgs: 2, maxArgs: 2, pair: 'b' },
   lognormal: { minArgs: 2, maxArgs: 2, pair: 'b' },
   normal: { minArgs: 2, maxArgs: 2, pair: 'b' },
   uniform: { minArgs: 2, maxArgs: 2, pair: 'b' },
-  plusminus: { minArgs: 2, maxArgs: 2, pair: 'a' },
+  plusminus: { minArgs: 2, maxArgs: 2, pair: 'a', deltaB: true },
   outof: { minArgs: 2, maxArgs: 2 },
   gamma: { minArgs: 1, maxArgs: 2 },
   percent: { minArgs: 1, maxArgs: 1 },
@@ -267,9 +281,9 @@ export class Evaluator {
       case '<=':
         return this.compareQuantities(left, right, (a, b) => a <= b)
       case '==':
-        return this.compareQuantities(left, right, (a, b) => Math.abs(a - b) < 1e-10)
+        return this.compareQuantities(left, right, approxEqual)
       case '!=':
-        return this.compareQuantities(left, right, (a, b) => Math.abs(a - b) >= 1e-10)
+        return this.compareQuantities(left, right, (a, b) => !approxEqual(a, b))
 
       default:
         throw new EvaluationError(`Unknown operator: ${node.op}`)
@@ -289,8 +303,13 @@ export class Evaluator {
       )
     }
     const leftUnitStr = left.unit.toString()
-    if (leftUnitStr !== '' && right.unit.toString() !== leftUnitStr) {
-      right = right.to(leftUnitStr)
+    const rightUnitStr = right.unit.toString()
+    if (leftUnitStr !== '') {
+      if (rightUnitStr !== leftUnitStr) right = right.to(leftUnitStr)
+    } else if (rightUnitStr !== '') {
+      // Left is bare dimensionless but right carries a value-bearing unit
+      // (dozen, feet/mm): collapse it so `10 > 1 dozen` compares 10 vs 12.
+      right = right.toSI()
     }
 
     const leftParticles = left.toParticles()
@@ -539,6 +558,7 @@ export class Evaluator {
     label: string,
     prefer: 'a' | 'b',
     location?: SourceLocation,
+    deltaB = false,
   ): { a: number; b: number; unitStr: string | undefined } {
     let a = this.evaluate(aNode)
     let b = this.evaluate(bNode)
@@ -549,11 +569,13 @@ export class Evaluator {
     const aMult = this.getNumberNodeMultiplier(aNode)
     const bMult = this.getNumberNodeMultiplier(bNode)
     if (a.unit.toString() === '' && aMult === null && bMult !== null) {
-      a = new Quantity((a.value as number) * bMult, b.unit.toString() || undefined)
+      // Collapse distributions to their mean — a raw array times a number is NaN.
+      const aVal = a.isScalar() ? (a.value as number) : a.mean()
+      a = new Quantity(aVal * bMult, b.unit.toString() || undefined)
     }
 
     const trailingUnitStr = trailingUnit ? this.evaluateUnit(trailingUnit) : undefined
-    return this.alignDistPair(a, b, trailingUnitStr, label, prefer, location)
+    return this.alignDistPair(a, b, trailingUnitStr, label, prefer, location, deltaB)
   }
 
   /**
@@ -568,6 +590,7 @@ export class Evaluator {
     label: string,
     prefer: 'a' | 'b',
     location?: SourceLocation,
+    deltaB = false,
   ): { a: number; b: number; unitStr: string | undefined } {
     const aUnit = a.unit.toString()
     const bUnit = b.unit.toString()
@@ -583,11 +606,26 @@ export class Evaluator {
 
     if (unitStr) {
       if (aUnit !== '' && aUnit !== unitStr) a = a.to(unitStr)
-      if (bUnit !== '' && bUnit !== unitStr) b = b.to(unitStr)
+      if (bUnit !== '' && bUnit !== unitStr) {
+        b = deltaB ? this.convertDelta(b, unitStr) : b.to(unitStr)
+      }
     }
 
     const scalar = (q: Quantity) => (q.isScalar() ? (q.value as number) : q.mean())
     return { a: scalar(a), b: scalar(b), unitStr }
+  }
+
+  /**
+   * Convert `q` as a *difference* rather than an absolute value: affine
+   * offsets cancel in differences, so a sigma of 5 degC is a spread of
+   * 9 degF, not 41 degF. For purely linear units this equals `q.to()`.
+   */
+  private convertDelta(q: Quantity, targetUnit: string): Quantity {
+    const converted = q.to(targetUnit)
+    const offset = new Quantity(0, q.unit.toString()).to(targetUnit).value as number
+    if (offset === 0) return converted
+    const shifted = converted.toParticles().map((v) => v - offset)
+    return new Quantity(shifted.length === 1 ? shifted[0] : shifted, targetUnit)
   }
 
   private evaluateUniform(node: ASTNode & { type: 'Uniform' }): Quantity {
@@ -599,7 +637,7 @@ export class Evaluator {
 
   private evaluateNormal(node: ASTNode & { type: 'Normal' }): Quantity {
     const { a: mean, b: sigma, unitStr } = this.resolveBinaryDistArgs(
-      node.mean, node.sigma, node.unit, 'normal()', 'a', (node as any).location,
+      node.mean, node.sigma, node.unit, 'normal()', 'a', (node as any).location, true,
     )
     // `mean ± sigma` is the 68% CI: 16th percentile = mean - sigma, 84th = mean + sigma.
     return distributions.normal(mean - sigma, mean + sigma, unitStr)
@@ -727,6 +765,7 @@ export class Evaluator {
       if (spec?.pair) {
         const { a, b, unitStr } = this.alignDistPair(
           args[0], args[1], undefined, `${node.name}()`, spec.pair, (node as any).location,
+          spec.deltaB ?? false,
         )
         return func(a, b, unitStr) as Quantity
       }

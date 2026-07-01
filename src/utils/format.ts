@@ -27,13 +27,14 @@ export function formatWithSigFigs(n: number, sigFigs: number): string {
   if (!isFinite(n)) return String(n)
   if (n === 0) return '0'
   const digits = Math.max(1, Math.min(10, Math.round(sigFigs)))
-  const abs = Math.abs(n)
-  const magnitude = Math.floor(Math.log10(abs))
+  // Round to the requested precision first, so values that round across a
+  // power of ten (0.99999 → "1.0", not "1.00") pick their notation and
+  // decimal places from the rounded magnitude.
+  const rounded = Number(n.toPrecision(digits))
+  const magnitude = Math.floor(Math.log10(Math.abs(rounded)))
   if (magnitude >= 6 || magnitude <= -4) {
-    return n.toExponential(digits - 1)
+    return rounded.toExponential(digits - 1)
   }
-  const factor = Math.pow(10, magnitude - digits + 1)
-  const rounded = Math.round(n / factor) * factor
   const decimals = Math.max(0, digits - 1 - magnitude)
   return rounded.toFixed(decimals)
 }

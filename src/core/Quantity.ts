@@ -297,8 +297,18 @@ export class Quantity {
     }
 
     const unitStr = this.unit.toString()
+    const otherUnitStr = other.unit.toString()
+    // When this side is bare dimensionless but the other carries a
+    // value-bearing unit (dozen, feet/mm), collapse the other via toSI() —
+    // `10 + 1 dozen` is 22, and to('') would silently drop the factor of 12.
     const aligned =
-      unitStr !== '' && other.unit.toString() !== unitStr ? other.to(unitStr) : other
+      unitStr !== ''
+        ? otherUnitStr !== unitStr
+          ? other.to(unitStr)
+          : other
+        : otherUnitStr !== ''
+          ? other.toSI()
+          : other
 
     const aParticles = this.toParticles()
     const bParticles = aligned.toParticles()
@@ -317,7 +327,34 @@ export class Quantity {
     return new Quantity(result, unitStr)
   }
 
+  /** True if the unit has an affine (offset-bearing) component like degC/degF. */
+  private hasAffineUnit(): boolean {
+    const units = (this.unit as any).units as Array<{ unit: { offset?: number } }> | undefined
+    return !!units?.some((u) => (u.unit.offset ?? 0) !== 0)
+  }
+
+  /**
+   * Products/ratios involving an affine unit are only meaningful on the
+   * absolute scale — (50 degF)/(10 degC) is a ratio of equal absolute
+   * temperatures (283.15 K), i.e. exactly 1, not 5. Only when *both* sides
+   * carry units, though: multiplying by a dimensionless number is how the
+   * language attaches unit suffixes (`(10 to 20) degC` is `... * 1 degC`)
+   * and how users scale a reading, so that stays in display space.
+   */
+  private needsAbsoluteScale(other: Quantity): boolean {
+    return (
+      (this.hasAffineUnit() && other.unit.toString() !== '') ||
+      (other.hasAffineUnit() && this.unit.toString() !== '')
+    )
+  }
+
   multiply(other: Quantity): Quantity {
+    // toSI() clears the affine offset (kelvin), so the recursion below takes
+    // the plain path.
+    if (this.needsAbsoluteScale(other)) {
+      return this.toSI().multiply(other.toSI())
+    }
+
     const aParticles = this.toParticles()
     const bParticles = other.toParticles()
 
@@ -344,6 +381,11 @@ export class Quantity {
   }
 
   divide(other: Quantity): Quantity {
+    // See needsAbsoluteScale(): affine ratios are taken on the absolute scale.
+    if (this.needsAbsoluteScale(other)) {
+      return this.toSI().divide(other.toSI())
+    }
+
     const aParticles = this.toParticles()
     const bParticles = other.toParticles()
 

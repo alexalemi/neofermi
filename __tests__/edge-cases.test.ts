@@ -220,9 +220,15 @@ describe('Edge cases', () => {
       expect(q.mean()).toBeCloseTo(50, -1)
     })
 
-    it('percent(0) throws since bounds are equal', () => {
-      // 0% error: lognormal(1/1, 1) = lognormal(1, 1), a >= b
-      expect(() => percent(0)).toThrow()
+    it('percent(0) is exactly 1 (no spread)', () => {
+      const q = percent(0)
+      expect(q.isScalar()).toBe(true)
+      expect(q.value).toBe(1)
+    })
+
+    it('percent() rejects negative and NaN spreads', () => {
+      expect(() => percent(-10)).toThrow(/non-negative/)
+      expect(() => percent(NaN)).toThrow(/non-negative/)
     })
 
     it('percent(100) creates wide distribution', () => {

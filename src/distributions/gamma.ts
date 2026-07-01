@@ -12,9 +12,10 @@ import { DEFAULT_SAMPLE_COUNT } from '../config.js'
  */
 function gammaSample(shape: number, scale: number = 1): number {
   if (shape < 1) {
-    // For shape < 1, use: if X ~ Gamma(shape+1, scale), then X*U^(1/shape) ~ Gamma(shape, scale)
+    // For shape < 1, use: if X ~ Gamma(shape+1, scale), then X*U^(1/shape) ~ Gamma(shape, scale).
+    // Combined in log space: U^(1/shape) alone underflows to exact 0 for small shapes.
     const x = gammaSample(shape + 1, scale)
-    return x * Math.pow(Math.random(), 1 / shape)
+    return Math.exp(Math.log(x) + Math.log(1 - Math.random()) / shape)
   }
 
   // Marsaglia and Tsang's method for shape >= 1
@@ -77,12 +78,12 @@ export function gamma(
   unitString?: string,
   n: number = DEFAULT_SAMPLE_COUNT
 ): Quantity {
-  if (shape <= 0) {
-    throw new Error('Gamma shape parameter must be positive')
+  if (!Number.isFinite(shape) || shape <= 0) {
+    throw new Error('Gamma shape parameter must be a positive finite number')
   }
 
-  if (scale <= 0) {
-    throw new Error('Gamma scale parameter must be positive')
+  if (!Number.isFinite(scale) || scale <= 0) {
+    throw new Error('Gamma scale parameter must be a positive finite number')
   }
 
   // Generate samples

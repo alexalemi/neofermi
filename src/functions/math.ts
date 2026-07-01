@@ -24,19 +24,21 @@ function applyUnary(
 /**
  * Apply a binary numeric function element-wise to two Quantities.
  *
- * When `resultUnit` is given, `b` is converted into it first so the operation
- * compares like-for-like numeric values (meters vs meters). When omitted the
- * result is dimensionless — right for ratios and log-scale ops.
+ * When `alignUnit` is given, `b` is converted into it first so the operation
+ * compares like-for-like numeric values (meters vs meters). The result carries
+ * `resultUnit`, defaulting to `alignUnit`; when both are omitted the result is
+ * dimensionless — right for ratios and log-scale ops.
  */
 function applyBinary(
   a: Quantity,
   b: Quantity,
   fn: (x: number, y: number) => number,
-  resultUnit?: string,
+  alignUnit?: string,
+  resultUnit: string | undefined = alignUnit,
 ): Quantity {
   const aParticles = a.toParticles()
-  const bParticles = resultUnit && b.unit.toString() !== resultUnit
-    ? b.to(resultUnit).toParticles()
+  const bParticles = alignUnit && b.unit.toString() !== alignUnit
+    ? b.to(alignUnit).toParticles()
     : b.toParticles()
   const len = Math.max(aParticles.length, bParticles.length)
   const result = new Array<number>(len)
@@ -118,11 +120,12 @@ export const acos = inverseTrigFn('acos()', Math.acos)
 export const atan = inverseTrigFn('atan()', Math.atan)
 
 export function atan2(y: Quantity, x: Quantity): Quantity {
-  // y and x must share a dimensional base; their units cancel in the ratio.
+  // y and x must share a dimensional base; x is converted into y's unit so the
+  // implicit ratio is like-for-like. Result is an angle in radians.
   if (!y.unit.equalBase(x.unit)) {
     throw new Error(`atan2() requires arguments with same units, got ${y.unit} and ${x.unit}`)
   }
-  return applyBinary(y, x, Math.atan2)
+  return applyBinary(y, x, Math.atan2, y.unit.toString(), 'rad')
 }
 
 // ── Hyperbolic (dimensionless in, dimensionless out) ─────────────────────────
@@ -140,7 +143,9 @@ export function pow(base: Quantity, exponent: Quantity): Quantity {
   requireDimensionless(exponent, 'pow() exponent')
   // Scalar exponent: defer to Quantity.pow so the unit is raised correctly.
   if (exponent.isScalar()) return base.pow(exponent.value as number)
-  // Distribution exponent (unusual): element-wise, dimensionless result.
+  // Distribution exponent (unusual): the result's unit would differ per sample,
+  // so this only makes sense for a dimensionless base.
+  requireDimensionless(base, 'pow() base with a distribution exponent')
   return applyBinary(base, exponent, Math.pow)
 }
 
@@ -230,7 +235,13 @@ function crpsCore(
   for (let i = 0; i < n; i++) pairwiseSum += (2 * i - n + 1) * sorted[i]
   const resolution = pairwiseSum / (n * n) // = ½·(2/n²)·Σ … = Σ … / n²
 
-  const obsParticles = observation.toParticles()
+  // Compare in dist's unit: convert the observation so differences are like-for-like.
+  const distUnit = dist.unit.toString()
+  const obsParticles = (
+    distUnit !== '' && observation.unit.toString() !== distUnit
+      ? observation.to(distUnit)
+      : observation
+  ).toParticles()
   requirePositive(obsParticles, 'observation')
   const reliability = obsParticles.map((y) => {
     const ty = t(y)

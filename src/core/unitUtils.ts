@@ -105,6 +105,9 @@ const UNIT_ALIASES: Record<string, string> = {
 
   // Speed
   mph: 'mile/hour',
+  // Fuel economy — without this alias the SI-prefix fallback reads 'mpg' as
+  // milli + picogram and silently produces a mass.
+  mpg: 'mile/gallon',
   kph: 'km/hour',
   kmh: 'km/hour',
   kmph: 'km/hour',
@@ -409,10 +412,11 @@ export function normalizeUnit(unitStr: string): string {
       return mathjsPrefixed
     }
 
-    // Try just the base unit (we'll handle prefix as multiplier)
+    // Base unit parses but mathjs lacks the prefixed form: register it as a
+    // derived unit so it also works as a `to()` conversion target (previously
+    // `1 Myear` constructed fine but `as Myear` threw "Unit not found").
     if (tryParseUnit(prefixInfo.baseUnit)) {
-      // mathjs might understand the abbreviated form
-      return mathjsPrefixed
+      return ensurePrefixedUnitRegistered(mathjsPrefixed, prefixInfo.power, prefixInfo.baseUnit)
     }
 
     // Try base unit with plural removed
@@ -423,7 +427,7 @@ export function normalizeUnit(unitStr: string): string {
         return mathjsSingular
       }
       if (tryParseUnit(singularBase)) {
-        return SI_PREFIXES[prefixInfo.prefix]?.abbrev + singularBase
+        return ensurePrefixedUnitRegistered(mathjsSingular, prefixInfo.power, singularBase)
       }
     }
   }
@@ -442,6 +446,23 @@ export function normalizeUnit(unitStr: string): string {
 
   // Nothing worked, return original and let mathjs throw the error
   return original
+}
+
+/**
+ * Register `name` as a mathjs derived unit equal to 10^power × baseUnit, so an
+ * SI-prefixed unit mathjs lacks natively (Myear, kday) parses everywhere —
+ * construction, display, and `to()` targets. Idempotent; on failure the name
+ * is returned unregistered and downstream parsing surfaces the error.
+ */
+function ensurePrefixedUnitRegistered(name: string, power: number, baseUnit: string): string {
+  if (!tryParseUnit(name)) {
+    try {
+      mathjsCreateUnit(name, `${Math.pow(10, power)} ${baseUnit}`)
+    } catch {
+      // fall through — caller returns the name as-is
+    }
+  }
+  return name
 }
 
 /**
@@ -567,6 +588,14 @@ const registeredLabelUnits = new Set<string>()
  */
 export function ensureLabelUnitRegistered(labelName: string): void {
   if (registeredLabelUnits.has(labelName)) return
+
+  // A label colliding with an existing unit ('day, 'kg) would crash inside
+  // mathjs with a raw "unit already exists" error — reject it legibly.
+  if (tryParseUnit(labelName)) {
+    throw new Error(
+      `Cannot use '${labelName} as a custom unit: "${labelName}" is already a unit`,
+    )
+  }
 
   mathjsCreateUnit(labelName, { baseName: labelName })
   registeredLabelUnits.add(labelName)

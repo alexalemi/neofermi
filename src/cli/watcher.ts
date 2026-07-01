@@ -4,7 +4,21 @@
 
 import chokidar from 'chokidar'
 import { stat, readdir } from 'fs/promises'
-import { join } from 'path'
+import { join, relative } from 'path'
+
+/**
+ * Ignore predicate: hidden files/dirs *inside* the watch root. Matching the
+ * full absolute path would silently unwatch anything under a dot-directory
+ * (e.g. serving a file in ~/.notes would never reload).
+ */
+function hiddenInside(root: string) {
+  return (watchedPath: string) => {
+    const rel = relative(root, watchedPath)
+    return rel
+      .split(/[\/\\]/)
+      .some((seg) => seg.startsWith('.') && seg !== '.' && seg !== '..')
+  }
+}
 
 /**
  * Watch a file or directory for markdown file changes
@@ -22,8 +36,10 @@ export async function watchFiles(path: string, onFileChange: (filePath: string) 
     console.log(`Found ${filesToWatch.length} markdown files to watch`)
   }
 
+  // The file list is already explicit (and findMdFilesRecursive skips hidden
+  // entries), so no `ignored` here — it would have to match against absolute
+  // paths and could exclude the files we were asked to watch.
   const watcher = chokidar.watch(filesToWatch, {
-    ignored: /(^|[\/\\])\../, // Ignore dotfiles
     persistent: true,
     ignoreInitial: true,
     usePolling: true,
@@ -37,7 +53,7 @@ export async function watchFiles(path: string, onFileChange: (filePath: string) 
   // For directories, also watch for new .md files
   if (!isMarkdownFile) {
     const dirWatcher = chokidar.watch(path, {
-      ignored: /(^|[\/\\])\../,
+      ignored: hiddenInside(path),
       persistent: true,
       ignoreInitial: true,
       usePolling: true,
@@ -57,6 +73,13 @@ export async function watchFiles(path: string, onFileChange: (filePath: string) 
     .on('change', (changedPath) => {
       if (changedPath.endsWith('.md')) {
         onFileChange(changedPath)
+      }
+    })
+    // A watched file that is deleted and recreated (rm + regenerate,
+    // git checkout, atomic-save editors) comes back as an 'add' event.
+    .on('add', (addedPath) => {
+      if (addedPath.endsWith('.md')) {
+        onFileChange(addedPath)
       }
     })
     .on('error', (error) => {

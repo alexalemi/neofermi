@@ -74,7 +74,8 @@ export function binomial(
   if (n <= 0 || !Number.isInteger(n)) {
     throw new Error('Binomial n parameter must be a positive integer')
   }
-  if (p < 0 || p > 1) {
+  // Negated comparison so NaN fails validation too.
+  if (!(p >= 0 && p <= 1)) {
     throw new Error('Binomial p parameter must be between 0 and 1')
   }
 

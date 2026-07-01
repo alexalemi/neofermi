@@ -32,6 +32,10 @@ export function uniform(
   unitString?: string,
   n: number = DEFAULT_SAMPLE_COUNT
 ): Quantity {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error(`Bounds must be finite numbers, got ${a} and ${b}`)
+  }
+
   if (a >= b) {
     throw new Error('Lower bound must be less than upper bound')
   }

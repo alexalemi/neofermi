@@ -54,8 +54,8 @@ export function poisson(
   unitString?: string,
   n: number = DEFAULT_SAMPLE_COUNT
 ): Quantity {
-  if (lambda <= 0) {
-    throw new Error('Poisson rate parameter must be positive')
+  if (!Number.isFinite(lambda) || lambda <= 0) {
+    throw new Error('Poisson rate parameter must be a positive finite number')
   }
 
   // Generate samples
