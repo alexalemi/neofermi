@@ -33,11 +33,15 @@ export function processMarkdown(content: string): ProcessedDocument {
   const blockIdMap = new Map<number, string>()
   let blockCounter = 0
   // Placeholders carry a per-document nonce so a literal `<!--nf:block-0-->`
-  // typed in prose (html is enabled) can't be mistaken for one of ours.
+  // typed in prose can't be mistaken for one of ours.
   const nonce = Math.random().toString(36).slice(2, 10)
 
   const md = new MarkdownIt({
-    html: true,
+    // html stays OFF: editor content can arrive via a shared URL hash, and the
+    // rendered output goes straight into innerHTML — raw HTML here would let a
+    // crafted share link run script on the editor's origin. Our own output
+    // (fence renderer, nf_inline placeholders) bypasses this setting.
+    html: false,
     linkify: true,
     typographer: true,
   })

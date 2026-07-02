@@ -72,6 +72,13 @@ export function generateLinearTicks(min: number, max: number, maxTicks: number =
     }
   }
 
+  // The nice-number spacing can produce maxTicks+1 ticks (0..1 at spacing 0.2
+  // gives 6); thin by a stride so narrow plots don't collide labels.
+  if (ticks.length > maxTicks) {
+    const stride = Math.ceil(ticks.length / maxTicks)
+    return ticks.filter((_, i) => i % stride === 0)
+  }
+
   return ticks
 }
 

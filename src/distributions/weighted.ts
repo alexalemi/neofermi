@@ -40,14 +40,16 @@ export function weighted(
   if (values.length !== weights.length) {
     throw new Error('Values and weights arrays must have the same length')
   }
-  if (weights.some((w) => w < 0)) {
-    throw new Error('Weights must be non-negative')
+  // Negated so NaN weights are rejected too — a NaN poisons the CDF and the
+  // binary search would then silently return values[0] for every sample.
+  if (!weights.every((w) => Number.isFinite(w) && w >= 0)) {
+    throw new Error('Weights must be finite and non-negative')
   }
 
   // Normalize weights to create cumulative distribution
   const totalWeight = weights.reduce((a, b) => a + b, 0)
-  if (totalWeight === 0) {
-    throw new Error('Total weight must be positive')
+  if (!(totalWeight > 0) || !Number.isFinite(totalWeight)) {
+    throw new Error('Total weight must be positive and finite')
   }
 
   // Create cumulative distribution function

@@ -139,8 +139,9 @@ export function renderDotplot(
     const count = binCounts.get(binIdx) || 0
     binCounts.set(binIdx, count + 1)
 
-    // X position: center of bin
-    const binCenterX = (binIdx + 0.5) * binPixelWidth
+    // X position: center of bin, clamped to the axis span — the last bin's
+    // center can otherwise sit half a bin past the axis end
+    const binCenterX = Math.min(Math.max((binIdx + 0.5) * binPixelWidth, padding), width - padding)
 
     // Y position: stack upward from baseline
     const y = baseY - dotRadius - count * dotSpacing

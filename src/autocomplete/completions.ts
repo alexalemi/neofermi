@@ -24,12 +24,13 @@ export const KEYWORDS: Completion[] = [
   { label: 'if', type: 'keyword', description: 'Conditional expression' },
   { label: 'then', type: 'keyword', description: 'Then branch of conditional' },
   { label: 'else', type: 'keyword', description: 'Else branch of conditional' },
-  { label: 'per', type: 'keyword', description: 'Division in compound units (e.g. miles per hour)' },
+  { label: 'per', type: 'keyword', description: 'Reciprocal unit (e.g. 10 per day)' },
 ]
 
 // Distribution functions
 export const DISTRIBUTION_FUNCTIONS: Completion[] = [
-  { label: 'to', type: 'function', signature: 'to(low, high, unit?)', description: 'Smart range (lognormal if positive, normal otherwise)' },
+  // NOTE: no `to(...)` function entry — `to` is a reserved word, so the call
+  // form doesn't parse; only the infix keyword (listed in KEYWORDS) works.
   { label: 'lognormal', type: 'function', signature: 'lognormal(low, high, unit?)', description: 'Lognormal distribution from percentiles' },
   { label: 'normal', type: 'function', signature: 'normal(low, high, unit?)', description: 'Normal distribution from percentiles' },
   { label: 'uniform', type: 'function', signature: 'uniform(low, high, unit?)', description: 'Uniform distribution' },

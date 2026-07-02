@@ -63,6 +63,10 @@ async function runStatic(inputPath: string, outputPath: string, darkMode: boolea
 async function runServer(inputPath: string, options: { port: string; host: string; open: boolean }) {
   const resolvedPath = resolve(inputPath)
   const port = parseInt(options.port, 10)
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    console.error(`Error: invalid port '${options.port}'`)
+    process.exit(1)
+  }
   const host = options.host
 
   try {

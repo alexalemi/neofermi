@@ -37,9 +37,13 @@ function applyBinary(
   resultUnit: string | undefined = alignUnit,
 ): Quantity {
   const aParticles = a.toParticles()
-  const bParticles = alignUnit && b.unit.toString() !== alignUnit
-    ? b.to(alignUnit).toParticles()
-    : b.toParticles()
+  let bAligned = b
+  if (alignUnit !== undefined && b.unit.toString() !== alignUnit) {
+    // Aligning to bare dimensionless must go through toSI(): value-bearing
+    // units like dozen or feet/mm carry a factor that to('') silently drops.
+    bAligned = alignUnit === '' ? b.toSI() : b.to(alignUnit)
+  }
+  const bParticles = bAligned.toParticles()
   const len = Math.max(aParticles.length, bParticles.length)
   const result = new Array<number>(len)
   for (let i = 0; i < len; i++) {
@@ -235,13 +239,17 @@ function crpsCore(
   for (let i = 0; i < n; i++) pairwiseSum += (2 * i - n + 1) * sorted[i]
   const resolution = pairwiseSum / (n * n) // = ½·(2/n²)·Σ … = Σ … / n²
 
-  // Compare in dist's unit: convert the observation so differences are like-for-like.
+  // Compare in dist's unit: convert the observation so differences are
+  // like-for-like. When dist is bare dimensionless, toSI() (not to('')) so a
+  // value-bearing observation unit like dozen keeps its factor.
   const distUnit = dist.unit.toString()
-  const obsParticles = (
-    distUnit !== '' && observation.unit.toString() !== distUnit
-      ? observation.to(distUnit)
-      : observation
-  ).toParticles()
+  const obsAligned =
+    observation.unit.toString() === distUnit
+      ? observation
+      : distUnit === ''
+        ? observation.toSI()
+        : observation.to(distUnit)
+  const obsParticles = obsAligned.toParticles()
   requirePositive(obsParticles, 'observation')
   const reliability = obsParticles.map((y) => {
     const ty = t(y)
@@ -298,7 +306,11 @@ export function clamp(value: Quantity, minVal: Quantity, maxVal: Quantity): Quan
     throw new Error('clamp() requires all arguments with compatible units')
   }
   const unitStr = value.unit.toString()
-  const align = (q: Quantity) => (unitStr !== '' && q.unit.toString() !== unitStr ? q.to(unitStr) : q)
+  const align = (q: Quantity) => {
+    if (q.unit.toString() === unitStr) return q
+    // toSI() rather than to('') so value-bearing units (dozen) keep their factor
+    return unitStr === '' ? q.toSI() : q.to(unitStr)
+  }
   const v = value.toParticles()
   const lo = align(minVal).toParticles()
   const hi = align(maxVal).toParticles()

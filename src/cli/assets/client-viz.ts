@@ -81,7 +81,8 @@ export function renderDotplots(): void {
     const bins = new Map<number, number[]>()
     for (const v of samples) {
       const x = scale(v)
-      const binIndex = Math.round(x / binWidth)
+      // Floor + bin-center placement, mirroring renderDotplot's scheme
+      const binIndex = Math.floor(x / binWidth)
       if (!bins.has(binIndex)) bins.set(binIndex, [])
       bins.get(binIndex)!.push(v)
     }
@@ -97,7 +98,8 @@ export function renderDotplots(): void {
     const dotSpacing = Math.min(dotRadius * 2.2, (baseY - dotRadius) / maxStack)
     ctx.fillStyle = dotColor
     bins.forEach((dots, binIndex) => {
-      const x = binIndex * binWidth
+      // Bin center, clamped to the axis span so edge dots don't overhang
+      const x = Math.min(Math.max((binIndex + 0.5) * binWidth, padding), width - padding)
       dots.forEach((_v, i) => {
         const y = baseY - i * dotSpacing
         if (y > dotRadius) {

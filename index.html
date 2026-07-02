@@ -922,19 +922,18 @@ Escape               # Unfocus cell</pre>
         try {
           const q = cell.result
           if (q && typeof q === 'object' && q.isDistribution && q.isDistribution()) {
-            // Distribution result - convert to SI for display
-            const qSI = q.toSI ? q.toSI() : q
-
             const stats = document.createElement('div')
             stats.className = 'result-stats'
             stats.innerHTML = formatQuantityConcise(q, { html: true })
             output.appendChild(stats)
 
-            // Visualization (use SI-converted data)
+            // Visualize in display units so the axis agrees with the stat
+            // line above it (toSI here plotted `10 to 100 km` as 10000-100000
+            // labelled m while the stat read km; embed/CLI keep display units)
             const vizContainer = document.createElement('div')
             vizContainer.className = 'result-viz'
             const width = Math.min(window.innerWidth - 80, 280)
-            const canvas = visualize(qSI, vizType, {
+            const canvas = visualize(q, vizType, {
               width,
               height: 105, // Increased to accommodate axis label
               numDots: 20,

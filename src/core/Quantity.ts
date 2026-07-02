@@ -152,11 +152,12 @@ function simplifyUnit(unitObj: Unit): SimplifiedUnit {
   } else if (denominator.length === 0) {
     unitStr = numerator.join(' ')
   } else if (numerator.length === 0) {
-    // For "1 / denom", parenthesize if multiple terms
-    const denomStr = denominator.length > 1
-      ? `(${denominator.join(' ')})`
-      : denominator[0]
-    unitStr = `1 / ${denomStr}`
+    // Pure reciprocal: use power notation (`day^-1`), not `1 / day` — mathjs
+    // parses the latter as a value-bearing unit and its toString() leaks the
+    // literal 1 into every display ("5 1 day^-1").
+    unitStr = denominator
+      .map((d) => (d.includes('^') ? d.replace('^', '^-') : `${d}^-1`))
+      .join(' ')
   } else {
     // For "num / denom", parenthesize denominator if multiple terms
     const denomStr = denominator.length > 1
@@ -173,6 +174,12 @@ export class Quantity {
   readonly unit: Unit
 
   constructor(value: Value, unitString?: string) {
+    // An empty particle array would make every statistic (mean, percentile,
+    // std) silently return NaN — fail loudly at construction instead.
+    if (Array.isArray(value) && value.length === 0) {
+      throw new Error('Cannot create a Quantity from an empty particle array')
+    }
+
     // Normalize unit and get scaling factor for SI prefixes
     const { unit: normalizedUnit, scale } = unitString
       ? normalizeUnitWithScale(unitString)

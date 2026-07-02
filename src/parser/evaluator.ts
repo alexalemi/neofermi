@@ -267,8 +267,7 @@ export class Evaluator {
             (node as any).location
           )
         }
-        const exponent = typeof right.value === 'number' ? right.value : right.value[0]
-        return left.pow(exponent)
+        return left.pow(right.value as number)
 
       // Comparison operators - return 1 (true) or 0 (false)
       // For distributions, compare element-wise and return proportion true
@@ -401,7 +400,7 @@ export class Evaluator {
     }
 
     // For distributions, evaluate both branches and select element-wise
-    const thenResult = this.evaluate(node.thenBranch)
+    let thenResult = this.evaluate(node.thenBranch)
     let elseResult = this.evaluate(node.elseBranch)
     if (!thenResult || !elseResult) {
       throw new EvaluationError('If branch evaluated to null')
@@ -410,8 +409,8 @@ export class Evaluator {
     // Align the else branch to the then branch's unit when both carry one, so
     // `if c then 1 m else 50 cm` yields metres throughout instead of mixing
     // raw 1 with raw 50. Incompatible dimensions are an error.
-    const thenUnitStr = thenResult.unit.toString()
-    const elseUnitStr = elseResult.unit.toString()
+    let thenUnitStr = thenResult.unit.toString()
+    let elseUnitStr = elseResult.unit.toString()
     if (thenUnitStr !== '' && elseUnitStr !== '') {
       if (!thenResult.unit.equalBase(elseResult.unit)) {
         throw new EvaluationError(
@@ -419,6 +418,19 @@ export class Evaluator {
         )
       }
       if (elseUnitStr !== thenUnitStr) elseResult = elseResult.to(thenUnitStr)
+    } else if (thenUnitStr !== elseUnitStr) {
+      // Exactly one branch carries a unit. A truly dimensioned unit can't mix
+      // with a bare number (the old code silently relabelled the bare branch);
+      // a value-bearing dimensionless unit (dozen) collapses via toSI().
+      if (!thenResult.unit.equalBase(elseResult.unit)) {
+        throw new EvaluationError(
+          `Cannot combine if-branches with incompatible units: ${thenResult.unit || '(dimensionless)'} and ${elseResult.unit || '(dimensionless)'}`
+        )
+      }
+      thenResult = thenResult.toSI()
+      elseResult = elseResult.toSI()
+      thenUnitStr = thenResult.unit.toString()
+      elseUnitStr = elseResult.unit.toString()
     }
 
     const condParticles = condition.toParticles()
@@ -651,8 +663,8 @@ export class Evaluator {
       throw new EvaluationError('Beta parameters evaluated to null')
     }
 
-    const successVal = successes.isScalar() ? (successes.value as number) : successes.mean()
-    const totalVal = total.isScalar() ? (total.value as number) : total.mean()
+    const successVal = this.dimensionlessCount(successes, "'of' counts")
+    const totalVal = this.dimensionlessCount(total, "'of' counts")
 
     // outof(successes, total) creates a beta distribution
     return distributions.outof(successVal, totalVal)
@@ -666,11 +678,29 @@ export class Evaluator {
       throw new EvaluationError('Beta parameters evaluated to null')
     }
 
-    const successVal = successes.isScalar() ? (successes.value as number) : successes.mean()
-    const failureVal = failures.isScalar() ? (failures.value as number) : failures.mean()
+    const successVal = this.dimensionlessCount(successes, "'against' counts")
+    const failureVal = this.dimensionlessCount(failures, "'against' counts")
 
     // against(successes, failures) creates a beta distribution
     return distributions.against(successVal, failureVal)
+  }
+
+  /**
+   * Reduce a count argument (of/against) to a dimensionless number, collapsing
+   * distributions to their mean. Value-bearing dimensionless units (dozen)
+   * are absorbed via toSI(); real dimensions are an error — the old code
+   * silently dropped them (`3 of 10 m` ignored the metres).
+   */
+  private dimensionlessCount(q: Quantity, label: string): number {
+    let v = q
+    if (v.unit.toString() !== '') {
+      const si = v.toSI()
+      if (si.unit.toString() !== '') {
+        throw new EvaluationError(`${label} must be dimensionless, got ${q.unit}`)
+      }
+      v = si
+    }
+    return v.isScalar() ? (v.value as number) : v.mean()
   }
 
   private evaluateWeightedSet(node: ASTNode & { type: 'WeightedSet' }): Quantity {
@@ -917,10 +947,17 @@ export class Evaluator {
       return unitNode.name
     }
 
-    // Reciprocal unit (e.g., /mile or per mile)
+    // Reciprocal unit (e.g., /mile or per mile). Power notation, not `1/x`:
+    // mathjs parses `1/x` as a value-bearing unit and its toString() leaks
+    // the literal 1 into every display ("5 1 day^-1").
     if (unitNode.type === 'reciprocal' && unitNode.denominator) {
       const denom = this.evaluateUnit(unitNode.denominator)
-      return `1/${denom}`
+      const caret = denom.indexOf('^')
+      if (caret >= 0) {
+        const power = parseFloat(denom.slice(caret + 1))
+        return `${denom.slice(0, caret)}^${-power}`
+      }
+      return `${denom}^-1`
     }
 
     // Compound unit (e.g., kg/m^3)
@@ -930,8 +967,8 @@ export class Evaluator {
       return `${num}/${denom}`
     }
 
-    // Powered unit (e.g., m^2)
-    if (unitNode.unit && unitNode.power) {
+    // Powered unit (e.g., m^2). Power 0 is legal, so don't test it for truth.
+    if (unitNode.unit && unitNode.power !== undefined) {
       const base = this.evaluateUnit(unitNode.unit)
       return `${base}^${unitNode.power}`
     }

@@ -57,8 +57,12 @@ export function renderVisualizations(
   vizElements.forEach((el) => {
     const vizEl = el as HTMLElement
 
-    // Parse data attributes
-    const samplesJson = vizEl.dataset.samples
+    // Parse data attributes. Histograms need the finer quantile set —
+    // binning the 20 dotplot quantiles produces single-digit noise counts.
+    const samplesJson =
+      vizType === 'histogram'
+        ? vizEl.dataset.histSamples || vizEl.dataset.samples
+        : vizEl.dataset.samples
     const unit = vizEl.dataset.unit || ''
 
     if (!samplesJson) {

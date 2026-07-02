@@ -4,7 +4,8 @@
  * Maps SI base dimension signatures to intuitive names like "volume", "velocity", etc.
  * Based on SimpleFermi's approach.
  *
- * mathjs dimension order: [mass, length, time, current, temperature, moles, luminosity, angle, bit]
+ * mathjs dimension order: [mass, length, time, current, temperature, luminosity, moles, angle, bit]
+ * (mathjs BASE_DIMENSIONS puts LUMINOUS_INTENSITY at index 5, AMOUNT_OF_SUBSTANCE at 6.)
  */
 
 import { Unit } from 'mathjs'
@@ -15,7 +16,7 @@ interface DimensionInfo {
 }
 
 // Map from dimension signature to human name
-// mathjs order: [mass, length, time, current, temp, moles, luminosity, angle, bit]
+// mathjs order: [mass, length, time, current, temp, luminosity, moles, angle, bit]
 const DIMENSION_NAMES: Record<string, DimensionInfo> = {
   // Base dimensions
   '0,1,0,0,0,0,0,0,0': { name: 'length' },
@@ -23,8 +24,8 @@ const DIMENSION_NAMES: Record<string, DimensionInfo> = {
   '0,0,1,0,0,0,0,0,0': { name: 'time' },
   '0,0,0,1,0,0,0,0,0': { name: 'current' },
   '0,0,0,0,1,0,0,0,0': { name: 'temperature' },
-  '0,0,0,0,0,1,0,0,0': { name: 'amount of substance' },
-  '0,0,0,0,0,0,1,0,0': { name: 'luminous intensity' },
+  '0,0,0,0,0,1,0,0,0': { name: 'luminous intensity' },
+  '0,0,0,0,0,0,1,0,0': { name: 'amount of substance' },
   '0,0,0,0,0,0,0,1,0': { name: 'angle' },
   '0,0,0,0,0,0,0,0,1': { name: 'information' },
 
@@ -73,7 +74,7 @@ const DIMENSION_NAMES: Record<string, DimensionInfo> = {
   '1,1,-3,0,-1,0,0,0,0': { name: 'thermal conductivity' },
 
   // Concentration / molarity
-  '0,-3,0,0,0,1,0,0,0': { name: 'concentration' },
+  '0,-3,0,0,0,0,1,0,0': { name: 'concentration' },
 
   // Dimensionless
   '0,0,0,0,0,0,0,0,0': { name: 'dimensionless' },
@@ -82,7 +83,7 @@ const DIMENSION_NAMES: Record<string, DimensionInfo> = {
 /**
  * Get the dimension signature from a mathjs Unit
  *
- * mathjs uses 9 base dimensions: [mass, length, time, current, temp, moles, luminosity, angle, bit]
+ * mathjs uses 9 base dimensions: [mass, length, time, current, temp, luminosity, moles, angle, bit]
  * When custom units are registered, mathjs may add extra dimension slots (10th, 11th, etc.)
  * We only use the first 9 for our lookup table to ensure robustness with custom units.
  */

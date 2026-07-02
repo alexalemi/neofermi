@@ -15,10 +15,10 @@ import { factor, randn } from '../utils/math.js'
  * The lognormal distribution is ideal for positive quantities that vary
  * multiplicatively (most physical quantities: mass, distance, time, energy).
  *
- * @param a - Lower bound (5th percentile by default)
- * @param b - Upper bound (95th percentile by default)
+ * @param a - Lower bound (~16th percentile at the default confidence)
+ * @param b - Upper bound (~84th percentile at the default confidence)
  * @param unitString - Optional unit string (e.g., 'meters', 'kg')
- * @param p - Confidence level (default 0.9 means 90% of mass in [a, b])
+ * @param p - Confidence level: fraction of mass in [a, b] (default 0.6827, the +/-1 sigma convention)
  * @param n - Number of samples (default 20,000)
  * @returns Quantity with lognormal distribution
  *
@@ -51,15 +51,20 @@ export function lognormal(
     throw new Error(`Confidence level must be strictly between 0 and 1, got ${p}`)
   }
 
-  // Calculate parameters in log-space
+  // Calculate parameters in log-space. Work with log(a) and log(b) directly:
+  // b*a or b/a can overflow/underflow double precision even when both bounds
+  // are individually representable (e.g. lognormal(1e200, 1e250)).
+  const logA = Math.log(a)
+  const logB = Math.log(b)
+
   // mu is the geometric mean in log-space
-  const mu = Math.log(Math.sqrt(b * a))
+  const mu = 0.5 * (logA + logB)
 
   // Calculate factor for converting percentile to std devs
   const f = -factor(0.5 * (1 - p))
 
   // sigma in log-space
-  const sig = Math.log(Math.sqrt(b / a)) / f
+  const sig = (0.5 * (logB - logA)) / f
 
   // Generate samples
   const normalSamples = randn(n)

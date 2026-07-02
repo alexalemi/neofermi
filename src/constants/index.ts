@@ -522,9 +522,15 @@ export const energy_density_tnt = plusminus(4.184e6, 0.1e6, 'J/kg')
 /** Energy density of uranium-235 (fission) */
 export const energy_density_uranium = plusminus(8.1e13, 0.5e13, 'J/kg')
 
-/** Kilocalorie (food calorie) in joules */
-export const calorie = new Quantity(4184, 'J')
-export const kcal = calorie
+/**
+ * Thermochemical calorie in joules — matches the `calorie` *unit* (4.184 J).
+ * The old value here was 4184 J, so `calorie` meant a kilocalorie as a
+ * constant but a calorie as a unit. Use kcal/food_calorie for the dietary one.
+ */
+export const calorie = new Quantity(4.184, 'J')
+/** Kilocalorie (food/dietary calorie) in joules */
+export const kcal = new Quantity(4184, 'J')
+export const food_calorie = kcal
 
 // ============================================
 // Economic Constants (2024 estimates)

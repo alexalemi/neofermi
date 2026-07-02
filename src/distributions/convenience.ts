@@ -17,7 +17,7 @@ import { normal } from './normal.js'
  * @param a - Lower bound
  * @param b - Upper bound
  * @param unitString - Optional unit string
- * @param p - Confidence level (default 0.9)
+ * @param p - Confidence level (default 0.6827, the +/-1 sigma convention)
  * @param n - Number of samples (default 20,000)
  * @returns Quantity with appropriate distribution
  *
@@ -51,7 +51,7 @@ export function to(
  * Useful for "give or take X%" calculations.
  *
  * @param percentage - Percentage error (e.g., 10 for ±10%)
- * @param p - Confidence level (default 0.9)
+ * @param p - Confidence level (default 0.6827, the +/-1 sigma convention)
  * @param n - Number of samples (default 20,000)
  * @returns Quantity with lognormal distribution (dimensionless)
  *
@@ -71,10 +71,12 @@ export function percent(
   if (!(percentage >= 0)) {
     throw new Error(`percent() requires a non-negative percentage, got ${percentage}`)
   }
-  if (percentage === 0) {
+  const top = 1.0 + percentage / 100.0
+  // Covers both ±0% and spreads so small they round to 1 in double precision
+  // (percentage < ~1.1e-14), where lognormal would reject equal bounds.
+  if (top === 1) {
     return new Quantity(1)
   }
-  const top = 1.0 + percentage / 100.0
   return lognormal(1.0 / top, top, undefined, p, n)
 }
 
@@ -89,7 +91,7 @@ export function percent(
  * - 10 dB ≈ factor of 1.1 (very precise)
  *
  * @param decibels - Precision in decibels (positive = precise, negative = uncertain)
- * @param p - Confidence level (default 0.9)
+ * @param p - Confidence level (default 0.6827, the +/-1 sigma convention)
  * @param n - Number of samples (default 20,000)
  * @returns Quantity with lognormal distribution (dimensionless)
  */
@@ -104,6 +106,11 @@ export function db(
   // Factor = 1 + 10^(-x/10)
   // Range from 1/factor to factor
   const factor = 1 + Math.pow(10, -decibels / 10.0)
+  // Above ~159.5 dB the twiddle factor rounds to exactly 1 in double
+  // precision; treat that as perfectly precise rather than erroring.
+  if (factor === 1) {
+    return new Quantity(1)
+  }
   const low = 1 / factor
   const high = factor
 

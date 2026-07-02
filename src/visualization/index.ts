@@ -27,10 +27,18 @@ import { createDotplotCanvas, DotplotOptions, calculateDotplotData } from './qua
 import { createHistogramCanvas, HistogramOptions } from './histogram.js'
 
 /**
- * Structured visualization data for dotplots, used across all rendering surfaces.
+ * Structured visualization data, used across all rendering surfaces.
  */
 export interface VizData {
-  samples: number[]
+  /** 20 equal-mass quantiles — the dots of the quantile dotplot. */
+  quantiles: number[]
+  /**
+   * ~200 equal-mass quantiles for histogram binning. The 20 dot quantiles are
+   * far too coarse to bin (the editor's histogram toggle used to bin exactly
+   * those 20 points, producing noise); the full 20k samples are too heavy to
+   * serialize into data attributes.
+   */
+  histQuantiles: number[]
   unit: string
   min: number
   max: number
@@ -41,9 +49,13 @@ export interface VizData {
  */
 export function getVizData(q: Quantity): VizData {
   const samples = q.toParticles()
-  const data = calculateDotplotData(samples, 20, q.unit.toString())
+  const unitStr = q.unit.toString()
+  const data = calculateDotplotData(samples, 20, unitStr)
+  const hist = calculateDotplotData(samples, 200, unitStr)
   return {
-    samples: data.quantiles,
+    quantiles: data.quantiles,
+    // 6 significant digits is plenty for binning and keeps the HTML small
+    histQuantiles: hist.quantiles.map((x) => Number(x.toPrecision(6))),
     unit: data.unit,
     min: data.min,
     max: data.max,

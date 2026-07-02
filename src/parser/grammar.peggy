@@ -61,15 +61,17 @@ Assignment
 Expression
   = LetBinding
   / IfExpr
-  / ConversionExpr
+  / Comparison
 
+// `(...)*` with a single head parse, NOT `Additive (...)+ / Additive` — the
+// ordered-choice form re-parses the whole Additive when there's no
+// conversion, and that doubling compounds exponentially on nested parens.
 ConversionExpr
-  = value:Additive conversions:(_ Conversion)+ {
+  = value:Additive conversions:(_h Conversion)* {
       return conversions.reduce((val, [, conv]) => {
         return node('Conversion', { value: val, unit: conv })
       }, value)
     }
-  / Additive
 
 // Let binding: let x = 10 in x + 5
 LetBinding
@@ -83,12 +85,16 @@ IfExpr
       return node('IfExpr', { condition, thenBranch, elseBranch })
     }
 
-// Comparison operators for conditions
+// Comparison operators. Reachable both as an if-condition and as a plain
+// Expression, so `3 > 2` and `if (a > b) then ... else ...` both parse.
+// Written with an OPTIONAL tail (not ordered choice) so the left side is
+// parsed exactly once — peggy doesn't memoize, and a failing choice would
+// re-parse the whole subexpression, going exponential on nested parens.
 Comparison
-  = left:Additive _ op:ComparisonOp _ right:Additive {
-      return node('BinaryOp', { op, left, right })
+  = left:ConversionExpr tail:(_h ComparisonOp _ ConversionExpr)? {
+      if (!tail) return left
+      return node('BinaryOp', { op: tail[1], left, right: tail[3] })
     }
-  / Additive
 
 ComparisonOp
   = ">=" { return ">=" }
@@ -100,8 +106,13 @@ ComparisonOp
 
 // Addition and Subtraction
 // Note: Use negative lookahead to avoid matching +- or +/- as separate operators
+// The whitespace BEFORE each infix operator is horizontal-only (_h): statements
+// are newline-separated, so a line starting with `-3` or `* 2` must be a new
+// statement, not a continuation of the previous one (`x = 5\n-3` used to
+// silently assign 2). Whitespace AFTER the operator still spans newlines, so
+// a trailing operator continues onto the next line.
 Additive
-  = head:Multiplicative tail:(_ AddOp _ Multiplicative)* {
+  = head:Multiplicative tail:(_h AddOp _ Multiplicative)* {
       return tail.reduce((left, [, op, , right]) => {
         return node('BinaryOp', { op, left, right })
       }, head)
@@ -113,7 +124,7 @@ AddOp
 
 // Multiplication and Division
 Multiplicative
-  = head:Range tail:(_ ("*" / "/") _ Range)* {
+  = head:Range tail:(_h ("*" / "/") _ Range)* {
       return tail.reduce((left, [, op, , right]) => {
         return node('BinaryOp', { op, left, right })
       }, head)
@@ -126,41 +137,43 @@ Multiplicative
 // Use parens for the old Additive-wide behavior: `(2 * 5) to (3 * 10)`.
 // Keywords must be followed by non-identifier chars to avoid matching prefixes like "total".
 // IMPORTANT: Use _no_newline for unit attachment to prevent "1 to 2 m\nx" being parsed as "1 to 2 mx"
+// The left Unary is parsed exactly once, then the (cheap, literal-first)
+// operator tails are tried. The old shape — six alternatives each starting
+// `left:Unary` — re-parsed Unary per failed alternative, which compounds
+// exponentially through nested parentheses.
 Range
-  = left:Unary _ "to" ![a-zA-Z0-9_] _ right:Unary unit:(_no_newline Unit)? {
-      return node('Range', {
-        left,
-        right,
-        unit: unit ? unit[1] : null
-      })
+  = left:Unary tail:RangeTail? {
+      if (!tail) return left
+      switch (tail.kind) {
+        case 'Range':
+          return node('Range', { left, right: tail.right, unit: tail.unit })
+        case 'Uniform':
+          return node('Uniform', { left, right: tail.right, unit: tail.unit })
+        case 'Normal':
+          return node('Normal', { mean: left, sigma: tail.right, unit: tail.unit })
+        case 'BetaOf':
+          return node('BetaOf', { successes: left, total: tail.right })
+        case 'BetaAgainst':
+          return node('BetaAgainst', { successes: left, failures: tail.right })
+      }
     }
-  / left:Unary _ (".." / "thru" ![a-zA-Z0-9_]) _ right:Unary unit:(_no_newline Unit)? {
-      return node('Uniform', {
-        left,
-        right,
-        unit: unit ? unit[1] : null
-      })
+
+RangeTail
+  = _h "to" ![a-zA-Z0-9_] _ right:Unary unit:(_no_newline Unit)? {
+      return { kind: 'Range', right, unit: unit ? unit[1] : null }
     }
-  / mean:Unary _ ("+/-" / "+-" / "pm" ![a-zA-Z0-9_]) _ sigma:Unary unit:(_no_newline Unit)? {
-      return node('Normal', {
-        mean,
-        sigma,
-        unit: unit ? unit[1] : null
-      })
+  / _h (".." / "thru" ![a-zA-Z0-9_]) _ right:Unary unit:(_no_newline Unit)? {
+      return { kind: 'Uniform', right, unit: unit ? unit[1] : null }
     }
-  / successes:Unary _ "of" ![a-zA-Z0-9_] _ total:Unary {
-      return node('BetaOf', {
-        successes,
-        total
-      })
+  / _h ("+/-" / "+-" / "pm" ![a-zA-Z0-9_]) _ right:Unary unit:(_no_newline Unit)? {
+      return { kind: 'Normal', right, unit: unit ? unit[1] : null }
     }
-  / successes:Unary _ "against" ![a-zA-Z0-9_] _ failures:Unary {
-      return node('BetaAgainst', {
-        successes,
-        failures
-      })
+  / _h "of" ![a-zA-Z0-9_] _ right:Unary {
+      return { kind: 'BetaOf', right }
     }
-  / Unary
+  / _h "against" ![a-zA-Z0-9_] _ right:Unary {
+      return { kind: 'BetaAgainst', right }
+    }
 
 // Unary operations. Power binds tighter than unary minus so `-2^2` = `-(2^2)`
 // (matching Python, Mathematica, and Frink); use `(-2)^2` for the square.
@@ -172,15 +185,16 @@ Unary
   / Power
 
 // Power (exponentiation) - right associative. The exponent re-enters Unary
-// so `2^-3` parses.
+// so `2^-3` parses. Optional tail, not ordered choice: Primary must be
+// parsed exactly once (see Range).
 Power
-  = base:Primary _ op:("**" / "^") _ exp:Unary {
-      return node('BinaryOp', { op: '^', left: base, right: exp })
+  = base:Primary tail:(_h ("**" / "^") _ Unary)? {
+      if (!tail) return base
+      return node('BinaryOp', { op: '^', left: base, right: tail[3] })
     }
-  / Primary
 
 Conversion
-  = ("as" / "->") _ "SI" { return node('Unit', { name: 'SI', special: true }) }
+  = ("as" / "->") _ "SI" ![a-zA-Z0-9_] { return node('Unit', { name: 'SI', special: true }) }
   / ("as" / "->") _ unit:Unit { return unit }
 
 // Primary expressions
@@ -249,10 +263,12 @@ WeightedEntries
     }
 
 WeightedEntry
-  = value:NumericLiteral _ ":" _ weight:NumericLiteral {
+  = value:SignedNumericLiteral _ ":" _ weight:SignedNumericLiteral {
+      // Negative weights parse so weighted() can reject them with a clear
+      // runtime error instead of an opaque parse error.
       return { value: parseFloat(value), weight: parseFloat(weight) }
     }
-  / value:NumericLiteral {
+  / value:SignedNumericLiteral {
       return { value: parseFloat(value), weight: 1 }
     }
 
@@ -272,8 +288,10 @@ SigFigLiteral
 
 // Function calls — like parenthesized expressions, a trailing scale word or
 // unit multiplies the result: `sqrt(4) m` = 2 m, `poisson(3) million` = 3e6.
+// The gap between the name and `(` is horizontal-only: `f\n(3)` is the
+// statement `f` followed by the statement `(3)`, not a call spanning lines.
 FunctionCall
-  = name:IdentifierName _ "(" _ args:ArgumentList _ ")" scale:(_no_newline ScaleWord)? unit:(_no_newline SuffixUnit)? {
+  = name:IdentifierName _h "(" _ args:ArgumentList _ ")" scale:(_no_newline ScaleWord)? unit:(_no_newline SuffixUnit)? {
       const call = node('FunctionCall', { name, args })
       if (!scale && !unit) return call
       return node('BinaryOp', {
@@ -315,9 +333,15 @@ Number
 ScaleWord "scale word"
   = name:("septillion" / "sextillion" / "quintillion" / "quadrillion" / "trillion" / "billion" / "million" / "thousand" / "hundred") ![a-zA-Z0-9_] { return name }
 
-// Unit that can start with / or "per" for reciprocals
+// Unit that can start with / or "per" for reciprocals (`5 /day`, `5 per day`).
+// The `/` form must hug the denominator: `5 /day` is a reciprocal unit, but
+// `100 / x` (space after the slash) stays a division, even when x collides
+// with a unit name (`100 / m` used to silently become `100 m^-1` instead of
+// dividing by the variable m).
+// The `![a-zA-Z0-9_]` boundary keeps `per` from eating prefixes of longer
+// words: `3 percent` used to fail as `per` + unknown unit `cent`.
 UnitWithReciprocal
-  = ("/" _ / "per" _) denominator:UnitWithPower {
+  = ("/" / "per" ![a-zA-Z0-9_] _no_newline) denominator:UnitWithPower {
       return node('Unit', {
         type: 'reciprocal',
         denominator
@@ -329,7 +353,7 @@ UnitWithReciprocal
 // `per day` but NOT the bare `/day` reciprocal form — a leading `/` after
 // `)` must stay a division (`(a - b) / some_variable`).
 SuffixUnit
-  = "per" _ denominator:UnitWithPower {
+  = "per" ![a-zA-Z0-9_] _ denominator:UnitWithPower {
       return node('Unit', {
         type: 'reciprocal',
         denominator
@@ -341,6 +365,9 @@ NumericLiteral
   = [0-9]+ ("." [0-9]+)? ([eE] [+-]? [0-9]+)? {
       return text()
     }
+
+SignedNumericLiteral
+  = $("-"? NumericLiteral)
 
 // Units
 // Try CompoundUnit first so that `'car/'foo` doesn't prematurely match
@@ -377,7 +404,7 @@ CompoundUnit
     }
 
 CustomUnitWithPower
-  = unit:CustomUnit power:(_ ("^" / "**") _ NumericLiteral)? {
+  = unit:CustomUnit power:(_h ("^" / "**") _ SignedNumericLiteral)? {
       if (power) {
         return node('Unit', {
           type: 'power',
@@ -388,8 +415,11 @@ CustomUnitWithPower
       return unit
     }
 
+// Unit powers accept a sign so `3 m^-2` means 3 reciprocal-square-meters;
+// without it the `^` fell through to the Power operator and quietly computed
+// (3 m)^-2 instead.
 UnitWithPower
-  = unit:UnitCore power:(_ ("^" / "**") _ NumericLiteral)? {
+  = unit:UnitCore power:(_h ("^" / "**") _ SignedNumericLiteral)? {
       if (power) {
         return node('Unit', {
           type: 'power',
@@ -432,6 +462,12 @@ _
 // Whitespace without newlines (for use in statement separators)
 _no_newline
   = [ \t]+
+
+// Optional horizontal whitespace. Used before infix operators and call
+// parens: since statements are newline-separated, a newline there must end
+// the statement rather than continue it.
+_h
+  = [ \t]*
 
 WhiteSpace
   = [ \t\n\r]

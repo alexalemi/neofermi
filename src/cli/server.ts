@@ -63,19 +63,16 @@ export function createServer(port: number, host: string, getNotebook: () => Note
     })
   })
 
-  // Notify all clients to reload
+  // Notify all clients to reload. writeSSE is async, so failures surface as
+  // promise rejections — a sync try/catch can't see them; drop the client on
+  // rejection like the ping path does.
   function notifyReload() {
-    const deadClients: SSEStream[] = []
     for (const client of clients) {
-      try {
-        client.writeSSE({ event: 'reload', data: Date.now().toString() })
-      } catch {
-        deadClients.push(client)
-      }
-    }
-    // Clean up dead clients
-    for (const client of deadClients) {
-      clients.delete(client)
+      client
+        .writeSSE({ event: 'reload', data: Date.now().toString() })
+        .catch(() => {
+          clients.delete(client)
+        })
     }
   }
 
@@ -93,7 +90,6 @@ function wrapInHtml(content: string, title: string): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)} - NeoFermi Notebook</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <style>
 ${getStyles()}
   </style>
@@ -114,14 +110,12 @@ ${getClientScript()}
  * Wrap content in standalone HTML (no live reload, for static export)
  */
 export function wrapInStaticHtml(content: string, title: string, darkMode: boolean = false): string {
-  const highlightTheme = darkMode ? 'github-dark' : 'github'
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)} - NeoFermi Notebook</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${highlightTheme}.min.css">
   <style>
 ${getStyles(darkMode)}
   </style>

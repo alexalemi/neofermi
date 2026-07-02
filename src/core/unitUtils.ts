@@ -238,10 +238,11 @@ const UNIT_ALIASES: Record<string, string> = {
   doz: 'dozen',
   mol: 'mole',
 
-  // Misc
-  rpm: '1/minute',
-  rps: '1/second',
-  bpm: '1/minute', // beats per minute (same as rpm)
+  // Misc — power notation, not '1/minute': the latter is value-bearing in
+  // mathjs and leaks a literal "1" into displays ("60 1 minute^-1").
+  rpm: 'minute^-1',
+  rps: 'second^-1',
+  bpm: 'minute^-1', // beats per minute (same as rpm)
 }
 
 // Historical dollar purchasing-power units (`dollars_1913` … `dollars_2026`).

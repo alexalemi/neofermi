@@ -44,7 +44,10 @@ export function buildCellHtml(code: string, result: CellResult, exprId?: string)
     if (result.vizData) {
       const vizAttrs = [
         exprId ? `data-expr-id="${exprId}"` : '',
-        `data-samples="${escapeHtml(JSON.stringify(result.vizData.samples))}"`,
+        // data-samples carries the 20 dot quantiles (client-viz draws them
+        // directly); data-hist-samples carries the finer set for histograms.
+        `data-samples="${escapeHtml(JSON.stringify(result.vizData.quantiles))}"`,
+        `data-hist-samples="${escapeHtml(JSON.stringify(result.vizData.histQuantiles))}"`,
         `data-unit="${escapeHtml(result.vizData.unit)}"`,
         `data-min="${result.vizData.min}"`,
         `data-max="${result.vizData.max}"`,
