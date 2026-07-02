@@ -48,7 +48,7 @@ console.log(result.toString())         // "250 kg (90% CI: 50 - 500)"
 Drop a single `<script>` tag into any HTML page. It auto-evaluates `neofermi` code blocks and renders results with dotplots inline.
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/alexalemi/neofermi@v0.1.0/dist/neofermi-embed.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/alexalemi/neofermi@v0.2.0/dist/neofermi-embed.js"></script>
 ```
 
 Then write fenced code blocks with the `neofermi` language tag:
@@ -67,7 +67,7 @@ The script evaluates each block top-to-bottom (sharing state across blocks on th
 
 - **REPL widget** — Add `data-repl="true"` to the script tag to show a collapsible REPL bar at the bottom of the page:
   ```html
-  <script src="https://cdn.jsdelivr.net/gh/alexalemi/neofermi@v0.1.0/dist/neofermi-embed.js" data-repl="true"></script>
+  <script src="https://cdn.jsdelivr.net/gh/alexalemi/neofermi@v0.2.0/dist/neofermi-embed.js" data-repl="true"></script>
   ```
 
 **Self-hosting:** Build the embed script locally with `make embed`, then serve `dist/neofermi-embed.js` from your own domain.
