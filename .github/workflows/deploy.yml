@@ -32,6 +32,12 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Render examples gallery
+        run: |
+          make examples
+          mkdir -p dist/examples
+          cp examples/*.html dist/examples/
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 

@@ -55,9 +55,13 @@ export function sigFigsForUncertainty(value: number, halfWidth: number): number 
   return Math.max(1, Math.min(5, Math.ceil(Math.log10(ratio)) + 1))
 }
 
+export type FormatPart = 'scalar' | 'ci' | 'unit' | 'dim'
+
 export interface FormatQuantityOptions {
   html?: boolean
   classPrefix?: string
+  /** Wrap each semantic part of the plain-text output (e.g. with ANSI colors). Ignored when html is set. */
+  decorate?: (part: FormatPart, text: string) => string
 }
 
 /**
@@ -74,6 +78,7 @@ export function formatQuantityConcise(
 ): string {
   const html = opts?.html ?? false
   const p = opts?.classPrefix ?? 'nf'
+  const decorate = (!html && opts?.decorate) || ((_part: FormatPart, text: string) => text)
 
   const unit = q.unit.toString()
   const dimName = q.dimensionName?.() || null
@@ -82,7 +87,7 @@ export function formatQuantityConcise(
     ? ''
     : html
       ? ` <span class="${p}-dim">{${dimName}}</span>`
-      : ` {${dimName}}`
+      : ` ${decorate('dim', `{${dimName}}`)}`
 
   let valuePart: string
   if (q.isDistribution()) {
@@ -95,11 +100,12 @@ export function formatQuantityConcise(
     )
     valuePart = html
       ? `<span class="${p}-scalar">${median}</span> <span class="${p}-ci">[${p16}, ${p84}]</span>`
-      : `${median} [${p16}, ${p84}]`
+      : `${decorate('scalar', median)} ${decorate('ci', `[${p16}, ${p84}]`)}`
   } else {
     const value = formatNumber(q.value as number)
-    valuePart = html ? `<span class="${p}-scalar">${value}</span>` : value
+    valuePart = html ? `<span class="${p}-scalar">${value}</span>` : decorate('scalar', value)
   }
 
-  return `${valuePart} ${unit}${dimSuffix}`.trim()
+  const unitPart = unit && !html ? decorate('unit', unit) : unit
+  return `${valuePart} ${unitPart}${dimSuffix}`.trim()
 }

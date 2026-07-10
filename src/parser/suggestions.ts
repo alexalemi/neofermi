@@ -28,8 +28,8 @@ export function levenshteinDistance(a: string, b: string): number {
 }
 
 /**
- * Up to 3 candidates within `maxDistance` edits of `target` (case-insensitive),
- * closest first. Exact matches (distance 0) are excluded.
+ * Up to 3 distinct candidates within `maxDistance` edits of `target`
+ * (case-insensitive), closest first. Exact matches (distance 0) are excluded.
  */
 export function findSimilar(target: string, candidates: string[], maxDistance = 3): string[] {
   const targetLower = target.toLowerCase()
@@ -37,8 +37,9 @@ export function findSimilar(target: string, candidates: string[], maxDistance = 
     .map(c => ({ name: c, distance: levenshteinDistance(targetLower, c.toLowerCase()) }))
     .filter(s => s.distance <= maxDistance && s.distance > 0)
     .sort((a, b) => a.distance - b.distance)
-    .slice(0, 3)
     .map(s => s.name)
+    .filter((name, i, names) => names.indexOf(name) === i)
+    .slice(0, 3)
 }
 
 /** Render a suggestion list as a trailing message fragment (`. Did you mean 'x'?`). */

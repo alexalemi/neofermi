@@ -4,6 +4,8 @@ A Monte Carlo calculator for Fermi estimation with uncertainty propagation and d
 
 Think: **[Frink](https://frinklang.org/) + [Squiggle](https://www.squiggle-language.com/)** in your browser.
 
+**Try it now:** [notebook](https://neofermi.alexalemi.com/) · [markdown editor](https://neofermi.alexalemi.com/editor.html) · [worked examples](https://neofermi.alexalemi.com/examples/)
+
 ## Features
 
 - **Probability distributions** - lognormal, normal, uniform, beta, gamma, poisson, exponential, binomial
@@ -15,16 +17,20 @@ Think: **[Frink](https://frinklang.org/) + [Squiggle](https://www.squiggle-langu
 
 ## Quick Start
 
-### Web REPL
+### Web notebook
 
-Try it online or run locally:
+Use it online at **[neofermi.alexalemi.com](https://neofermi.alexalemi.com/)** — nothing to install.
+
+Or run it locally:
 
 ```bash
-bun install
-bun dev
+bun install && bun dev      # with bun
+npm install && npm run dev  # or with node >= 18
 ```
 
 ### As a Library
+
+> **Not yet on npm** — for now, clone this repo and `make package` to build a local tarball, then `npm install ./neofermi-*.tgz`.
 
 ```bash
 npm install neofermi
@@ -74,15 +80,25 @@ The script evaluates each block top-to-bottom (sharing state across blocks on th
 
 ### CLI
 
+> **Not yet on npm** — build it locally with `make build`, then run `./bin/neoferminb.cjs` (or `node bin/neoferminb.cjs`).
+
 ```bash
-# Render a markdown notebook to HTML
-npx neoferminb notebook.md --output notebook.html
+# Scaffold a starter notebook
+neoferminb init
+
+# Serve a markdown notebook with live reload
+neoferminb notebook.md
+
+# Render a markdown notebook to static HTML
+neoferminb notebook.md --output notebook.html
 
 # Interactive REPL
-npx neoferminb --repl
+neoferminb --repl
 ```
 
 ## DSL Syntax
+
+For the full grammar and semantics see [docs/design/LANGUAGE_SPEC.md](docs/design/LANGUAGE_SPEC.md); for the library API see [README_USAGE.md](README_USAGE.md).
 
 ### Distributions
 

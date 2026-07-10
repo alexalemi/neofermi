@@ -135,7 +135,9 @@ export class Evaluator {
       case 'Assignment':
         const value = this.evaluate(node.value)
         if (!value) {
-          throw new EvaluationError('Assignment value evaluated to null')
+          throw new EvaluationError(
+            `Internal error: the value assigned to "${node.name}" produced no value — please report this`
+          )
         }
         this.variables.set(node.name, value)
         return value
@@ -144,7 +146,9 @@ export class Evaluator {
         // Define a custom unit: 1 'widget = 5 kg
         const unitValue = this.evaluate(node.value)
         if (!unitValue) {
-          throw new EvaluationError('Unit definition value evaluated to null')
+          throw new EvaluationError(
+            `Internal error: the definition of unit '${node.unitName}' produced no value — please report this`
+          )
         }
         this.customUnits.set(node.unitName, unitValue)
         return unitValue
@@ -235,7 +239,9 @@ export class Evaluator {
         }
 
       default:
-        throw new EvaluationError(`Unknown node type: ${(node as any).type}`)
+        throw new EvaluationError(
+          `Internal error: unknown expression type "${(node as any).type}" (parser/evaluator mismatch) — please report this`
+        )
     }
   }
 
@@ -244,7 +250,9 @@ export class Evaluator {
     const right = this.evaluate(node.right)
 
     if (!left || !right) {
-      throw new EvaluationError('Binary operation on null values')
+      throw new EvaluationError(
+        `Internal error: an operand of "${node.op}" produced no value — please report this`
+      )
     }
 
     switch (node.op) {
@@ -285,7 +293,9 @@ export class Evaluator {
         return this.compareQuantities(left, right, (a, b) => !approxEqual(a, b))
 
       default:
-        throw new EvaluationError(`Unknown operator: ${node.op}`)
+        throw new EvaluationError(
+          `Internal error: unknown operator "${node.op}" — please report this`
+        )
     }
   }
 
@@ -333,7 +343,9 @@ export class Evaluator {
   private evaluateUnaryOp(node: ASTNode & { type: 'UnaryOp' }): Quantity {
     const value = this.evaluate(node.value)
     if (!value) {
-      throw new EvaluationError('Unary operation on null value')
+      throw new EvaluationError(
+        `Internal error: the operand of unary "${node.op}" produced no value — please report this`
+      )
     }
 
     switch (node.op) {
@@ -341,7 +353,9 @@ export class Evaluator {
         // Negate by multiplying by -1
         return new Quantity(-1).multiply(value)
       default:
-        throw new EvaluationError(`Unknown unary operator: ${node.op}`)
+        throw new EvaluationError(
+          `Internal error: unknown unary operator "${node.op}" — please report this`
+        )
     }
   }
 
@@ -349,7 +363,9 @@ export class Evaluator {
     // Evaluate the value expression
     const boundValue = this.evaluate(node.value)
     if (!boundValue) {
-      throw new EvaluationError('Let binding value evaluated to null')
+      throw new EvaluationError(
+        `Internal error: the value bound to "${node.name}" in let produced no value — please report this`
+      )
     }
 
     // Bind into the innermost call frame when one is active so the let can
@@ -365,7 +381,9 @@ export class Evaluator {
       // Evaluate the body with the binding in scope
       const result = this.evaluate(node.body)
       if (!result) {
-        throw new EvaluationError('Let binding body evaluated to null')
+        throw new EvaluationError(
+          `Internal error: the body of "let ${node.name} = ... in ..." produced no value — please report this`
+        )
       }
       return result
     } finally {
@@ -381,7 +399,9 @@ export class Evaluator {
   private evaluateIfExpr(node: ASTNode & { type: 'IfExpr' }): Quantity {
     const condition = this.evaluate(node.condition)
     if (!condition) {
-      throw new EvaluationError('If condition evaluated to null')
+      throw new EvaluationError(
+        'Internal error: the if condition produced no value — please report this'
+      )
     }
 
     // For scalars, simple branching
@@ -390,11 +410,17 @@ export class Evaluator {
       // Truthy if non-zero
       if (condValue !== 0) {
         const result = this.evaluate(node.thenBranch)
-        if (!result) throw new EvaluationError('Then branch evaluated to null')
+        if (!result)
+          throw new EvaluationError(
+            'Internal error: the then branch produced no value — please report this'
+          )
         return result
       } else {
         const result = this.evaluate(node.elseBranch)
-        if (!result) throw new EvaluationError('Else branch evaluated to null')
+        if (!result)
+          throw new EvaluationError(
+            'Internal error: the else branch produced no value — please report this'
+          )
         return result
       }
     }
@@ -403,7 +429,9 @@ export class Evaluator {
     let thenResult = this.evaluate(node.thenBranch)
     let elseResult = this.evaluate(node.elseBranch)
     if (!thenResult || !elseResult) {
-      throw new EvaluationError('If branch evaluated to null')
+      throw new EvaluationError(
+        'Internal error: an if branch produced no value — please report this'
+      )
     }
 
     // Align the else branch to the then branch's unit when both carry one, so
@@ -457,7 +485,9 @@ export class Evaluator {
     const right = this.evaluate(node.right)
 
     if (!left || !right) {
-      throw new EvaluationError('Range bounds evaluated to null')
+      throw new EvaluationError(
+        'Internal error: a bound of the "to" range produced no value — please report this'
+      )
     }
 
     // Extract scalar values (ranges work on scalars only)
@@ -575,7 +605,10 @@ export class Evaluator {
     let a = this.evaluate(aNode)
     let b = this.evaluate(bNode)
     if (!a || !b) {
-      throw new EvaluationError(`${label} parameters evaluated to null`, location)
+      throw new EvaluationError(
+        `Internal error: an argument of ${label} produced no value — please report this`,
+        location
+      )
     }
 
     const aMult = this.getNumberNodeMultiplier(aNode)
@@ -660,7 +693,9 @@ export class Evaluator {
     const total = this.evaluate(node.total)
 
     if (!successes || !total) {
-      throw new EvaluationError('Beta parameters evaluated to null')
+      throw new EvaluationError(
+        'Internal error: an operand of "of" produced no value — please report this'
+      )
     }
 
     const successVal = this.dimensionlessCount(successes, "'of' counts")
@@ -675,7 +710,9 @@ export class Evaluator {
     const failures = this.evaluate(node.failures)
 
     if (!successes || !failures) {
-      throw new EvaluationError('Beta parameters evaluated to null')
+      throw new EvaluationError(
+        'Internal error: an operand of "against" produced no value — please report this'
+      )
     }
 
     const successVal = this.dimensionlessCount(successes, "'against' counts")
@@ -717,7 +754,9 @@ export class Evaluator {
   private evaluateConversion(node: ASTNode & { type: 'Conversion' }): Quantity {
     const value = this.evaluate(node.value)
     if (!value) {
-      throw new EvaluationError('Conversion value evaluated to null')
+      throw new EvaluationError(
+        'Internal error: the value in a unit conversion produced no value — please report this'
+      )
     }
 
     // Handle special SI conversion
@@ -750,7 +789,7 @@ export class Evaluator {
     // Check for user-defined function first
     const userFunc = this.userFunctions.get(node.name)
     if (userFunc) {
-      return this.evaluateUserFunction(userFunc, node.args)
+      return this.evaluateUserFunction(node.name, userFunc, node.args)
     }
 
     const func = this.functions.get(node.name)
@@ -767,7 +806,9 @@ export class Evaluator {
     const args = node.args.map((arg) => {
       const result = this.evaluate(arg)
       if (!result) {
-        throw new EvaluationError('Function argument evaluated to null')
+        throw new EvaluationError(
+          `Internal error: an argument to ${node.name}() produced no value — please report this`
+        )
       }
       return result
     })
@@ -835,11 +876,11 @@ export class Evaluator {
     }
   }
 
-  private evaluateUserFunction(func: UserFunction, argNodes: ASTNode[]): Quantity {
+  private evaluateUserFunction(name: string, func: UserFunction, argNodes: ASTNode[]): Quantity {
     // Check argument count
     if (argNodes.length !== func.params.length) {
       throw new EvaluationError(
-        `Function expects ${func.params.length} arguments, got ${argNodes.length}`
+        `${name}() expects ${func.params.length} arguments, got ${argNodes.length}`
       )
     }
 
@@ -847,7 +888,9 @@ export class Evaluator {
     const argValues: Quantity[] = argNodes.map((arg) => {
       const result = this.evaluate(arg)
       if (!result) {
-        throw new EvaluationError('Function argument evaluated to null')
+        throw new EvaluationError(
+          `Internal error: an argument to ${name}() produced no value — please report this`
+        )
       }
       return result
     })
@@ -864,7 +907,9 @@ export class Evaluator {
     try {
       const result = this.evaluate(func.body)
       if (!result) {
-        throw new EvaluationError('Function body evaluated to null')
+        throw new EvaluationError(
+          `Internal error: the body of ${name}() produced no value — please report this`
+        )
       }
       return result
     } finally {
@@ -926,7 +971,9 @@ export class Evaluator {
     const iso = node.hasTime ? node.iso + 'Z' : node.iso
     const ms = Date.parse(iso)
     if (Number.isNaN(ms)) {
-      throw new EvaluationError(`Invalid date literal: #${node.iso}#`)
+      throw new EvaluationError(
+        `Invalid date: #${node.iso}# is not a real calendar date. Use #YYYY-MM-DD#, e.g. #2024-06-15#`
+      )
     }
     // Store dates as days-since-epoch in unit `day`. Date subtraction then
     // reduces to ordinary Quantity subtraction (days − days → duration in days).
@@ -991,7 +1038,9 @@ export class Evaluator {
       return unitNode.name
     }
 
-    throw new EvaluationError('Invalid unit node')
+    throw new EvaluationError(
+      'Internal error: malformed unit expression — please report this'
+    )
   }
 
   // Public API for REPL

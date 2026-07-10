@@ -1,6 +1,6 @@
 {
   "name": "neofermi",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A mobile-friendly, web-based DSL for order of magnitude calculations with Monte Carlo uncertainty propagation",
   "type": "module",
   "main": "./dist/index.js",

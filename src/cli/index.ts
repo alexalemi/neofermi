@@ -17,7 +17,14 @@ import { createServer, wrapInStaticHtml } from './server.js'
 import { watchFiles, findMostRecentMdFile } from './watcher.js'
 import { processMarkdown } from './processor.js'
 import { parse, Evaluator } from '../parser/index.js'
-import { formatQuantityConcise } from '../utils/format.js'
+import { formatQuantityConcise, type FormatPart } from '../utils/format.js'
+import {
+  DISTRIBUTION_FUNCTIONS,
+  MATH_FUNCTIONS,
+  CONSTANTS,
+  UNITS,
+  type Completion,
+} from '../autocomplete/completions.js'
 
 interface NotebookState {
   currentFile: string | null
@@ -27,6 +34,46 @@ interface NotebookState {
 const state: NotebookState = {
   currentFile: null,
   html: '<p>No markdown file loaded</p>',
+}
+
+const STARTER_NOTEBOOK = `# My First Estimate
+
+How far does a car travel in a typical road trip?
+
+## Assumptions
+
+\`\`\`
+speed = 60 to 120 km/hr      # highway speeds, lognormal 68% CI
+time = 2 to 6 hours          # a day's drive
+\`\`\`
+
+## Calculation
+
+\`\`\`
+distance = speed * time
+\`\`\`
+
+## Result
+
+The trip covers about \${distance}, or \${distance as miles}.
+
+Edit this file and save — the notebook reloads live. See the syntax
+reference at https://neofermi.alexalemi.com/ (Help button).
+`
+
+async function runInit(filename: string) {
+  const resolvedPath = resolve(filename)
+  try {
+    await stat(resolvedPath)
+    console.error(`Error: ${filename} already exists — refusing to overwrite`)
+    process.exit(1)
+  } catch {
+    // Doesn't exist — good.
+  }
+  await mkdir(dirname(resolvedPath), { recursive: true })
+  await writeFile(resolvedPath, STARTER_NOTEBOOK, 'utf-8')
+  console.log(`Created ${filename}`)
+  console.log(`Run: neoferminb ${filename}`)
 }
 
 async function runStatic(inputPath: string, outputPath: string, darkMode: boolean) {
@@ -80,6 +127,7 @@ async function runServer(inputPath: string, options: { port: string; host: strin
         state.currentFile = mostRecent
       } else {
         console.error('No markdown files found in directory')
+        console.error('Create a starter notebook with: neoferminb init')
         process.exit(1)
       }
     } else {
@@ -140,6 +188,35 @@ async function runServer(inputPath: string, options: { port: string; host: strin
   }
 }
 
+// REPL colors, following qalc's scheme: numbers cyan, units green.
+// Respects NO_COLOR (https://no-color.org) and non-TTY output; FORCE_COLOR overrides.
+const useColor =
+  process.env.NO_COLOR === undefined && (process.stdout.isTTY || process.env.FORCE_COLOR !== undefined)
+
+const ANSI = {
+  scalar: '\x1b[0;36m', // cyan
+  unit: '\x1b[0;32m', // green
+  ci: '\x1b[2m', // dim
+  dim: '\x1b[2m', // dim
+  error: '\x1b[0;31m', // red
+  reset: '\x1b[0m',
+}
+
+function colorize(part: FormatPart | 'error', text: string): string {
+  return useColor ? `${ANSI[part]}${text}${ANSI.reset}` : text
+}
+
+function printCatalog(title: string, entries: Completion[]) {
+  console.log(`\n${title}:`)
+  const width = Math.max(...entries.map((e) => (e.signature ?? e.label).length))
+  for (const e of entries) {
+    const name = (e.signature ?? e.label).padEnd(width)
+    const part = e.type === 'unit' ? 'unit' : 'scalar'
+    console.log(`  ${colorize(part, name)}  ${colorize('dim', e.description ?? '')}`)
+  }
+  console.log('')
+}
+
 async function runRepl() {
   const evaluator = new Evaluator()
 
@@ -170,10 +247,13 @@ async function runRepl() {
 
     if (input === 'help') {
       console.log('\nCommands:')
-      console.log('  help     - Show this help')
-      console.log('  vars     - List defined variables')
-      console.log('  clear    - Clear all variables')
-      console.log('  exit     - Exit REPL\n')
+      console.log('  help       - Show this help')
+      console.log('  vars       - List defined variables')
+      console.log('  units      - List built-in units')
+      console.log('  constants  - List built-in constants')
+      console.log('  functions  - List built-in functions')
+      console.log('  clear      - Clear all variables')
+      console.log('  exit       - Exit REPL\n')
       console.log('Distributions:')
       console.log('  10 to 100        - Lognormal (68% CI)')
       console.log('  1 .. 10          - Uniform')
@@ -196,6 +276,25 @@ async function runRepl() {
       console.log('Bindings:')
       console.log('  x = expr         - Assign variable')
       console.log('  f(a, b) = expr   - Define function\n')
+      rl.prompt()
+      return
+    }
+
+    if (input === 'units') {
+      printCatalog('Units', UNITS)
+      rl.prompt()
+      return
+    }
+
+    if (input === 'constants') {
+      printCatalog('Constants', CONSTANTS)
+      rl.prompt()
+      return
+    }
+
+    if (input === 'functions') {
+      printCatalog('Distribution functions', DISTRIBUTION_FUNCTIONS)
+      printCatalog('Math functions', MATH_FUNCTIONS)
       rl.prompt()
       return
     }
@@ -226,11 +325,11 @@ async function runRepl() {
     try {
       const result = parse(input, evaluator)
       if (result !== null) {
-        console.log(formatQuantityConcise(result))
+        console.log(formatQuantityConcise(result, { decorate: colorize }))
         console.log('')
       }
     } catch (err) {
-      console.error(`Error: ${(err as Error).message}\n`)
+      console.error(`${colorize('error', 'Error:')} ${(err as Error).message}\n`)
     }
 
     rl.prompt()
@@ -262,7 +361,7 @@ async function run(inputPath: string | undefined, options: { port: string; host:
 program
   .name('neoferminb')
   .description('NeoFermi notebook server - live markdown with calculations')
-  .argument('[path]', 'Markdown file or directory to serve')
+  .argument('[path]', 'Markdown file or directory to serve (watches for changes)')
   .option('-p, --port <number>', 'Port number', '3000')
   .option('-H, --host <address>', 'Host to bind to (use 0.0.0.0 for all interfaces)', 'localhost')
   .option('-o, --output <file>', 'Render to static HTML file instead of serving')
@@ -270,5 +369,11 @@ program
   .option('-r, --repl', 'Start interactive REPL mode')
   .option('--no-open', 'Do not open browser automatically')
   .action(run)
+
+program
+  .command('init')
+  .description('Create a starter notebook to build on')
+  .argument('[filename]', 'Notebook file to create', 'notebook.md')
+  .action(runInit)
 
 program.parse()

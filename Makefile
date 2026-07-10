@@ -34,8 +34,9 @@ cli: parser
 EXAMPLE_MDS := $(wildcard examples/*.md)
 EXAMPLE_HTMLS := $(EXAMPLE_MDS:.md=.html)
 
-# Render all examples to static HTML
+# Render all examples to static HTML (plus the gallery index)
 examples: cli $(EXAMPLE_HTMLS)
+	@node scripts/build-examples-index.js
 	@echo "All examples rendered."
 
 # Pattern rule: render .md to .html
