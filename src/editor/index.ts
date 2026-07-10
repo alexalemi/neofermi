@@ -10,6 +10,7 @@ import { processMarkdown } from './markdown-processor.js'
 import { evaluateExpressions } from './expression-evaluator.js'
 import { renderVisualizations, typesetMath, VizType } from './preview-renderer.js'
 import type { EditorView } from '@codemirror/view'
+import { SYNTAX_HELP } from '../help/syntax.js'
 
 // Constants
 const STORAGE_KEY = 'neofermi-editor'
@@ -453,7 +454,24 @@ function validateAndParseConfig(jsonStr: string): { config?: EditorConfig; error
 // Modals
 // =====================
 
+/** Render the shared DSL cheat-sheet (src/help/syntax.ts) into the help modal. */
+function renderSyntaxHelp() {
+  const container = document.getElementById('syntax-help')
+  if (!container) return
+  for (const section of SYNTAX_HELP) {
+    const h4 = document.createElement('h4')
+    h4.textContent = section.title
+    const pre = document.createElement('pre')
+    const width = Math.min(28, Math.max(...section.entries.map((e) => e.code.length)))
+    pre.textContent = section.entries
+      .map((e) => `${e.code.padEnd(width)}  # ${e.note}`)
+      .join('\n')
+    container.append(h4, pre)
+  }
+}
+
 function setupModals() {
+  renderSyntaxHelp()
   const helpModal = document.getElementById('help-modal')!
   const helpBtn = document.getElementById('help-btn')!
   const closeHelp = document.getElementById('close-help')!

@@ -40,13 +40,13 @@ npm install neofermi
 import { lognormal, to, parse } from 'neofermi'
 
 // Create distributions
-const estimate = lognormal(1e6, 1e8)  // 1M to 100M (90% CI)
+const estimate = lognormal(1e6, 1e8)  // 1M to 100M (68% CI)
 console.log(estimate.mean())           // ~10M
 console.log(estimate.ci(0.9))          // [1M, 100M]
 
 // Parse DSL expressions
 const result = parse('10 to 100 * 5 kg')
-console.log(result.toString())         // "250 kg (90% CI: 50 - 500)"
+console.log(result.toString())         // "250 kg (68% CI: 50 - 500)"
 ```
 
 ### Embed in a Blog Post
@@ -92,7 +92,12 @@ neoferminb notebook.md
 # Render a markdown notebook to static HTML
 neoferminb notebook.md --output notebook.html
 
-# Interactive REPL
+# Write computed results back into the markdown itself, so the
+# document stands alone offline. Idempotent and seeded: re-running
+# never duplicates results, and unchanged input is byte-identical.
+neoferminb annotate notebook.md
+
+# Interactive REPL (tab completion, persistent history, _ and _N results)
 neoferminb --repl
 ```
 
@@ -103,7 +108,7 @@ For the full grammar and semantics see [docs/design/LANGUAGE_SPEC.md](docs/desig
 ### Distributions
 
 ```
-10 to 100           # lognormal, 90% CI from 10 to 100
+10 to 100           # lognormal, 68% CI from 10 to 100
 50 +/- 10           # normal, mean 50, std 10
 uniform(0, 1)       # uniform between 0 and 1
 3 out of 10         # beta distribution (3 successes, 7 failures)

@@ -15,6 +15,7 @@ import type { Root, Code, Text, Html } from 'mdast'
 import { Evaluator } from '../parser/index.js'
 import { runCell } from '../core/runCell.js'
 import { buildCellHtml } from '../utils/html.js'
+import { stripAnnotations, scanInlineExpr } from '../core/annotations.js'
 
 /**
  * Process a markdown file and return rendered HTML
@@ -28,6 +29,10 @@ export async function processMarkdown(filePath: string): Promise<string> {
  * Process markdown content string and return rendered HTML
  */
 export async function processMarkdownContent(content: string): Promise<string> {
+  // Annotations written by `neoferminb annotate` are recomputed live rather
+  // than rendered stale (and their result blocks would double-display).
+  content = stripAnnotations(content)
+
   // Create a fresh evaluator for this document
   const evaluator = new Evaluator()
 
@@ -100,34 +105,17 @@ function remarkNeoFermi(options: { evaluator: Evaluator }) {
  */
 function interpolateText(text: string, evaluator: Evaluator): string {
   let out = ''
-  let i = 0
-  while (i < text.length) {
-    const start = text.indexOf('${', i)
-    if (start === -1) {
-      out += text.slice(i)
+  let pos = 0
+  for (;;) {
+    const hit = scanInlineExpr(text, pos)
+    if (!hit) {
+      out += text.slice(pos)
       break
     }
-    out += text.slice(i, start)
-    let depth = 1
-    let end = -1
-    for (let j = start + 2; j < text.length; j++) {
-      const ch = text[j]
-      if (ch === '\n') break
-      if (ch === '{') depth++
-      else if (ch === '}' && --depth === 0) {
-        end = j
-        break
-      }
-    }
-    const expr = end === -1 ? '' : text.slice(start + 2, end)
-    if (end === -1 || expr.trim() === '' || expr.trimStart().startsWith('\\')) {
-      out += '${'
-      i = start + 2
-      continue
-    }
-    const r = runCell(expr, evaluator, { requireValue: true })
-    out += r.error ? `«${expr.trim()}: ${r.error}»` : r.inlineOutput
-    i = end + 1
+    out += text.slice(pos, hit.start)
+    const r = runCell(hit.expr, evaluator, { requireValue: true })
+    out += r.error ? `«${hit.expr.trim()}: ${r.error}»` : r.inlineOutput
+    pos = hit.end
   }
   return out
 }

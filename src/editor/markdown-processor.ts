@@ -9,6 +9,7 @@
 import MarkdownIt from 'markdown-it'
 import type { EvaluationResult } from './expression-evaluator.js'
 import { escapeHtml, buildCellHtml } from '../utils/html.js'
+import { stripAnnotations } from '../core/annotations.js'
 
 export interface ParsedExpression {
   id: string
@@ -27,6 +28,9 @@ export interface ProcessedDocument {
  * Process markdown content and extract neofermi expressions
  */
 export function processMarkdown(content: string): ProcessedDocument {
+  // `neoferminb annotate` output is recomputed live, not rendered stale
+  content = stripAnnotations(content)
+
   const blockExpressions: ParsedExpression[] = []
   const inlineExpressions: ParsedExpression[] = []
   // Track block index by source position to ensure stable IDs across renders

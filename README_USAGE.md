@@ -161,7 +161,7 @@ import { DEFAULT_SAMPLE_COUNT, DEFAULT_CONFIDENCE } from './src/config.js'
 
 // Defaults:
 // DEFAULT_SAMPLE_COUNT = 20000
-// DEFAULT_CONFIDENCE = 0.9 (90% of mass in [low, high])
+// DEFAULT_CONFIDENCE = 0.6827 (68% of mass in [low, high], ±1σ)
 ```
 
 You can override on a per-call basis:

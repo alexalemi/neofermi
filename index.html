@@ -308,6 +308,16 @@
       background: rgba(9, 105, 218, 0.04);
     }
 
+    .cell-output .error-excerpt {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 6px;
+      color: #24292f;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
     .result-stats {
       white-space: pre-wrap;
       word-break: break-word;
@@ -473,7 +483,8 @@
       margin-bottom: 8px;
     }
 
-    .modal-body h4:first-child {
+    .modal-body h4:first-child,
+    #help-syntax h4:first-child {
       margin-top: 0;
     }
 
@@ -551,116 +562,16 @@
         <button class="modal-close" id="close-help">&times;</button>
       </div>
       <div class="modal-body">
-        <h4>Distribution Syntax</h4>
-        <pre>1 to 10 m            # Lognormal (68% CI)
-1 .. 10 m            # Uniform distribution
-1 thru 10 m          # Uniform (alternate)
-100 +- 5 kg          # Normal (mean ± sigma)
-100 pm 5 kg          # Normal (alternate)
-3 of 10              # Beta (3 successes, 10 trials)
-3 against 7          # Beta (3 wins, 7 losses)
-{365, 366} day       # Equal-weighted set
-{365: 303, 366: 97}  # Weighted set (dict-style)
-100 * 10%            # Twiddle by ±10%
-100 * 0db            # Twiddle by factor of 2
-100 * -10db          # Twiddle by order of magnitude</pre>
-
-        <h4>Scale-word ranges</h4>
-        <p>Scale words on one side of a range expand onto the bare side:</p>
-        <pre>1 to 2 million       # 1e6 to 2e6
-1 .. 2 billion USD   # uniform 1e9 to 2e9 USD
-1 +/- 2 million      # normal mean 1e6, sigma 2e6</pre>
-
-        <h4>Sig-Fig Numbers</h4>
-        <pre>'3.14                # Uniform(3.135, 3.145)
-'130                 # Uniform(125, 135)
-'130.                # Uniform(129.5, 130.5)
-'1.3e6 m             # With units</pre>
-
-        <h4>Unit Conversion</h4>
-        <pre>100 meters as feet       # Convert to specific unit
-x -> km                  # Alternative syntax
-100 miles as SI          # Convert to SI base units
-98.6 degF as degC        # Affine (offset) conversions
-1 feet / 1 mm as feet/mm # Keep a dimensionless ratio in compound form
-1 feet^3/mm^3            # Powered numerators in compound units</pre>
-
-        <p style="margin-top: 8px; color: #656d76; font-size: 11px;">
-          Results are displayed in SI units by default. Ratios of same-dimension
-          units (e.g. <code>1 feet / 1 mm</code>) collapse to a dimensionless
-          number unless you re-express them via <code>as</code>.
-        </p>
-
-        <h4>Extended unit catalog</h4>
-        <pre>calorie, kcal, Cal   # Energy (thermochemical; Cal = kcal)
-parsec, lightyear    # Astronomy (aliases: pc, ly, kpc)
-barn                 # Cross-section (1e-28 m^2)
-knot                 # Speed (nautical mile / hour)
-atm, hp, kWh         # Pressure, power, energy
-USD, EUR, GBP, JPY,  # Currencies (USD is base)
-CNY, INR, CAD, AUD,
-CHF, MXN, BRL, KRW</pre>
-
-        <h4>Inflation-adjusted dollars</h4>
-        <pre>dollars_1960         # $1 in 1960 (also dollars1960)
-100 dollars_1960 as USD       # present-day equivalent
-1 dollars_1980 + 1 dollars_2020 as USD  # mixes fine</pre>
-        <p style="margin-top: 8px; color: #656d76; font-size: 11px;">
-          Years 1913–present, based on annual-average US CPI-U. Anchor is the
-          latest monthly CPI, so "as USD" gives today's purchasing power.
-        </p>
-
-        <h4>Dates &amp; Durations</h4>
-        <pre>#2026-04-16#                          # Date literal
-#2026-04-16T12:30#                    # With time (optional :ss)
-#2027-01-01# - #2026-01-01#           # Duration (365 day)
-(#2026-04-17# - #2026-04-16#) as hour # Convert duration to hours</pre>
-
-        <h4>Variables</h4>
-        <pre>x = 10 to 100 meters
-y = x * 2
-area = x * y</pre>
-
-        <h4>Distribution Functions</h4>
-        <pre>lognormal(1, 100)    # Positive values
-normal(-10, 10)      # Any values
-uniform(0, 1)        # Flat distribution
-outof(7, 10)         # Beta for proportions
-gamma(2, 5)          # Shape/scale parameters
-poisson(5)           # Count data (events)
-exponential(0.5)     # Waiting times (rate)
-binomial(10, 0.5)    # n trials, p success</pre>
+        <!-- DSL syntax sections are rendered at startup from the shared
+             SYNTAX_HELP data (src/help/syntax.ts) -->
+        <div id="help-syntax"></div>
 
         <h4>Operators &amp; Comments</h4>
         <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>^</code> &nbsp; <code># comment</code>
 
-        <h4>Custom Units</h4>
-        <pre>100 'widgets         # Use custom unit
-1 'widget = 5 kg     # Define custom unit
-10 'widget           # Now equals 50 kg</pre>
-
-        <h4>Constants</h4>
-        <pre># Physics
-c, h, hbar, G, k     # Fundamentals
-M_earth, R_earth     # Earth
-M_sun, AU, ly, pc    # Astronomical
-
-# Time
-year, month, day     # As distributions
-seconds_per_year     # Exact conversions
-
-# Population & Economics
-world_population     # ~8.2 billion
-us_gdp, world_gdp    # With uncertainty
-us_median_income
-
-# Computing
-cpu_transistors      # Modern CPU
-internet_users
-google_searches_per_day</pre>
-
         <h4>Keyboard Shortcuts</h4>
         <pre>Shift+Enter          # Run current cell
+Ctrl+Space           # Show completions
 Ctrl/Cmd+Enter       # Run all cells
 Ctrl/Cmd+S           # Export as JSON
 Ctrl/Cmd+O           # Import file
@@ -674,7 +585,8 @@ Escape               # Unfocus cell</pre>
     import { Evaluator } from './src/parser/index.js'
     import { runCell } from './src/core/runCell.js'
     import { visualize } from './src/visualization/index.js'
-    import { getCompletions, getWordAtCursor } from './src/autocomplete/index.js'
+    import { getCompletions, getWordAtCursor, ALL_COMPLETIONS } from './src/autocomplete/index.js'
+    import { SYNTAX_HELP } from './src/help/syntax.js'
     import { formatQuantityConcise } from './src/utils/format.js'
     import { escapeHtml } from './src/utils/html.js'
 
@@ -769,15 +681,24 @@ Escape               # Unfocus cell</pre>
         textarea.style.height = textarea.scrollHeight + 'px'
       }
 
-      // Autocomplete functions
-      function showAutocomplete() {
-        const wordInfo = getWordAtCursor(textarea.value, textarea.selectionStart)
-        if (!wordInfo || wordInfo.word.length < 2) {
+      // Autocomplete functions. `explicit` is a Ctrl+Space trigger: it works
+      // with no prefix at all (listing everything) and shows more results.
+      function showAutocomplete(explicit = false) {
+        let wordInfo = getWordAtCursor(textarea.value, textarea.selectionStart)
+        if (!wordInfo && explicit) {
+          // No word at cursor: complete from an empty prefix at the cursor
+          const pos = textarea.selectionStart
+          wordInfo = { word: '', start: pos, end: pos }
+        }
+        if (!wordInfo || wordInfo.word.length < 1 && !explicit) {
           hideAutocomplete()
           return
         }
 
-        const items = getCompletions(wordInfo.word, 8)
+        // getCompletions rejects empty prefixes, so list everything ourselves
+        const items = wordInfo.word.length === 0
+          ? ALL_COMPLETIONS.slice(0, 50)
+          : getCompletions(wordInfo.word, explicit ? 50 : 8)
         if (items.length === 0) {
           hideAutocomplete()
           return
@@ -802,6 +723,9 @@ Escape               # Unfocus cell</pre>
           </div>
         `).join('')
         dropdown.classList.add('visible')
+
+        // Keep the selected item in view (the list scrolls at 50 entries)
+        dropdown.querySelector('.autocomplete-item.selected')?.scrollIntoView({ block: 'nearest' })
 
         // Click handlers for items
         dropdown.querySelectorAll('.autocomplete-item').forEach(itemEl => {
@@ -852,6 +776,13 @@ Escape               # Unfocus cell</pre>
 
       // Keyboard handling (autocomplete navigation + run)
       textarea.addEventListener('keydown', (e) => {
+        // Ctrl+Space: open the completion list explicitly
+        if (e.ctrlKey && (e.key === ' ' || e.code === 'Space')) {
+          e.preventDefault()
+          showAutocomplete(true)
+          return
+        }
+
         // Autocomplete navigation
         if (acState.visible) {
           if (e.key === 'ArrowDown') {
@@ -921,6 +852,24 @@ Escape               # Unfocus cell</pre>
       if (cell.error) {
         output.classList.add('visible', 'error')
         output.textContent = `Error: ${cell.error}`
+
+        // If the error carries a position, excerpt the offending source line
+        // with a caret under the column. Built via textContent — no innerHTML.
+        const pos = cell.error.match(/at line (\d+), column (\d+)/)
+        if (pos) {
+          const lineNum = parseInt(pos[1], 10)
+          const col = parseInt(pos[2], 10)
+          const srcLine = cell.code.split('\n')[lineNum - 1]
+          if (srcLine !== undefined) {
+            // Reuse the line's own tabs so the caret stays aligned
+            let caretPad = srcLine.slice(0, Math.max(0, col - 1)).replace(/[^\t]/g, ' ')
+            if (col - 1 > srcLine.length) caretPad += ' '.repeat(col - 1 - srcLine.length)
+            const excerpt = document.createElement('pre')
+            excerpt.className = 'error-excerpt'
+            excerpt.textContent = srcLine + '\n' + caretPad + '^'
+            output.appendChild(excerpt)
+          }
+        }
         return
       }
 
@@ -980,6 +929,15 @@ Escape               # Unfocus cell</pre>
         const r = runCell(cell.code, evaluator)
         cell.result = r.quantity
         cell.error = r.error
+
+        // History bindings, mirroring the CLI REPL: `_` is the most recent
+        // result, `_N` the result of cell N (1-based). Run All resets the
+        // evaluator first, so a full re-run rebinds these cleanly.
+        if (r.quantity !== null && r.quantity !== undefined) {
+          const n = cells.indexOf(cell) + 1
+          evaluator.setVariable('_', r.quantity)
+          if (n > 0) evaluator.setVariable(`_${n}`, r.quantity)
+        }
       }
       renderOutput(cell)
     }
@@ -1387,6 +1345,31 @@ Escape               # Unfocus cell</pre>
     document.addEventListener('click', () => {
       exportMenu.classList.remove('visible')
     })
+
+    // Render the shared DSL syntax reference (src/help/syntax.ts) into the
+    // help modal: h4 title + pre of `code  # note` rows per section.
+    function renderSyntaxHelp() {
+      const container = document.getElementById('help-syntax')
+      for (const section of SYNTAX_HELP) {
+        const h4 = document.createElement('h4')
+        h4.textContent = section.title
+        container.appendChild(h4)
+
+        // Align the notes into a comment column; entries too long to align
+        // (>28 chars) just get two spaces before the note.
+        const padWidth = Math.max(0, ...section.entries
+          .map(e => e.code.length)
+          .filter(len => len <= 28)) + 2
+        const pre = document.createElement('pre')
+        pre.textContent = section.entries.map(e =>
+          e.code.length < padWidth
+            ? `${e.code.padEnd(padWidth)}# ${e.note}`
+            : `${e.code}  # ${e.note}`
+        ).join('\n')
+        container.appendChild(pre)
+      }
+    }
+    renderSyntaxHelp()
 
     // Help modal
     document.getElementById('help-btn').addEventListener('click', () => {

@@ -5,14 +5,17 @@
  */
 
 import { program } from 'commander'
-import { resolve, basename, dirname } from 'path'
-import { stat, writeFile, mkdir } from 'fs/promises'
+import { resolve, basename, dirname, join } from 'path'
+import { stat, readFile, writeFile, mkdir } from 'fs/promises'
+import { readFileSync, appendFileSync } from 'fs'
+import { homedir } from 'os'
 import { createInterface } from 'readline'
 // Dynamic import for ESM-only package (needed for CJS bundle compatibility)
 const openBrowser = async (url: string) => {
   const open = (await import('open')).default
   return open(url)
 }
+import { annotateMarkdown } from './annotate.js'
 import { createServer, wrapInStaticHtml } from './server.js'
 import { watchFiles, findMostRecentMdFile } from './watcher.js'
 import { processMarkdown } from './processor.js'
@@ -23,8 +26,11 @@ import {
   MATH_FUNCTIONS,
   CONSTANTS,
   UNITS,
+  ALL_COMPLETIONS,
   type Completion,
 } from '../autocomplete/completions.js'
+import { SYNTAX_HELP } from '../help/syntax.js'
+import { getKnownUnitNames } from '../core/unitUtils.js'
 
 interface NotebookState {
   currentFile: string | null
@@ -74,6 +80,33 @@ async function runInit(filename: string) {
   await writeFile(resolvedPath, STARTER_NOTEBOOK, 'utf-8')
   console.log(`Created ${filename}`)
   console.log(`Run: neoferminb ${filename}`)
+}
+
+async function runAnnotate(inputPath: string, options: { output?: string }) {
+  const resolvedInput = resolve(inputPath)
+  // The root command also defines -o/--output (static render) and, as a
+  // global option, it captures the flag even when passed after `annotate`.
+  const resolvedOutput = resolve(options.output ?? program.opts().output ?? inputPath)
+  try {
+    const source = await readFile(resolvedInput, 'utf-8')
+    const { content, blockCount, inlineCount, warnings } = annotateMarkdown(source)
+    for (const w of warnings) {
+      console.error(`Warning: ${w}`)
+    }
+    await writeFile(resolvedOutput, content, 'utf-8')
+    console.log(
+      `Annotated ${resolvedOutput}: ${blockCount} code block${blockCount === 1 ? '' : 's'}, ` +
+        `${inlineCount} inline expression${inlineCount === 1 ? '' : 's'}` +
+        (warnings.length ? `, ${warnings.length} warning${warnings.length === 1 ? '' : 's'}` : '')
+    )
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      console.error(`Error: File not found: ${resolvedInput}`)
+    } else {
+      console.error(`Error: ${(err as Error).message}`)
+    }
+    process.exit(1)
+  }
 }
 
 async function runStatic(inputPath: string, outputPath: string, darkMode: boolean) {
@@ -217,8 +250,47 @@ function printCatalog(title: string, entries: Completion[]) {
   console.log('')
 }
 
+const HISTORY_FILE = join(homedir(), '.neofermi_history')
+const HISTORY_LIMIT = 1000
+
+/** Most-recent-first, as readline's `history` option expects. */
+function loadHistory(): string[] {
+  try {
+    return readFileSync(HISTORY_FILE, 'utf-8').split('\n').filter(Boolean).slice(-HISTORY_LIMIT).reverse()
+  } catch {
+    return []
+  }
+}
+
+const REPL_COMMANDS = ['help', 'vars', 'units', 'constants', 'functions', 'clear', 'exit', 'quit']
+
+/**
+ * Tab completion from the live registries — the evaluator's variable map
+ * (constants + user variables), mathjs's unit registry, and the curated
+ * function/keyword lists — rather than the hand-maintained completion
+ * catalog, which lags behind what actually evaluates.
+ */
+function makeCompleter(evaluator: Evaluator) {
+  return (line: string): [string[], string] => {
+    const match = line.match(/[A-Za-z_][A-Za-z0-9_]*$/)
+    const prefix = match ? match[0] : ''
+    const candidates = [
+      // Meta-commands only complete at the start of the line
+      ...(prefix === line.trimStart() ? REPL_COMMANDS : []),
+      ...ALL_COMPLETIONS.map((c) => c.label),
+      ...evaluator.getVariableNames(),
+      ...getKnownUnitNames(),
+    ]
+    const hits = [...new Set(candidates)].filter((name) => name.startsWith(prefix)).sort()
+    return [hits, prefix]
+  }
+}
+
 async function runRepl() {
   const evaluator = new Evaluator()
+  // IPython-style history: inputs are numbered, and each result is bound to
+  // `_` (most recent) and `_N` (result of input N).
+  let inputNum = 1
 
   console.log('NeoFermi Interactive REPL')
   console.log('Type expressions to evaluate. Use Ctrl+D or "exit" to quit.\n')
@@ -227,18 +299,33 @@ async function runRepl() {
   console.log('  50 +/- 10 kg        # normal with units')
   console.log('  x = 1 to 10 m       # assign to variable')
   console.log('  x * 2               # use variable')
+  console.log('  _ * 2               # _ is the last result, _3 the result of input 3')
   console.log('')
 
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: '> ',
+    prompt: `[${inputNum}]> `,
+    completer: makeCompleter(evaluator),
+    history: loadHistory(),
+    historySize: HISTORY_LIMIT,
   })
 
   rl.prompt()
 
+  let lastSaved: string | null = null
   rl.on('line', (line) => {
     const input = line.trim()
+
+    // Only record interactive sessions — piped input would pollute history.
+    if (process.stdin.isTTY && input && input !== lastSaved) {
+      try {
+        appendFileSync(HISTORY_FILE, input + '\n')
+        lastSaved = input
+      } catch {
+        // History is best-effort; never break the REPL over it.
+      }
+    }
 
     if (input === 'exit' || input === 'quit') {
       rl.close()
@@ -249,33 +336,20 @@ async function runRepl() {
       console.log('\nCommands:')
       console.log('  help       - Show this help')
       console.log('  vars       - List defined variables')
+      console.log('  _, _N      - Last result / result of input N')
       console.log('  units      - List built-in units')
       console.log('  constants  - List built-in constants')
       console.log('  functions  - List built-in functions')
       console.log('  clear      - Clear all variables')
       console.log('  exit       - Exit REPL\n')
-      console.log('Distributions:')
-      console.log('  10 to 100        - Lognormal (68% CI)')
-      console.log('  1 .. 10          - Uniform')
-      console.log('  50 +/- 10        - Normal (mean ± sigma)')
-      console.log('  3 of 10          - Beta (successes/trials)')
-      console.log('  1 to 2 million   - Scale-word rebalance')
-      console.log('  100 * 10%        - Twiddle by ±10%')
-      console.log('  uniform/normal/poisson/gamma/exponential/binomial/lognormal(...)\n')
-      console.log('Units:')
-      console.log('  100 m as feet            - Convert')
-      console.log('  98.6 degF as degC        - Affine temperature')
-      console.log('  1 feet / 1 mm as feet/mm - Keep ratio in compound form')
-      console.log('  1 \'widget = 5 kg         - Define custom unit')
-      console.log('  Catalog: SI, calorie/kcal, parsec/ly, barn, knot, atm, hp,')
-      console.log('           USD/EUR/GBP/JPY/... (12 currencies),')
-      console.log('           dollars_1960 … dollars_2026 (inflation-adjusted)\n')
-      console.log('Dates:')
-      console.log('  #2026-04-16#                 - Date literal')
-      console.log('  #2027-01-01# - #2026-01-01#  - Duration (365 day)\n')
-      console.log('Bindings:')
-      console.log('  x = expr         - Assign variable')
-      console.log('  f(a, b) = expr   - Define function\n')
+      for (const section of SYNTAX_HELP) {
+        console.log(`${section.title}:`)
+        const width = Math.min(28, Math.max(...section.entries.map((e) => e.code.length)))
+        for (const e of section.entries) {
+          console.log(`  ${e.code.padEnd(width)}  - ${e.note}`)
+        }
+        console.log('')
+      }
       rl.prompt()
       return
     }
@@ -300,7 +374,8 @@ async function runRepl() {
     }
 
     if (input === 'vars') {
-      const vars = evaluator.getUserVariableNames()
+      // Hide the _/_N history bindings; they'd swamp the user's own names.
+      const vars = evaluator.getUserVariableNames().filter((name) => !/^_\d*$/.test(name))
       if (vars.length === 0) {
         console.log('No variables defined\n')
       } else {
@@ -325,13 +400,30 @@ async function runRepl() {
     try {
       const result = parse(input, evaluator)
       if (result !== null) {
-        console.log(formatQuantityConcise(result, { decorate: colorize }))
+        evaluator.setVariable('_', result)
+        evaluator.setVariable(`_${inputNum}`, result)
+        console.log(
+          `${colorize('dim', `[${inputNum}]`)} ${formatQuantityConcise(result, { decorate: colorize })}`
+        )
         console.log('')
       }
     } catch (err) {
-      console.error(`${colorize('error', 'Error:')} ${(err as Error).message}\n`)
+      const message = (err as Error).message
+      // Point at the offending column of the (single-line) input, aligned
+      // under the echoed line: prompt width + any leading whitespace trimmed
+      // from `input` before parsing.
+      const pos = message.match(/line 1, column (\d+)/)
+      if (pos) {
+        const offset = `[${inputNum}]> `.length + (line.length - line.trimStart().length) + Number(pos[1]) - 1
+        console.error(`${' '.repeat(offset)}${colorize('error', '^')}`)
+      }
+      console.error(`${colorize('error', 'Error:')} ${message}\n`)
     }
 
+    // Errors consume an input number too (matching IPython), so [N] in the
+    // scrollback always identifies the same exchange.
+    inputNum++
+    rl.setPrompt(`[${inputNum}]> `)
     rl.prompt()
   })
 
@@ -375,5 +467,12 @@ program
   .description('Create a starter notebook to build on')
   .argument('[filename]', 'Notebook file to create', 'notebook.md')
   .action(runInit)
+
+program
+  .command('annotate')
+  .description('Compute results and write them into the markdown itself (idempotent, seeded)')
+  .argument('<file>', 'Markdown notebook to annotate')
+  .option('-o, --output <file>', 'Write to a different file instead of in place')
+  .action(runAnnotate)
 
 program.parse()

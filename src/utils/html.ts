@@ -33,7 +33,7 @@ export function buildCellHtml(code: string, result: CellResult, exprId?: string)
   if (result.error) {
     return `<div class="nf-cell">
 <pre class="nf-code"><code>${escapedCode}</code></pre>
-<div class="nf-error">${escapeHtml(result.error)}</div>
+<div class="nf-error">Error: ${escapeHtml(result.error)}</div>
 </div>`
   }
 

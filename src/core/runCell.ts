@@ -4,7 +4,7 @@
  * they present the returned `CellResult`.
  */
 
-import { parse, Evaluator, EvaluationError } from '../parser/index.js'
+import { parse, Evaluator } from '../parser/index.js'
 import type { Quantity } from './Quantity.js'
 import { getVizData, type VizData } from '../visualization/index.js'
 import { formatQuantityConcise } from '../utils/format.js'
@@ -48,9 +48,9 @@ export function runCell(
   try {
     value = parse(code, evaluator)
   } catch (err) {
-    const error =
-      err instanceof EvaluationError ? err.message : `Error: ${(err as Error).message}`
-    return { ...EMPTY, error }
+    // No "Error: " prefix here — surfaces add their own label, and a
+    // built-in prefix produced "Error: Error: ..." doubling.
+    return { ...EMPTY, error: (err as Error).message }
   }
 
   if (!value) {
