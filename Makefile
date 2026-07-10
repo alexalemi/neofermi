@@ -83,12 +83,16 @@ install:
 dev:
 	bun dev
 
-# Build npm package (library + types + CLI)
-package: parser lib cli
-	@echo "Building TypeScript declarations..."
+# Build npm package (library + types + CLI). dist/ is rebuilt from scratch so
+# the tarball ships only the library build, not the Vite website bundle, and
+# the peggy-generated parser (plain .js, not emitted by tsc) is copied in.
+package: parser cli
+	@echo "Building library + declarations..."
+	rm -rf dist
 	bun build:types
+	cp src/parser/generated.js dist/parser/
 	@echo "Creating package tarball..."
-	bun pack
+	bun pm pack
 	@echo "Package created: neofermi-$$(node -p "require('./package.json').version").tgz"
 
 # Publish to npm (runs tests first)

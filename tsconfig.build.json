@@ -4,6 +4,11 @@
     "noEmit": false,
     "emitDeclarationOnly": false,
     "allowImportingTsExtensions": false,
+    // Base config uses moduleResolution "bundler", which implies synthetic
+    // default imports; "node" does not, so restore it explicitly or the
+    // markdown-it default import (and everything contextually typed off it)
+    // collapses into implicit-any errors.
+    "allowSyntheticDefaultImports": true,
     "moduleResolution": "node"
   },
   "exclude": ["src/**/*.test.ts", "src/cli/**"]

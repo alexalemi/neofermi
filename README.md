@@ -30,23 +30,21 @@ npm install && npm run dev  # or with node >= 18
 
 ### As a Library
 
-> **Not yet on npm** — for now, clone this repo and `make package` to build a local tarball, then `npm install ./neofermi-*.tgz`.
-
 ```bash
 npm install neofermi
 ```
 
 ```typescript
-import { lognormal, to, parse } from 'neofermi'
+import { lognormal, parse } from 'neofermi'
 
 // Create distributions
-const estimate = lognormal(1e6, 1e8)  // 1M to 100M (68% CI)
-console.log(estimate.mean())           // ~10M
-console.log(estimate.ci(0.9))          // [1M, 100M]
+const estimate = lognormal(1e6, 1e8)   // 1M to 100M (68% CI)
+console.log(estimate.percentile(0.5))  // median ~1e7
+console.log(estimate.mean())           // ~1.4e8 (lognormals are heavy-tailed)
 
 // Parse DSL expressions
 const result = parse('10 to 100 * 5 kg')
-console.log(result.toString())         // "250 kg (68% CI: 50 - 500)"
+console.log(result.toString())         // "3.1e+2 [5.1e+1, 5.0e+2] kg"
 ```
 
 ### Embed in a Blog Post
@@ -79,8 +77,6 @@ The script evaluates each block top-to-bottom (sharing state across blocks on th
 **Self-hosting:** Build the embed script locally with `make embed`, then serve `dist/neofermi-embed.js` from your own domain.
 
 ### CLI
-
-> **Not yet on npm** — build it locally with `make build`, then run `./bin/neoferminb.cjs` (or `node bin/neoferminb.cjs`).
 
 ```bash
 # Scaffold a starter notebook
