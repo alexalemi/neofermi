@@ -8,7 +8,7 @@
 
 import { unit, Unit } from 'mathjs'
 import { getDimensionName, formatUnitWithDimension } from './dimensions.js'
-import { normalizeUnit, normalizeUnitWithScale } from './unitUtils.js'
+import { normalizeUnit, normalizeUnitWithScale, isLabelUnit } from './unitUtils.js'
 
 export type Value = number | number[]
 
@@ -68,6 +68,18 @@ function simplifyUnit(unitObj: Unit): SimplifiedUnit {
     return { unitStr: '', scaleFactor }
   }
 
+  // Alias entries — same dimension vector AND same SI factor, e.g. minute vs
+  // minutes, hour vs hr — group under one canonical name so they can cancel.
+  // Without this, `x hours / hr` keeps both names and nothing simplifies.
+  const aliasCanon = new Map<string, string>()
+  const canonicalName = (u: (typeof units)[number]): string => {
+    const key = `${u.unit.dimensions.join(',')}|${u.unit.value}`
+    const canon = aliasCanon.get(key)
+    if (canon !== undefined) return canon
+    aliasCanon.set(key, u.unit.name)
+    return u.unit.name
+  }
+
   // Group units by BASE name (ignoring prefix) and sum their powers
   // Track all prefix contributions for scale factor calculation
   const powers = new Map<string, {
@@ -78,7 +90,7 @@ function simplifyUnit(unitObj: Unit): SimplifiedUnit {
   }>()
 
   for (const u of units) {
-    const baseName = u.unit.name  // e.g., 'm' for both 'mm' and 'm'
+    const baseName = canonicalName(u)  // e.g., 'm' for both 'mm' and 'm'
 
     const existing = powers.get(baseName)
     if (existing) {
@@ -493,6 +505,17 @@ export class Quantity {
       return new Quantity(this.value)
     }
 
+    // Custom label units ('beat) have no SI representation — mathjs throws.
+    // Convert the standard entries and carry the custom ones through.
+    const entries = (this.unit as any).units as Array<{
+      unit: { name: string }
+      prefix: { name: string }
+      power: number
+    }>
+    if (entries?.some((u) => isLabelUnit(u.unit.name))) {
+      return this.toSIKeepingLabelUnits(entries)
+    }
+
     // Get the SI representation of the unit, then delegate to `to()` so affine
     // units (degC, degF) get the same offset-aware treatment as explicit
     // conversions — a pure scale factor here would turn 10 degC into 2741.5 K.
@@ -511,6 +534,37 @@ export class Quantity {
     }
 
     return this.to(siUnitString)
+  }
+
+  /**
+   * `as SI` for quantities carrying custom label units: express every
+   * standard entry in SI base units and keep the label entries verbatim,
+   * so `600 beat km / hr` becomes `... beat m / s` instead of erroring.
+   * Label units are never affine, and the standard remainder is converted
+   * as a pure scale, which is exact for non-affine compounds.
+   */
+  private toSIKeepingLabelUnits(
+    entries: Array<{ unit: { name: string }; prefix: { name: string }; power: number }>
+  ): Quantity {
+    const custom: string[] = []
+    const standard: string[] = []
+    for (const u of entries) {
+      const name = u.prefix.name + u.unit.name
+      const part = u.power === 1 ? name : `${name}^${u.power}`
+      ;(isLabelUnit(u.unit.name) ? custom : standard).push(part)
+    }
+
+    if (standard.length === 0) {
+      return new Quantity(this.value, custom.join(' '))
+    }
+
+    const si = unit(1, standard.join(' ')).toSI()
+    const siStr = si.toString().replace(/^[\d.e+-]+\s*/, '')
+    const factor = si.toNumber()
+    const combined = [siStr, ...custom].filter(Boolean).join(' ')
+    const particles = this.toParticles()
+    const scaled = particles.length === 1 ? particles[0] * factor : particles.map((x) => x * factor)
+    return new Quantity(scaled, combined)
   }
 
   /**

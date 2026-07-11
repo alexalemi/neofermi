@@ -53,3 +53,4 @@ jsDelivr caches by tag, so each version is immutable once published. Update the 
 - Shared utilities live in `src/utils/` (format.ts, html.ts) and `src/visualization/`
 - CLI dotplot rendering uses a two-phase build: `src/cli/assets/client-viz.ts` is bundled into a browser IIFE by esbuild, written to `_generated-client-viz.ts` (gitignored), then imported as a string by the CLI bundle
 - Theme colors for CLI dotplots come from CSS custom properties (`--nf-dot-color`, etc.) set in `src/cli/assets/styles.ts`
+- The sibling project `../fermipractice` imports these TS sources directly (informal API — breaking changes surface there at dev time): `editor/{markdown-processor,preview-renderer,codemirror-setup,styles.css}`, `core/runCell`, `parser/index` (Evaluator), `functions/math` (dbcrps family), `cli/{processor,server}` (processMarkdownContent, wrapInStaticHtml), `help/syntax`

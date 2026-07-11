@@ -198,10 +198,16 @@ Conversion
   / ("as" / "->") _ unit:Unit { return unit }
 
 // Primary expressions
+// A bare custom unit (`x / 'beat`) is an expression meaning 1 of that unit,
+// mirroring how bare built-in unit names resolve (`x / hour`). SigFigNumber
+// must be tried first: both start with `'`, but sig-figs require a digit.
 Primary
   = DateLiteral
   / WeightedSet
   / SigFigNumber
+  / unit:CustomUnitWithPower {
+      return node('Number', { value: 1, scaleWord: null, unit })
+    }
   / PercentTwiddle
   / Number
   / FunctionCall

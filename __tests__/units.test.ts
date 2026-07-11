@@ -420,3 +420,71 @@ describe('value-bearing units and micron aliases', () => {
     expect(parse('2 pair * 3')?.value).toBeCloseTo(12, 9)
   })
 })
+
+describe('custom label units (bare expression, alias cancellation, as SI)', () => {
+  it('divides by a bare custom unit', () => {
+    const ev = new Evaluator()
+    parse("x = 10 'beat", ev)
+    const result = parse("x / 'beat", ev)
+    expect(result?.value).toBeCloseTo(10, 9)
+    expect(result?.unit.toString()).toBe('')
+  })
+
+  it('multiplies by a bare custom unit', () => {
+    const result = parse("5 * 'beat")
+    expect(result?.value).toBeCloseTo(5, 9)
+    expect(result?.unit.toString()).toBe('beat')
+  })
+
+  it('bare custom unit respects a prior definition', () => {
+    const ev = new Evaluator()
+    parse("1 'widget = 5 kg", ev)
+    parse('w = 30 kg', ev)
+    // Note: `30 kg / 'widget` (numeric literal on the left) is grabbed by the
+    // compound-unit rule (kg/widget) instead — the bare-unit atom serves
+    // expression contexts, like dividing a variable.
+    const result = parse("w / 'widget", ev)
+    expect(result?.value).toBeCloseTo(6, 9)
+    expect(result?.unit.toString()).toBe('')
+  })
+
+  it('cancels alias units (minutes vs minute) in products', () => {
+    const ev = new Evaluator()
+    parse("r = 60 'beat / 1 minute", ev)
+    const result = parse('r * 10 minutes', ev)
+    expect(result?.value).toBeCloseTo(600, 9)
+    expect(result?.unit.toString()).toBe('beat')
+  })
+
+  it('cancels alias units (hours vs hr)', () => {
+    const result = parse('100 km/hr * 2 hours')
+    expect(result?.value).toBeCloseTo(200, 9)
+    expect(result?.unit.toString()).toBe('km')
+  })
+
+  it('as SI keeps label units and converts the standard part', () => {
+    const ev = new Evaluator()
+    parse("r = 60 'beat / 1 minute", ev)
+    const result = parse('r as SI', ev)
+    expect(result?.value).toBeCloseTo(1, 9)
+    expect(result?.unit.toString()).toMatch(/beat \/ s|beat \* s\^-1/)
+  })
+
+  it('as SI on a pure label unit is a no-op', () => {
+    const result = parse("600 'beat as SI")
+    expect(result?.value).toBeCloseTo(600, 9)
+    expect(result?.unit.toString()).toBe('beat')
+  })
+
+  it('as SI converts mixed custom/standard compounds', () => {
+    const result = parse("100 'beat * 1 km / 1 hr as SI")
+    expect(result?.value).toBeCloseTo(27.77, 1)
+    expect(result?.unit.toString()).toContain('beat')
+    expect(result?.unit.toString()).toContain('m')
+  })
+
+  it("sig-fig numbers still parse ('3.14 is not a custom unit)", () => {
+    const result = parse("'3.14 m")
+    expect(result?.median()).toBeCloseTo(3.14, 2)
+  })
+})

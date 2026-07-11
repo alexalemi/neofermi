@@ -602,6 +602,11 @@ export function ensureLabelUnitRegistered(labelName: string): void {
   registeredLabelUnits.add(labelName)
 }
 
+/** Whether `name` is a dynamically registered label unit ('beat-style custom). */
+export function isLabelUnit(name: string): boolean {
+  return registeredLabelUnits.has(name)
+}
+
 /**
  * Get all known unit names for autocomplete and error suggestions:
  * mathjs's live unit registry (which already includes everything we register
