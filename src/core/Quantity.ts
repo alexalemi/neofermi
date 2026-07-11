@@ -505,7 +505,7 @@ export class Quantity {
       return new Quantity(this.value)
     }
 
-    // Custom label units ('beat) have no SI representation — mathjs throws.
+    // Custom label units (`beat) have no SI representation — mathjs throws.
     // Convert the standard entries and carry the custom ones through.
     const entries = (this.unit as any).units as Array<{
       unit: { name: string }

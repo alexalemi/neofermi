@@ -46,7 +46,7 @@ safeCreate('pair', '2')
 // Currencies. USD is the base for the `money` dimension; all other
 // currencies are declared relative to USD. Rates are a fixed snapshot
 // (ECB reference rates as of 2026-04-17, via frankfurter.dev) — for
-// precise work users should redefine them locally via `1 'EUR = <rate> USD`.
+// precise work users should redefine them locally via `1 \`EUR = <rate> USD`.
 // Fermi tolerance (±10×) swamps any rate drift, so this is fine for the
 // calculator's intended use.
 //
@@ -574,27 +574,27 @@ export function createUnit(value: number, unitStr: string): Unit {
 }
 
 /**
- * Track dynamically registered label units (custom units like 'points, 'widgets)
+ * Track dynamically registered label units (custom units like `points, `widgets)
  * These are registered as mathjs base units on-the-fly when first used.
  */
 const registeredLabelUnits = new Set<string>()
 
 /**
  * Register a custom label unit as a mathjs base unit if not already registered.
- * This allows undefined custom units (like 100 'points) to work without
+ * This allows undefined custom units (like 100 `points) to work without
  * requiring prior definition.
  *
- * Each label becomes its own unique dimension, so 'points + 'widgets will
+ * Each label becomes its own unique dimension, so `points + `widgets will
  * correctly error as incompatible units.
  */
 export function ensureLabelUnitRegistered(labelName: string): void {
   if (registeredLabelUnits.has(labelName)) return
 
-  // A label colliding with an existing unit ('day, 'kg) would crash inside
+  // A label colliding with an existing unit (`day, `kg) would crash inside
   // mathjs with a raw "unit already exists" error — reject it legibly.
   if (tryParseUnit(labelName)) {
     throw new Error(
-      `Cannot use '${labelName} as a custom unit: "${labelName}" is already a unit`,
+      `Cannot use \`${labelName} as a custom unit: "${labelName}" is already a unit`,
     )
   }
 
@@ -602,7 +602,7 @@ export function ensureLabelUnitRegistered(labelName: string): void {
   registeredLabelUnits.add(labelName)
 }
 
-/** Whether `name` is a dynamically registered label unit ('beat-style custom). */
+/** Whether `name` is a dynamically registered label unit (`beat-style custom). */
 export function isLabelUnit(name: string): boolean {
   return registeredLabelUnits.has(name)
 }

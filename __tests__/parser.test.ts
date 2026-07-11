@@ -158,20 +158,20 @@ describe('Parser', () => {
 
     it('two ranges with custom unit cancellation', () => {
       // Same shape, but both sides have units that should cancel.
-      // Requires CompoundUnit to accept `'car` in its denominator.
-      const result = parse(`3 to 4 'car * 6 to 10 feet / 'car`)
+      // Requires CompoundUnit to accept a custom unit in its denominator.
+      const result = parse("3 to 4 `car * 6 to 10 feet / `car")
       expect(result?.isDistribution()).toBe(true)
     })
   })
 
   describe('CompoundUnit with custom units', () => {
-    it('parses `feet / \'car` (custom unit in denominator)', () => {
-      const result = parse(`10 feet / 'car`)
+    it('parses feet / `car (custom unit in denominator)', () => {
+      const result = parse("10 feet / `car")
       expect(result?.value).toBe(10)
     })
 
-    it(`parses 'car/'foo (custom units on both sides)`, () => {
-      const result = parse(`1 'car = 1 m\n1 'foo = 2 m\n5 'car/'foo`)
+    it('parses `car/`foo (custom units on both sides)', () => {
+      const result = parse("1 `car = 1 m\n1 `foo = 2 m\n5 `car/`foo")
       expect(result?.value).toBeCloseTo(5, 10)
     })
 
@@ -315,23 +315,23 @@ describe('Parser', () => {
   describe('Custom unit definitions', () => {
     it('defines and uses custom unit', () => {
       const evaluator = new Evaluator()
-      parse("1 'widget = 5 kg", evaluator)
-      const result = parse("10 'widget", evaluator)
+      parse("1 `widget = 5 kg", evaluator)
+      const result = parse("10 `widget", evaluator)
       expect(result?.value).toBeCloseTo(50, 1)
       expect(result?.unit.toString()).toBe('kg')
     })
 
     it('custom units work in expressions', () => {
       const evaluator = new Evaluator()
-      parse("1 'box = 2 meters", evaluator)
-      const result = parse("3 'box * 4", evaluator)
+      parse("1 `box = 2 meters", evaluator)
+      const result = parse("3 `box * 4", evaluator)
       expect(result?.value).toBeCloseTo(24, 1)
     })
 
     it('custom units persist across evaluations', () => {
       const evaluator = new Evaluator()
-      parse("1 'foo = 100", evaluator)
-      parse("x = 5 'foo", evaluator)
+      parse("1 `foo = 100", evaluator)
+      parse("x = 5 `foo", evaluator)
       const result = parse("x + 50", evaluator)
       expect(result?.mean()).toBeCloseTo(550, 0)
     })
@@ -427,40 +427,40 @@ describe('Parser', () => {
 
   describe('Undefined custom units (label units)', () => {
     it('works without prior definition', () => {
-      const result = parse("100 'points")
+      const result = parse("100 `points")
       expect(result?.value).toBe(100)
       expect(result?.unit.toString()).toBe('points')
     })
 
     it('supports addition of same label units', () => {
       const evaluator = new Evaluator()
-      const result = parse("100 'points + 50 'points", evaluator)
+      const result = parse("100 `points + 50 `points", evaluator)
       expect(result?.value).toBe(150)
       expect(result?.unit.toString()).toBe('points')
     })
 
     it('supports multiplication by scalar', () => {
       const evaluator = new Evaluator()
-      const result = parse("100 'points * 2", evaluator)
+      const result = parse("100 `points * 2", evaluator)
       expect(result?.value).toBe(200)
       expect(result?.unit.toString()).toBe('points')
     })
 
     it('supports division by scalar', () => {
       const evaluator = new Evaluator()
-      const result = parse("200 'points / 4", evaluator)
+      const result = parse("200 `points / 4", evaluator)
       expect(result?.value).toBe(50)
       expect(result?.unit.toString()).toBe('points')
     })
 
     it('throws for incompatible label units', () => {
       const evaluator = new Evaluator()
-      expect(() => parse("100 'apples + 50 'oranges", evaluator)).toThrow(/incompatible/)
+      expect(() => parse("100 `apples + 50 `oranges", evaluator)).toThrow(/incompatible/)
     })
 
     it('throws when mixing label units with standard units', () => {
       const evaluator = new Evaluator()
-      expect(() => parse("100 'points + 50 kg", evaluator)).toThrow(/incompatible/)
+      expect(() => parse("100 `points + 50 kg", evaluator)).toThrow(/incompatible/)
     })
   })
 })

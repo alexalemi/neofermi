@@ -171,24 +171,24 @@ describe('Unit system', () => {
   describe('Custom unit definitions', () => {
     it('defines and uses custom unit', () => {
       const evaluator = new Evaluator()
-      parse("1 'widget = 5 kg", evaluator)
-      const result = parse("10 'widget", evaluator)
+      parse("1 `widget = 5 kg", evaluator)
+      const result = parse("10 `widget", evaluator)
       expect(result?.value).toBeCloseTo(50)
       expect(result?.unit.toString()).toBe('kg')
     })
 
     it('custom units in expressions', () => {
       const evaluator = new Evaluator()
-      parse("1 'box = 2 meters", evaluator)
-      const result = parse("3 'box + 1 meters", evaluator)
+      parse("1 `box = 2 meters", evaluator)
+      const result = parse("3 `box + 1 meters", evaluator)
       expect(result?.value).toBeCloseTo(7)
     })
 
     it('custom unit persists', () => {
       const evaluator = new Evaluator()
-      parse("1 'foo = 100", evaluator)
-      parse("x = 3 'foo", evaluator)
-      parse("y = 2 'foo", evaluator)
+      parse("1 `foo = 100", evaluator)
+      parse("x = 3 `foo", evaluator)
+      parse("y = 2 `foo", evaluator)
       const result = parse("x + y", evaluator)
       expect(result?.mean()).toBeCloseTo(500)
     })
@@ -196,27 +196,27 @@ describe('Unit system', () => {
 
   describe('Label units (undefined custom)', () => {
     it('label unit without definition', () => {
-      const result = parse("100 'points")
+      const result = parse("100 `points")
       expect(result?.value).toBe(100)
       expect(result?.unit.toString()).toBe('points')
     })
 
     it('same label units can be added', () => {
-      const result = parse("100 'points + 50 'points")
+      const result = parse("100 `points + 50 `points")
       expect(result?.value).toBe(150)
     })
 
     it('label units can be multiplied by scalar', () => {
-      const result = parse("100 'points * 3")
+      const result = parse("100 `points * 3")
       expect(result?.value).toBe(300)
     })
 
     it('different label units cannot be added', () => {
-      expect(() => parse("100 'apples + 50 'oranges")).toThrow(/incompatible/)
+      expect(() => parse("100 `apples + 50 `oranges")).toThrow(/incompatible/)
     })
 
     it('label units cannot mix with standard units', () => {
-      expect(() => parse("100 'points + 50 kg")).toThrow(/incompatible/)
+      expect(() => parse("100 `points + 50 kg")).toThrow(/incompatible/)
     })
   })
 
@@ -424,33 +424,33 @@ describe('value-bearing units and micron aliases', () => {
 describe('custom label units (bare expression, alias cancellation, as SI)', () => {
   it('divides by a bare custom unit', () => {
     const ev = new Evaluator()
-    parse("x = 10 'beat", ev)
-    const result = parse("x / 'beat", ev)
+    parse("x = 10 `beat", ev)
+    const result = parse("x / `beat", ev)
     expect(result?.value).toBeCloseTo(10, 9)
     expect(result?.unit.toString()).toBe('')
   })
 
   it('multiplies by a bare custom unit', () => {
-    const result = parse("5 * 'beat")
+    const result = parse("5 * `beat")
     expect(result?.value).toBeCloseTo(5, 9)
     expect(result?.unit.toString()).toBe('beat')
   })
 
   it('bare custom unit respects a prior definition', () => {
     const ev = new Evaluator()
-    parse("1 'widget = 5 kg", ev)
+    parse("1 `widget = 5 kg", ev)
     parse('w = 30 kg', ev)
-    // Note: `30 kg / 'widget` (numeric literal on the left) is grabbed by the
+    // Note: `30 kg / `widget` (numeric literal on the left) is grabbed by the
     // compound-unit rule (kg/widget) instead — the bare-unit atom serves
     // expression contexts, like dividing a variable.
-    const result = parse("w / 'widget", ev)
+    const result = parse("w / `widget", ev)
     expect(result?.value).toBeCloseTo(6, 9)
     expect(result?.unit.toString()).toBe('')
   })
 
   it('cancels alias units (minutes vs minute) in products', () => {
     const ev = new Evaluator()
-    parse("r = 60 'beat / 1 minute", ev)
+    parse("r = 60 `beat / 1 minute", ev)
     const result = parse('r * 10 minutes', ev)
     expect(result?.value).toBeCloseTo(600, 9)
     expect(result?.unit.toString()).toBe('beat')
@@ -464,20 +464,20 @@ describe('custom label units (bare expression, alias cancellation, as SI)', () =
 
   it('as SI keeps label units and converts the standard part', () => {
     const ev = new Evaluator()
-    parse("r = 60 'beat / 1 minute", ev)
+    parse("r = 60 `beat / 1 minute", ev)
     const result = parse('r as SI', ev)
     expect(result?.value).toBeCloseTo(1, 9)
     expect(result?.unit.toString()).toMatch(/beat \/ s|beat \* s\^-1/)
   })
 
   it('as SI on a pure label unit is a no-op', () => {
-    const result = parse("600 'beat as SI")
+    const result = parse("600 `beat as SI")
     expect(result?.value).toBeCloseTo(600, 9)
     expect(result?.unit.toString()).toBe('beat')
   })
 
   it('as SI converts mixed custom/standard compounds', () => {
-    const result = parse("100 'beat * 1 km / 1 hr as SI")
+    const result = parse("100 `beat * 1 km / 1 hr as SI")
     expect(result?.value).toBeCloseTo(27.77, 1)
     expect(result?.unit.toString()).toContain('beat')
     expect(result?.unit.toString()).toContain('m')

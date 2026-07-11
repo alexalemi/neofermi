@@ -136,8 +136,8 @@ result = f(x, 5)
 ### Custom Units
 
 ```
-1 'widget = 5 kg
-10 'widget              # 50 kg
+1 `widget = 5 kg
+10 `widget              # 50 kg
 ```
 
 ## Keyboard Shortcuts (Web REPL)

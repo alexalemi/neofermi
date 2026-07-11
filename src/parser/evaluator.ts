@@ -143,11 +143,11 @@ export class Evaluator {
         return value
 
       case 'UnitDef':
-        // Define a custom unit: 1 'widget = 5 kg
+        // Define a custom unit: 1 `widget = 5 kg
         const unitValue = this.evaluate(node.value)
         if (!unitValue) {
           throw new EvaluationError(
-            `Internal error: the definition of unit '${node.unitName}' produced no value — please report this`
+            `Internal error: the definition of unit \`${node.unitName} produced no value — please report this`
           )
         }
         this.customUnits.set(node.unitName, unitValue)
@@ -764,15 +764,15 @@ export class Evaluator {
       return value.toSI()
     }
 
-    // Converting INTO a defined custom unit (`30 kg as 'widget` after
-    // `1 'widget = 5 kg`): divide by the definition and relabel.
+    // Converting INTO a defined custom unit (`30 kg as `widget` after
+    // `1 `widget = 5 kg`): divide by the definition and relabel.
     if (node.unit.custom && node.unit.name) {
       const customUnitDef = this.customUnits.get(node.unit.name)
       if (customUnitDef) {
         const ratio = value.divide(customUnitDef)
         if (ratio.unit.toString() !== '') {
           throw new EvaluationError(
-            `Cannot convert ${value.unit} to '${node.unit.name} (= ${customUnitDef.toString().trim()}): incompatible dimensions`,
+            `Cannot convert ${value.unit} to \`${node.unit.name} (= ${customUnitDef.toString().trim()}): incompatible dimensions`,
             (node as any).location
           )
         }
@@ -930,7 +930,7 @@ export class Evaluator {
       return new Quantity(scaledValue, node.unit.name)
     }
 
-    // Power-wrapped custom unit (`3 'widget^2`): expand a definition if one
+    // Power-wrapped custom unit (`3 `widget^2`): expand a definition if one
     // exists — falling through would silently treat it as a bare label.
     if (node.unit?.type === 'power' && node.unit.unit?.custom && node.unit.unit.name) {
       const customUnitDef = this.customUnits.get(node.unit.unit.name)
@@ -1031,7 +1031,7 @@ export class Evaluator {
           const suggestions = findSimilar(unitNode.name, getKnownUnitNames())
           const suggestionText = formatSuggestion(suggestions)
           throw new EvaluationError(
-            `Unknown unit: ${unitNode.name}${suggestionText || `. Use '${unitNode.name} for custom units.`}`
+            `Unknown unit: ${unitNode.name}${suggestionText || `. Use \`${unitNode.name} for custom units.`}`
           )
         }
       }

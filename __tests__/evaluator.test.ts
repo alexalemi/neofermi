@@ -323,7 +323,7 @@ describe('Evaluator', () => {
 
     it('weighted set with custom unit', () => {
       // 'days' conflicts with mathjs built-in, use a label unit instead
-      const result = parse("{365: 303, 366: 97} 'calendardays")
+      const result = parse("{365: 303, 366: 97} `calendardays")
       expect(result?.isDistribution()).toBe(true)
     })
   })
@@ -628,24 +628,24 @@ describe('Evaluator regressions (2026-06)', () => {
   describe('custom unit definitions', () => {
     it('expands in power position', () => {
       const evaluator = new Evaluator()
-      parse("1 'widget = 5 kg", evaluator)
-      const result = parse("3 'widget^2", evaluator)
+      parse("1 `widget = 5 kg", evaluator)
+      const result = parse("3 `widget^2", evaluator)
       expect(result?.value).toBe(75)
       expect(result?.unit.toString()).toBe('kg^2')
     })
 
     it('converts into a defined custom unit', () => {
       const evaluator = new Evaluator()
-      parse("1 'widget = 5 kg", evaluator)
-      const result = parse("30 kg as 'widget", evaluator)
+      parse("1 `widget = 5 kg", evaluator)
+      const result = parse("30 kg as `widget", evaluator)
       expect(result?.value).toBe(6)
       expect(result?.unit.toString()).toBe('widget')
     })
 
     it('rejects dimensionally incompatible custom conversions', () => {
       const evaluator = new Evaluator()
-      parse("1 'widget = 5 kg", evaluator)
-      expect(() => parse("30 m as 'widget", evaluator)).toThrow(/incompatible/)
+      parse("1 `widget = 5 kg", evaluator)
+      expect(() => parse("30 m as `widget", evaluator)).toThrow(/incompatible/)
     })
   })
 

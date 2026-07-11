@@ -70,7 +70,7 @@ export const SYNTAX_HELP: HelpSection[] = [
       { code: 'c, h, hbar, G, k', note: 'Physics constants' },
       { code: 'M_earth, R_earth', note: 'Earth' },
       { code: 'world_population', note: 'Demographics' },
-      { code: "1 'widget = 5 kg", note: 'Define a custom unit' },
+      { code: "1 `widget = 5 kg", note: 'Define a custom unit' },
       { code: '5 /day', note: 'Reciprocal unit (also: 5 per day)' },
     ],
   },

@@ -465,10 +465,10 @@ describe('Edge cases', () => {
 
     it('reset clears custom units', () => {
       const evaluator = new Evaluator()
-      parse("1 'widget = 5 kg", evaluator)
+      parse("1 `widget = 5 kg", evaluator)
       evaluator.reset()
-      // After reset, 'widget is just a label unit (not scaled to kg)
-      const result = parse("1 'widget", evaluator)
+      // After reset, `widget is just a label unit (not scaled to kg)
+      const result = parse("1 `widget", evaluator)
       expect(result?.value).toBe(1)
     })
 

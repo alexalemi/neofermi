@@ -56,7 +56,7 @@ function printUnit(unit: UnitNode): string {
     case 'power':
       return `${printUnit(unit.unit!)}^${unit.power}`
     default:
-      return unit.custom ? `'${unit.name}` : (unit.name ?? '')
+      return unit.custom ? `\`${unit.name}` : (unit.name ?? '')
   }
 }
 
@@ -76,7 +76,7 @@ function print(node: ASTNode, ctx: number, d: Decorate): string {
       return `${d('variable', node.name)} = ${print(node.value, PREC.statement, d)}`
 
     case 'UnitDef':
-      return `1 ${d('unit', `'${node.unitName}`)} = ${print(node.value, PREC.statement, d)}`
+      return `1 ${d('unit', `\`${node.unitName}`)} = ${print(node.value, PREC.statement, d)}`
 
     case 'FunctionDef':
       return `${d('variable', node.name)}(${node.params.map((p) => d('variable', p)).join(', ')}) = ${print(node.body, PREC.statement, d)}`

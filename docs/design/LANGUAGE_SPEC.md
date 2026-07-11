@@ -43,7 +43,7 @@ Primary     = Number UnitSuffix?
 UnitSuffix  = Unit
 
 Unit        = Identifier                    # built-in: meters, kg, seconds
-            | '\'' Identifier               # custom: 'pianos, 'widgets
+            | '\'' Identifier               # custom: 'pianos, `widgets
             | Unit '/' Unit                 # compound: kg/m^3
             | Unit ('^' | '**') Number      # power: m^2, m**2
 
@@ -129,7 +129,7 @@ The `to` operator creates a distribution between two values.
 **Custom units** (with tick `'`):
 ```
 50 'pianos
-1000 'widgets
+1000 `widgets
 7 'hot_dogs
 ```
 

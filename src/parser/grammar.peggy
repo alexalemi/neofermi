@@ -33,9 +33,9 @@ Statement
   / Assignment
   / Expression
 
-// Unit definition: 1 'widget = 5 kg (defines custom unit in terms of base units)
+// Unit definition: 1 `widget = 5 kg (defines custom unit in terms of base units)
 UnitDef
-  = "1" _ "'" unitName:IdentifierName _ "=" _ value:Expression {
+  = "1" _ "`" unitName:IdentifierName _ "=" _ value:Expression {
       return node('UnitDef', { unitName, value })
     }
 
@@ -131,7 +131,7 @@ Multiplicative
     }
 
 // Distribution operators: bind tighter than * / + - so that
-//   `3 to 4 'car * 6 to 10 feet/'car`  parses as (3 to 4 'car) * (6 to 10 feet/'car)
+//   `3 to 4 `car * 6 to 10 feet/`car`  parses as (3 to 4 `car) * (6 to 10 feet/`car)
 // and
 //   `3 to 4 * 6 to 10 feet`            parses as (3 to 4) * (6 to 10 feet)
 // Use parens for the old Additive-wide behavior: `(2 * 5) to (3 * 10)`.
@@ -198,9 +198,9 @@ Conversion
   / ("as" / "->") _ unit:Unit { return unit }
 
 // Primary expressions
-// A bare custom unit (`x / 'beat`) is an expression meaning 1 of that unit,
-// mirroring how bare built-in unit names resolve (`x / hour`). SigFigNumber
-// must be tried first: both start with `'`, but sig-figs require a digit.
+// A bare custom unit (x / `beat) is an expression meaning 1 of that unit,
+// mirroring how bare built-in unit names resolve (x / hour). Sig-figs use
+// the ' sigil ('3.14), custom units use ` — disjoint by design.
 Primary
   = DateLiteral
   / WeightedSet
@@ -208,6 +208,7 @@ Primary
   / unit:CustomUnitWithPower {
       return node('Number', { value: 1, scaleWord: null, unit })
     }
+  / LegacyCustomUnit
   / PercentTwiddle
   / Number
   / FunctionCall
@@ -376,21 +377,21 @@ SignedNumericLiteral
   = $("-"? NumericLiteral)
 
 // Units
-// Try CompoundUnit first so that `'car/'foo` doesn't prematurely match
-// the bare CustomUnit alternative and strand the `/'foo`.
+// Try CompoundUnit first so that ``car/`foo` doesn't prematurely match
+// the bare CustomUnit alternative and strand the `/`foo`.
 Unit
   = CompoundUnit
   / UnitWithPower
 
 CustomUnit
-  = "'" name:IdentifierName {
+  = "`" name:IdentifierName {
       return node('Unit', { name, custom: true })
     }
 
-// Compound unit like `feet/s` or `feet/'car`.
+// Compound unit like `feet/s` or `feet/`car`.
 //
 // Whitespace around `/` is only tolerated when the denominator is a
-// custom unit (`'car`). That's because `1 mm / R_sun` (where R_sun is
+// custom unit (``car`). That's because `1 mm / R_sun` (where R_sun is
 // a *variable* holding a Quantity) must remain a division — we can't
 // greedily absorb `mm / R_sun` into a compound unit.
 CompoundUnit
@@ -436,11 +437,20 @@ UnitWithPower
       return unit
     }
 
-// Atomic unit: either a bare identifier (`feet`) or a custom unit (`'car`).
-// Used inside UnitWithPower so that `feet/'car` and `'car^2` parse.
+// Atomic unit: either a bare identifier (`feet`) or a custom unit (``car`).
+// Used inside UnitWithPower so that `feet/`car` and ``car^2` parse.
 UnitCore
   = CustomUnit
   / SimpleUnit
+  / LegacyCustomUnit
+
+// Migration aid: the custom-unit sigil changed from ' to ` (the apostrophe
+// now exclusively means sig-fig numbers, '3.14). The apostrophe has no other
+// legal use before an identifier, so failing hard with a pointer is safe.
+LegacyCustomUnit
+  = "'" name:IdentifierName {
+      error("Custom units now use a backtick: `" + name + " (the ' sigil is reserved for sig-fig numbers like '3.14)")
+    }
 
 SimpleUnit
   // `!(_ "=" !"=")` keeps `x = 5 meter` from parsing the LHS `x` as a bare
