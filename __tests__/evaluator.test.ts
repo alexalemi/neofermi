@@ -485,6 +485,13 @@ describe('Evaluator', () => {
       const result = parse('1 km as SI')
       expect(result?.value).toBeCloseTo(1000)
     })
+
+    it('accepts spaced and per-style compound conversion targets', () => {
+      for (const target of ['km/hr', 'km / hr', 'km/ hr', 'km /hr', 'km per hr']) {
+        expect(parse(`1000 m/s as ${target}`)?.value).toBeCloseTo(3600)
+        expect(parse(`1000 m/s -> ${target}`)?.value).toBeCloseTo(3600)
+      }
+    })
   })
 
   describe('Operator precedence edge cases', () => {

@@ -195,7 +195,20 @@ Power
 
 Conversion
   = ("as" / "->") _ "SI" ![a-zA-Z0-9_] { return node('Unit', { name: 'SI', special: true }) }
-  / ("as" / "->") _ unit:Unit { return unit }
+  / ("as" / "->") _ unit:ConversionUnit { return unit }
+
+// A conversion target is always a unit, so unlike a value-attached unit it
+// can't be confused with division by a variable: allow `as km / hr` and
+// `as km per hr`, not just the tight `as km/hr`.
+ConversionUnit
+  = numerator:UnitWithPower _h ("/" / "per" ![a-zA-Z0-9_]) _h denominator:UnitWithPower {
+      return node('Unit', {
+        type: 'compound',
+        numerator,
+        denominator
+      })
+    }
+  / Unit
 
 // Primary expressions
 // A bare custom unit (x / `beat) is an expression meaning 1 of that unit,
