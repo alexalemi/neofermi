@@ -97,10 +97,11 @@ package: parser cli
 
 # Publish to npm (runs tests first). Publishes the tarball built by
 # `package` rather than the working tree, so what was packed is what ships.
-# Pass OTP=123456 if the npm account requires 2FA.
+# 2FA uses a security key via browser (--auth-type=web); run from a real
+# terminal, since without a TTY npm falls back to demanding an OTP.
 publish: test package
 	@echo "Publishing to npm..."
-	npm publish neofermi-$$(node -p "require('./package.json').version").tgz --access public $(if $(OTP),--otp=$(OTP))
+	npm publish neofermi-$$(node -p "require('./package.json').version").tgz --access public --auth-type=web
 
 # Help
 help:
