@@ -95,10 +95,12 @@ package: parser cli
 	bun pm pack
 	@echo "Package created: neofermi-$$(node -p "require('./package.json').version").tgz"
 
-# Publish to npm (runs tests first)
+# Publish to npm (runs tests first). Publishes the tarball built by
+# `package` rather than the working tree, so what was packed is what ships.
+# Pass OTP=123456 if the npm account requires 2FA.
 publish: test package
 	@echo "Publishing to npm..."
-	bun publish --access public
+	npm publish neofermi-$$(node -p "require('./package.json').version").tgz --access public $(if $(OTP),--otp=$(OTP))
 
 # Help
 help:
