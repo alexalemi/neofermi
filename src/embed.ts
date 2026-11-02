@@ -11,6 +11,7 @@
 
 import { parse, Evaluator, EvaluationError } from './parser/index.js'
 import type { Quantity } from './core/Quantity.js'
+import { displayUnit } from './core/unitUtils.js'
 import { runCell } from './core/runCell.js'
 import { createDotplotCanvas, calculateDotplotData } from './visualization/quantileDotplot.js'
 import { formatQuantityConcise } from './utils/format.js'
@@ -161,7 +162,7 @@ const pendingCanvases = new Map<string, HTMLCanvasElement>()
 
 /** A dotplot canvas for a distribution Quantity, sized for embed/REPL output. */
 function dotplotCanvas(q: Quantity): HTMLCanvasElement {
-  return createDotplotCanvas(q.toParticles(), q.unit.toString(), {
+  return createDotplotCanvas(q.toParticles(), displayUnit(q.unit), {
     width: 280, height: 90, numDots: 20, dotRadius: 5, padding: 25,
   })
 }

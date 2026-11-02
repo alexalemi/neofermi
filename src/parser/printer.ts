@@ -160,7 +160,9 @@ function print(node: ASTNode, ctx: number, d: Decorate): string {
 
     case 'Conversion':
       return paren(
-        `${print(node.value, PREC.conversion, d)} as ${d('unit', printUnit(node.unit))}`,
+        `${print(node.value, PREC.conversion, d)} as ${
+          node.unit ? d('unit', printUnit(node.unit)) : print(node.target!, PREC.multiplicative, d)
+        }`,
         PREC.conversion
       )
 

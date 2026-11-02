@@ -48,6 +48,8 @@ export const SYNTAX_HELP: HelpSection[] = [
       { code: '98.6 degF as degC', note: 'Affine temperature' },
       { code: '1 feet / 1 mm as feet/mm', note: 'Keep ratio in compound form' },
       { code: '100 miles as SI', note: 'Convert to SI base units' },
+      { code: '3e9 USD as billion', note: 'Express in a scale word' },
+      { code: '10 liters as 4 gallons', note: 'Express in multiples of any fixed quantity' },
     ],
   },
   {

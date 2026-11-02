@@ -2,6 +2,7 @@
  * Shared number & quantity formatting for all NeoFermi consumers
  */
 import type { Quantity } from '../core/Quantity.js'
+import { displayUnit } from '../core/unitUtils.js'
 
 /**
  * Format a number for display with appropriate precision (exact scalars).
@@ -80,7 +81,7 @@ export function formatQuantityConcise(
   const p = opts?.classPrefix ?? 'nf'
   const decorate = (!html && opts?.decorate) || ((_part: FormatPart, text: string) => text)
 
-  const unit = q.unit.toString()
+  const unit = displayUnit(q.unit)
   const dimName = q.dimensionName?.() || null
   const hasDim = dimName && dimName !== 'dimensionless'
   const dimSuffix = !hasDim

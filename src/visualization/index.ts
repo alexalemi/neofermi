@@ -23,6 +23,7 @@ export {
 } from './histogram.js'
 
 import { Quantity } from '../core/Quantity.js'
+import { displayUnit } from '../core/unitUtils.js'
 import { createDotplotCanvas, DotplotOptions, calculateDotplotData } from './quantileDotplot.js'
 import { createHistogramCanvas, HistogramOptions } from './histogram.js'
 
@@ -49,7 +50,7 @@ export interface VizData {
  */
 export function getVizData(q: Quantity): VizData {
   const samples = q.toParticles()
-  const unitStr = q.unit.toString()
+  const unitStr = displayUnit(q.unit)
   const data = calculateDotplotData(samples, 20, unitStr)
   const hist = calculateDotplotData(samples, 200, unitStr)
   return {
@@ -78,7 +79,7 @@ export function visualize(
   }
 
   const samples = quantity.value as number[]
-  const unit = quantity.unit.toString()
+  const unit = displayUnit(quantity.unit)
 
   // Build axis label with unit and dimension name
   const dimName = quantity.dimensionName ? quantity.dimensionName() : null

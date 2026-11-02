@@ -617,3 +617,53 @@ export function getKnownUnitNames(): string[] {
   const builtin = Object.keys((Unit as unknown as { UNITS: Record<string, unknown> }).UNITS)
   return [...new Set([...Object.keys(UNIT_ALIASES), ...builtin])]
 }
+
+/**
+ * Ad-hoc units from quantity conversion targets (`10 L as 4 gallons`,
+ * `3e9 USD as billion USD`). Each is a REAL derived mathjs unit — defined
+ * like `fortnight = 336 hour` — so results keep their dimensions and
+ * convert back (`(10 L as 4 gal) as L` → 10 L). mathjs names must be
+ * alphanumeric, so the unit gets a mangled name and its source text is
+ * substituted back in at display time via `displayUnit`.
+ */
+const ADHOC_PREFIX = 'nfadhoc'
+const adhocByKey = new Map<string, string>()
+const adhocLabels = new Map<string, string>()
+
+/**
+ * Register (or reuse) the ad-hoc unit `definition` (a mathjs unit string like
+ * `4 gal` or `1000000000`) displayed as `label`. Returns its mathjs name.
+ */
+export function ensureAdhocUnit(definition: string, label: string): string {
+  const key = `${label}\u0000${definition}`
+  const existing = adhocByKey.get(key)
+  if (existing) return existing
+  const name = `${ADHOC_PREFIX}${adhocByKey.size + 1}`
+  mathjsCreateUnit(name, { definition })
+  adhocByKey.set(key, name)
+  adhocLabels.set(name, label)
+  return name
+}
+
+const ADHOC_NAME_RE = new RegExp(`\\b${ADHOC_PREFIX}\\d+\\b`, 'g')
+
+/**
+ * A unit string for display: ad-hoc unit names are replaced by their source
+ * labels. A label that would read ambiguously next to the value or other
+ * units — one containing a number (`4 gallons`, `tank / 2`) or with spaces
+ * inside a compound — is parenthesized: `0.66 (4 gallons)`, `3 billion USD`.
+ */
+export function displayUnit(u: Unit | string): string {
+  const str = typeof u === 'string' ? u : u.toString()
+  if (!str.includes(ADHOC_PREFIX)) return str
+  return str.replace(ADHOC_NAME_RE, (name) => {
+    const label = adhocLabels.get(name)
+    if (!label) return name
+    const alone = str.trim() === name
+    // A digit anywhere means a number sits in the label (`4 gallons`,
+    // `tank / 2`), which would read as part of the value — `1.32 tank / 2`.
+    const isWrapped = /^\(.*\)$/.test(label)
+    const needsParens = !isWrapped && (/\d/.test(label) || (!alone && /\s/.test(label)))
+    return needsParens ? `(${label})` : label
+  })
+}

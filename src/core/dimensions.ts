@@ -9,6 +9,7 @@
  */
 
 import { Unit } from 'mathjs'
+import { displayUnit } from './unitUtils.js'
 
 interface DimensionInfo {
   name: string
@@ -121,7 +122,7 @@ export function getDimensionName(unit: Unit): string | null {
  * e.g., "m^3" -> "m^3 {volume}"
  */
 export function formatUnitWithDimension(unit: Unit): string {
-  const unitStr = unit.toString()
+  const unitStr = displayUnit(unit)
   const dimName = getDimensionName(unit)
 
   if (dimName && dimName !== 'dimensionless') {

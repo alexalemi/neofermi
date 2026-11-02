@@ -9,7 +9,13 @@ import { Quantity } from '../core/Quantity.js'
 import * as distributions from '../distributions/index.js'
 import * as mathFunctions from '../functions/index.js'
 import * as physicalConstants from '../constants/index.js'
-import { createUnit, getKnownUnitNames, ensureLabelUnitRegistered } from '../core/unitUtils.js'
+import {
+  createUnit,
+  getKnownUnitNames,
+  ensureLabelUnitRegistered,
+  ensureAdhocUnit,
+  displayUnit,
+} from '../core/unitUtils.js'
 import { SCALE_WORDS } from '../core/scaleWords.js'
 import { findSimilar, formatSuggestion } from './suggestions.js'
 import { parseSigFigs } from '../core/sigfigs.js'
@@ -308,7 +314,7 @@ export class Evaluator {
     // 5 vs 0.5, not 5 vs 50. (toParticles() returns raw stored values.)
     if (!left.unit.equalBase(right.unit)) {
       throw new EvaluationError(
-        `Cannot compare quantities with incompatible units: ${left.unit} and ${right.unit}`
+        `Cannot compare quantities with incompatible units: ${displayUnit(left.unit)} and ${displayUnit(right.unit)}`
       )
     }
     const leftUnitStr = left.unit.toString()
@@ -442,7 +448,7 @@ export class Evaluator {
     if (thenUnitStr !== '' && elseUnitStr !== '') {
       if (!thenResult.unit.equalBase(elseResult.unit)) {
         throw new EvaluationError(
-          `Cannot combine if-branches with incompatible units: ${thenResult.unit} and ${elseResult.unit}`
+          `Cannot combine if-branches with incompatible units: ${displayUnit(thenResult.unit)} and ${displayUnit(elseResult.unit)}`
         )
       }
       if (elseUnitStr !== thenUnitStr) elseResult = elseResult.to(thenUnitStr)
@@ -759,6 +765,10 @@ export class Evaluator {
       )
     }
 
+    if (!node.unit) {
+      return this.convertToQuantity(value, node.target!, node.label ?? '', (node as any).location)
+    }
+
     // Handle special SI conversion
     if (node.unit.special && node.unit.name === 'SI') {
       return value.toSI()
@@ -781,8 +791,83 @@ export class Evaluator {
       }
     }
 
+    // `as tank` where `tank` names a variable rather than a unit: treat it
+    // as a quantity target. Real units still win over same-named variables.
+    const u = node.unit
+    if (u.name && !u.custom && !u.numerator && !u.unit && !u.denominator) {
+      const localScope = this.localScopes[this.localScopes.length - 1]
+      if ((localScope?.has(u.name) || this.variables.has(u.name)) && !this.isKnownUnit(u.name)) {
+        const ident = { type: 'Identifier', name: u.name } as ASTNode
+        return this.convertToQuantity(value, ident, u.name, (node as any).location)
+      }
+    }
+
     const targetUnit = this.evaluateUnit(node.unit)
     return value.to(targetUnit)
+  }
+
+  private isKnownUnit(name: string): boolean {
+    try {
+      createUnit(1, name)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * `value as <quantity>`: express `value` in multiples of a fixed quantity
+   * (`10 L as 4 gallons`, `3e9 USD as billion USD`, `3e9 USD as billion`).
+   * The target becomes an ad-hoc derived unit labeled with its source text.
+   */
+  private convertToQuantity(
+    value: Quantity,
+    targetNode: ASTNode,
+    label: string,
+    location?: SourceLocation
+  ): Quantity {
+    const target = this.evaluate(targetNode)
+    if (!target) {
+      throw new EvaluationError(`Conversion target "${label}" produced no value`, location)
+    }
+    if (target.isDistribution()) {
+      throw new EvaluationError(
+        `Cannot convert to "${label}": a conversion target must be a fixed quantity, not a distribution`,
+        location
+      )
+    }
+    const factor = target.value as number
+    if (!Number.isFinite(factor) || factor === 0) {
+      throw new EvaluationError(
+        `Cannot convert to "${label}": it evaluates to ${factor}`,
+        location
+      )
+    }
+
+    const targetUnit = target.unit.toString()
+
+    // Dimensionless target (`as billion`, `as dozen thousand`): rescale the
+    // value and keep its own units alongside — `3e9 USD as billion` → 3 billion USD.
+    if (targetUnit === '') {
+      const name = ensureAdhocUnit(String(factor), label)
+      const particles = value.toParticles()
+      const scaled = particles.length === 1 ? particles[0] / factor : particles.map((x) => x / factor)
+      const valueUnit = value.unit.toString()
+      return new Quantity(scaled, valueUnit ? `${name} ${valueUnit}` : name)
+    }
+
+    if (!value.unit.equalBase(target.unit)) {
+      throw new EvaluationError(
+        `Cannot convert ${displayUnit(value.unit) || 'a dimensionless value'} to ${label}: incompatible dimensions`,
+        location
+      )
+    }
+
+    // A pure unit spelled as an expression (`as km/hr/s`, `as 1 gallon`)
+    // needs no ad-hoc unit — convert normally so the result keeps real names.
+    if (factor === 1) return value.to(targetUnit)
+
+    return value.to(ensureAdhocUnit(`${factor} ${targetUnit}`, label))
   }
 
   private evaluateFunctionCall(node: ASTNode & { type: 'FunctionCall' }): Quantity {

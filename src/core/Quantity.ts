@@ -8,7 +8,7 @@
 
 import { unit, Unit } from 'mathjs'
 import { getDimensionName, formatUnitWithDimension } from './dimensions.js'
-import { normalizeUnit, normalizeUnitWithScale, isLabelUnit } from './unitUtils.js'
+import { normalizeUnit, normalizeUnitWithScale, isLabelUnit, displayUnit } from './unitUtils.js'
 
 export type Value = number | number[]
 
@@ -311,7 +311,7 @@ export class Quantity {
   ): Quantity {
     if (!this.unit.equalBase(other.unit)) {
       throw new Error(
-        `Cannot ${opName} quantities with incompatible units: ${this.unit} and ${other.unit}`,
+        `Cannot ${opName} quantities with incompatible units: ${displayUnit(this.unit)} and ${displayUnit(other.unit)}`,
       )
     }
 
@@ -460,7 +460,7 @@ export class Quantity {
 
     // Check if conversion is possible
     if (!this.unit.equalBase(targetUnitObj)) {
-      throw new Error(`Cannot convert ${this.unit} to ${targetUnit}: incompatible dimensions`)
+      throw new Error(`Cannot convert ${displayUnit(this.unit)} to ${displayUnit(targetUnit)}: incompatible dimensions`)
     }
 
     const aParticles = this.toParticles()
@@ -588,13 +588,13 @@ export class Quantity {
 
   toString(): string {
     if (this.isScalar()) {
-      return `${this.value} ${this.unit.toString()}`
+      return `${this.value} ${displayUnit(this.unit)}`
     }
 
     // For distributions, show summary statistics with 68% CI (1 sigma)
     const mean = this.mean()
     const p16 = this.percentile(0.16)
     const p84 = this.percentile(0.84)
-    return `${mean.toExponential(2)} [${p16.toExponential(2)}, ${p84.toExponential(2)}] ${this.unit.toString()}`
+    return `${mean.toExponential(2)} [${p16.toExponential(2)}, ${p84.toExponential(2)}] ${displayUnit(this.unit)}`
   }
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { parse, Evaluator } from '../src/parser/index.js'
 import { Quantity } from '../src/core/Quantity.js'
+import { formatQuantityConcise } from '../src/utils/format.js'
 
 describe('Unit system', () => {
   describe('Basic unit conversions', () => {
@@ -486,5 +487,72 @@ describe('custom label units (bare expression, alias cancellation, as SI)', () =
   it("sig-fig numbers still parse ('3.14 is not a custom unit)", () => {
     const result = parse("'3.14 m")
     expect(result?.median()).toBeCloseTo(3.14, 2)
+  })
+})
+
+describe('Conversion to arbitrary quantities (`as 4 gallons`)', () => {
+  const fmt = (src: string, ev = new Evaluator()) => {
+    const q = parse(src, ev)!
+    return { q, text: formatQuantityConcise(q) }
+  }
+
+  it('bare scale word: 3e9 as billion', () => {
+    const { q, text } = fmt('3e9 as billion')
+    expect(q.value).toBeCloseTo(3)
+    expect(text).toBe('3.00 billion')
+  })
+
+  it('scale word keeps the value units: 3e9 USD as billion', () => {
+    expect(fmt('3e9 USD as billion').text).toBe('3.00 billion USD')
+  })
+
+  it('scaled unit target: 3e9 USD as billion USD', () => {
+    expect(fmt('3e9 USD as billion USD').text).toBe('3.00 billion USD')
+  })
+
+  it('scaled compound unit reads `/ year` as a unit, not the year variable', () => {
+    const { q } = fmt('5e9 USD / (365 day) as billion USD / year')
+    expect(q.isDistribution()).toBe(false)
+    expect(q.value).toBeCloseTo(5 * 365.2425 / 365, 3)
+  })
+
+  it('numeric multiple of a unit: 10 L as 4 gallons', () => {
+    const { q, text } = fmt('10 liters as 4 gallons')
+    expect(q.value).toBeCloseTo(10 / (4 * 3.785411784))
+    expect(text).toBe('0.660 (4 gallons) {volume}')
+  })
+
+  it('ad-hoc units are real units: they convert back', () => {
+    expect(fmt('(10 liters as 4 gallons) as liters').q.value).toBeCloseTo(10)
+  })
+
+  it('variable targets, bare or as expressions', () => {
+    const ev = new Evaluator()
+    parse('tank = 4 gallons', ev)
+    expect(fmt('10 L as tank', ev).text).toBe('0.660 tank {volume}')
+    expect(fmt('10 L as tank / 2', ev).text).toBe('1.32 (tank / 2) {volume}')
+  })
+
+  it('real units still win over same-named variables', () => {
+    const ev = new Evaluator()
+    parse('m = 5', ev)
+    expect(parse('3 km as m', ev)?.value).toBeCloseTo(3000)
+  })
+
+  it('a unit-valued expression converts normally: as m/s/s', () => {
+    const q = parse('9.8 N / kg as m/s/s')!
+    expect(q.value).toBeCloseTo(9.8)
+  })
+
+  it('rejects incompatible dimensions, distributions, and zero', () => {
+    expect(() => parse('1 kg as 4 gallons')).toThrow(/incompatible dimensions/)
+    expect(() => parse('1 m as (2 to 3) ft')).toThrow(/fixed quantity/)
+    expect(() => parse('1 m as 0 ft')).toThrow(/evaluates to 0/)
+  })
+
+  it('plain unit conversions are unchanged', () => {
+    expect(parse('100 km/hr as km per hr')?.value).toBeCloseTo(100)
+    expect(parse('20 degC as degF')?.value).toBeCloseTo(68)
+    expect(parse('3 ft as SI')?.value).toBeCloseTo(0.9144)
   })
 })

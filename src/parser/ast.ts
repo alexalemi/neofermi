@@ -140,10 +140,14 @@ export interface DbTwiddleNode {
   value: number
 }
 
+// Exactly one of `unit` (a plain unit target: `as km/hr`) or `target` (an
+// arbitrary quantity: `as 4 gallons`, labeled with its source text) is set.
 export interface ConversionNode {
   type: 'Conversion'
   value: ASTNode
-  unit: UnitNode
+  unit?: UnitNode
+  target?: ASTNode
+  label?: string
 }
 
 export interface FunctionCallNode {

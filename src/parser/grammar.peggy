@@ -69,7 +69,7 @@ Expression
 ConversionExpr
   = value:Additive conversions:(_h Conversion)* {
       return conversions.reduce((val, [, conv]) => {
-        return node('Conversion', { value: val, unit: conv })
+        return node('Conversion', { value: val, ...conv })
       }, value)
     }
 
@@ -193,9 +193,37 @@ Power
       return node('BinaryOp', { op: '^', left: base, right: tail[3] })
     }
 
+// A conversion target is either a plain unit (`as km / hr`, `as degF`) —
+// converted with unit semantics, affine offsets included — or an arbitrary
+// quantity (`as 4 gallons`, `as billion USD`, `as (tank / 2)`), which
+// becomes an ad-hoc derived unit labeled with its source text.
+//
+// The unit form must not win just a prefix of a quantity target: PEG commits
+// to the first alternative that matches, so `as billion USD` would read
+// `billion` as a unit and then choke on `USD`. Hence the leading !ScaleWord
+// and the trailing !ConversionTargetContinues guards.
 Conversion
-  = ("as" / "->") _ "SI" ![a-zA-Z0-9_] { return node('Unit', { name: 'SI', special: true }) }
-  / ("as" / "->") _ unit:ConversionUnit { return unit }
+  = ("as" / "->") _ "SI" ![a-zA-Z0-9_] { return { unit: node('Unit', { name: 'SI', special: true }) } }
+  / ("as" / "->") _ !ScaleWord unit:ConversionUnit !ConversionTargetContinues { return { unit } }
+  / ("as" / "->") _ target:ConversionTarget { return target }
+
+ConversionTargetContinues
+  = _h ([*/^(0-9`] / !ReservedWord [a-zA-Z_])
+
+// Quantity targets. The literal form (`4 gallons per km`, `billion USD / year`)
+// comes first so its unit part reads with unit semantics: in a general
+// expression `/ year` would divide by the identifier `year` (a distribution).
+ConversionTarget
+  = target:ConversionQuantityLiteral !ConversionTargetContinues { return { target, label: text().trim() } }
+  / target:Multiplicative { return { target, label: text().trim() } }
+
+ConversionQuantityLiteral
+  = value:NumericLiteral _h scale:ScaleWord? _h unit:ConversionUnit {
+      return node('Number', { value: parseFloat(value), scaleWord: scale, unit })
+    }
+  / scale:ScaleWord _h unit:ConversionUnit {
+      return node('Number', { value: 1, scaleWord: scale, unit })
+    }
 
 // A conversion target is always a unit, so unlike a value-attached unit it
 // can't be confused with division by a variable: allow `as km / hr` and
@@ -225,6 +253,7 @@ Primary
   / PercentTwiddle
   / Number
   / FunctionCall
+  / ScaledUnit
   / Identifier
   / "(" _ expr:Expression _ ")" scale:(_no_newline ScaleWord)? unit:(_no_newline SuffixUnit)? {
       // `(5 + 3) m` attaches the unit by multiplying with `1 m`, mirroring
@@ -345,6 +374,14 @@ Number
         scaleWord: scale ? scale[1] : null,
         unit: unit ? unit[1] : null
       })
+    }
+
+// A scale word with a unit but no number: `billion USD` means 1 billion USD.
+// The unit is required — a bare `billion` stays an Identifier (which resolves
+// to 1e9 via the evaluator's scale-word fallback, after user variables).
+ScaledUnit
+  = scale:ScaleWord _no_newline unit:SuffixUnit {
+      return node('Number', { value: 1, scaleWord: scale, unit })
     }
 
 // Keep in sync with LONG_SCALE_WORDS in src/core/scaleWords.ts.
