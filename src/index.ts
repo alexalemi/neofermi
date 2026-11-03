@@ -92,7 +92,7 @@ export {
   M_mercury, M_venus, M_mars, M_jupiter, M_saturn, M_uranus, M_neptune,
   R_mercury, R_venus, R_mars, R_jupiter, R_saturn, R_uranus, R_neptune,
   // Time
-  year, yr, month, day, hour, hr, minute, min, week,
+  calendar_year, calendar_month,
   seconds_per_year, seconds_per_day, days_per_year,
   // Population & Geography
   world_population, us_population, earth_surface_area,

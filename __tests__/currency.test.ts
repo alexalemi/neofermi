@@ -77,12 +77,18 @@ describe('Scale words', () => {
     expect(parse('1 septillion')?.value).toBeCloseTo(1e24)
   })
 
-  it('short-form K/M/B/T work via back-compat identifier path', () => {
-    // Short forms require whitespace: no-space `5K` parses as two statements.
-    expect(parse('5 K')?.value).toBeCloseTo(5e3)
+  it('short forms are k and M only; capital K/B/T are units', () => {
+    expect(parse('5 k')?.value).toBeCloseTo(5e3)
     expect(parse('5 M')?.value).toBeCloseTo(5e6)
-    expect(parse('5 B')?.value).toBeCloseTo(5e9)
-    expect(parse('5 T')?.value).toBeCloseTo(5e12)
+    expect(parse('300 K')?.unit.toString()).toBe('K')
+    expect(parse('300 K as degC')?.value).toBeCloseTo(26.85)
+    expect(parse('5 B')?.unit.toString()).toBe('byte')
+    expect(parse('2 T')?.unit.toString()).toBe('T')
+  })
+
+  it('SI prefixes scale currencies', () => {
+    expect(parse('5 kUSD as USD')?.value).toBeCloseTo(5e3)
+    expect(parse('2 GUSD as USD')?.value).toBeCloseTo(2e9)
   })
 
   it('grammar ScaleWord rule covers every LONG_SCALE_WORDS key', () => {

@@ -40,19 +40,58 @@ export function weighted(
   if (values.length !== weights.length) {
     throw new Error('Values and weights arrays must have the same length')
   }
+  const picks = sampleIndices(weights, n)
+  return new Quantity(picks.map((k) => values[k]), unitString)
+}
+
+/**
+ * Mixture distribution: each sample comes from one component, chosen by
+ * weight — `{0: 0.9, 1 to 10: 0.1}` is "90% zero, else 1 to 10".
+ *
+ * Components are scalars or particle arrays, all already in `unitString`.
+ * Sample i of an array component is its particle i, so the mixture stays
+ * index-aligned with its inputs and correlations through shared variables
+ * survive.
+ */
+export function mixture(
+  components: Array<number | number[]>,
+  weights: number[],
+  unitString?: string,
+  n: number = DEFAULT_SAMPLE_COUNT
+): Quantity {
+  if (components.length === 0) {
+    throw new Error('A mixture needs at least one component')
+  }
+  if (components.length !== weights.length) {
+    throw new Error('Components and weights arrays must have the same length')
+  }
+  for (const c of components) {
+    if (Array.isArray(c) && c.length !== n) {
+      throw new Error(`Mixture components must have ${n} samples, got ${c.length}`)
+    }
+  }
+  const picks = sampleIndices(weights, n)
+  return new Quantity(
+    picks.map((k, i) => {
+      const c = components[k]
+      return typeof c === 'number' ? c : c[i]
+    }),
+    unitString
+  )
+}
+
+/** Draw `n` component indices with probability proportional to `weights`. */
+function sampleIndices(weights: number[], n: number): number[] {
   // Negated so NaN weights are rejected too — a NaN poisons the CDF and the
-  // binary search would then silently return values[0] for every sample.
+  // binary search would then silently return index 0 for every sample.
   if (!weights.every((w) => Number.isFinite(w) && w >= 0)) {
     throw new Error('Weights must be finite and non-negative')
   }
-
-  // Normalize weights to create cumulative distribution
   const totalWeight = weights.reduce((a, b) => a + b, 0)
   if (!(totalWeight > 0) || !Number.isFinite(totalWeight)) {
     throw new Error('Total weight must be positive and finite')
   }
 
-  // Create cumulative distribution function
   const cdf: number[] = []
   let cumulative = 0
   for (const w of weights) {
@@ -60,11 +99,9 @@ export function weighted(
     cdf.push(cumulative)
   }
 
-  // Sample from distribution
-  const samples: number[] = new Array(n)
+  const picks: number[] = new Array(n)
   for (let i = 0; i < n; i++) {
     const r = Math.random()
-    // Binary search for the bucket
     let lo = 0
     let hi = cdf.length - 1
     while (lo < hi) {
@@ -75,8 +112,7 @@ export function weighted(
         hi = mid
       }
     }
-    samples[i] = values[lo]
+    picks[i] = lo
   }
-
-  return new Quantity(samples, unitString)
+  return picks
 }

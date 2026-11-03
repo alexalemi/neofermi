@@ -328,6 +328,16 @@
       font-weight: 500;
     }
 
+    .nf-report {
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.35;
+      margin: 6px 0 0;
+      white-space: pre;
+      overflow-x: auto;
+      opacity: 0.85;
+    }
+
     .nf-ci {
       color: #656d76;
       font-size: 0.9em;
@@ -883,6 +893,12 @@ Escape               # Unfocus cell</pre>
             stats.className = 'result-stats'
             stats.innerHTML = formatQuantityConcise(q, { html: true })
             output.appendChild(stats)
+            if (cell.report) {
+              const report = document.createElement('pre')
+              report.className = 'nf-report'
+              report.textContent = cell.report
+              output.appendChild(report)
+            }
 
             // Visualize in display units so the axis agrees with the stat
             // line above it (toSI here plotted `10 to 100 km` as 10000-100000
@@ -929,6 +945,7 @@ Escape               # Unfocus cell</pre>
         const r = runCell(cell.code, evaluator)
         cell.result = r.quantity
         cell.error = r.error
+        cell.report = r.report
 
         // History bindings, mirroring the CLI REPL: `_` is the most recent
         // result, `_N` the result of cell N (1-based). Run All resets the

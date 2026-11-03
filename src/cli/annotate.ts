@@ -83,7 +83,8 @@ function annotateUnseeded(source: string): AnnotateResult {
     if (result.error) {
       warnings.push(`code block ending at line ${i}: ${result.error}`)
     } else if (result.inlineOutput) {
-      out.push('', RESULT_START, `> \`${result.inlineOutput}\``, RESULT_END)
+      const report = result.report ? ['', '```', result.report, '```'] : []
+      out.push('', RESULT_START, `> \`${result.inlineOutput}\``, ...report, RESULT_END)
       blockCount++
     }
   }

@@ -20,6 +20,8 @@ export interface CellResult {
   quantity: Quantity | null
   /** Dotplot data when the result is a distribution, else `null`. */
   vizData: VizData | null
+  /** Plain-text report produced alongside the value (`sensitivity(x)`), else `null`. */
+  report: string | null
 }
 
 const EMPTY: CellResult = {
@@ -28,6 +30,7 @@ const EMPTY: CellResult = {
   error: null,
   quantity: null,
   vizData: null,
+  report: null,
 }
 
 /**
@@ -45,9 +48,12 @@ export function runCell(
   opts: { requireValue?: boolean } = {},
 ): CellResult {
   let value: Quantity | null
+  let report: string | null = null
   try {
     value = parse(code, evaluator)
+    report = evaluator.takeReport()
   } catch (err) {
+    evaluator.takeReport()
     // No "Error: " prefix here — surfaces add their own label, and a
     // built-in prefix produced "Error: Error: ..." doubling.
     return { ...EMPTY, error: (err as Error).message }
@@ -65,5 +71,6 @@ export function runCell(
     error: null,
     quantity: value,
     vizData: value.isDistribution() ? getVizData(value) : null,
+    report,
   }
 }

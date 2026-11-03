@@ -50,6 +50,15 @@ function injectStyles(): void {
   font-style: italic;
   font-size: 0.9em;
 }
+.nf-embed-report {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 6px 0 0;
+  white-space: pre;
+  overflow-x: auto;
+  color: #656d76;
+}
 .nf-embed-error {
   background: rgba(207, 34, 46, 0.08);
   color: #cf222e;
@@ -181,6 +190,7 @@ function evaluateBlock(
     resultHtml += `<div class="nf-embed-viz" id="${vizId}"></div>`
     pendingCanvases.set(vizId, dotplotCanvas(r.quantity))
   }
+  if (r.report) resultHtml += `<pre class="nf-embed-report">${escapeHtml(r.report)}</pre>`
   return { html: resultHtml + '</div>' }
 }
 
@@ -272,6 +282,12 @@ function createRepl(evaluator: Evaluator): void {
         resultLine.className = 'repl-result'
         resultLine.innerHTML = formatQuantityConcise(r.quantity, { html: true, classPrefix: 'nf-embed' })
         if (r.quantity.isDistribution()) resultLine.appendChild(dotplotCanvas(r.quantity))
+        if (r.report) {
+          const report = document.createElement('pre')
+          report.className = 'nf-embed-report'
+          report.textContent = r.report
+          resultLine.appendChild(report)
+        }
         output.appendChild(resultLine)
       }
 

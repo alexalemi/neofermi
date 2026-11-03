@@ -37,7 +37,8 @@ export const DISTRIBUTION_FUNCTIONS: Completion[] = [
   { label: 'outof', type: 'function', signature: 'outof(successes, total)', description: 'Beta distribution from success rate' },
   { label: 'gamma', type: 'function', signature: 'gamma(shape, scale, unit?)', description: 'Gamma distribution' },
   { label: 'plusminus', type: 'function', signature: 'plusminus(center, error, unit?)', description: 'Normal distribution from center ± error' },
-  { label: 'percent', type: 'function', signature: 'percent(pct)', description: 'Multiplicative error (e.g., ±10%)' },
+  { label: 'percent', type: 'function', signature: 'percent(pct)', description: 'Multiplicative noise factor, ±pct% (5% alone is just 0.05)' },
+  { label: 'sensitivity', type: 'function', signature: 'sensitivity(x)', description: 'Show which inputs drive the spread of x' },
   { label: 'db', type: 'function', signature: 'db(decibels)', description: 'Precision in decibels (higher = more precise)' },
   { label: 'poisson', type: 'function', signature: 'poisson(lambda)', description: 'Poisson distribution (count of rare events)' },
   { label: 'exponential', type: 'function', signature: 'exponential(rate)', description: 'Exponential distribution (waiting time)' },
@@ -87,6 +88,7 @@ export const MATH_FUNCTIONS: Completion[] = [
   { label: 'clamp', type: 'function', signature: 'clamp(x, min, max)', description: 'Clamp value to range' },
   // Distribution summaries
   { label: 'mean', type: 'function', signature: 'mean(dist)', description: 'Mean of a distribution' },
+  { label: 'p50', type: 'function', signature: 'p50(dist)', description: 'Median (50th percentile)' },
   { label: 'std', type: 'function', signature: 'std(dist)', description: 'Standard deviation of a distribution' },
   { label: 'median', type: 'function', signature: 'median(dist)', description: 'Median (50th percentile)' },
   { label: 'quantile', type: 'function', signature: 'quantile(dist, p)', description: 'p-th quantile (p in 0..1)' },
@@ -156,15 +158,8 @@ export const CONSTANTS: Completion[] = [
   { label: 'L_sun', type: 'constant', description: 'Solar luminosity (alias)' },
   { label: 'solar_constant', type: 'constant', description: 'Solar constant at Earth' },
   // Time
-  { label: 'year', type: 'constant', description: 'Year (365 or 366 days, weighted)' },
-  { label: 'yr', type: 'constant', description: 'Year (alias)' },
-  { label: 'month', type: 'constant', description: 'Month (28-31 days, weighted)' },
-  { label: 'week', type: 'constant', description: 'Week (7 days)' },
-  { label: 'day', type: 'constant', description: 'Day (24 hours)' },
-  { label: 'hour', type: 'constant', description: 'Hour (3600 seconds)' },
-  { label: 'hr', type: 'constant', description: 'Hour (alias)' },
-  { label: 'minute', type: 'constant', description: 'Minute (60 seconds)' },
-  { label: 'min', type: 'constant', description: 'Minute (alias)' },
+  { label: 'calendar_year', type: 'constant', description: 'Calendar year (365 or 366 days, weighted)' },
+  { label: 'calendar_month', type: 'constant', description: 'Calendar month (28-31 days, weighted)' },
   // Other
   { label: 'atm', type: 'constant', description: 'Standard atmosphere (101325 Pa)' },
   { label: 'T0', type: 'constant', description: 'Ice point (273.15 K)' },
@@ -187,6 +182,8 @@ export const UNITS: Completion[] = [
   { label: 'hour', type: 'unit', description: 'Hour' },
   { label: 'day', type: 'unit', description: 'Day' },
   { label: 'week', type: 'unit', description: 'Week' },
+  { label: 'month', type: 'unit', description: 'Month (1/12 year)' },
+  { label: 'year', type: 'unit', description: 'Year (365.25 days)' },
   { label: 'yr', type: 'unit', description: 'Year' },
   // Mass
   { label: 'kg', type: 'unit', description: 'Kilogram' },
@@ -220,6 +217,7 @@ export const UNITS: Completion[] = [
   { label: 'TB', type: 'unit', description: 'Terabyte' },
   // Temperature
   { label: 'K', type: 'unit', description: 'Kelvin' },
+  { label: 'FLOP', type: 'unit', description: 'Floating-point operation (TFLOP, PFLOP, …)' },
   { label: 'degC', type: 'unit', description: 'Celsius' },
   { label: 'degF', type: 'unit', description: 'Fahrenheit' },
 ]

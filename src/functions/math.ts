@@ -190,6 +190,7 @@ export const p5 = atPercentile(0.05)
 export const p10 = atPercentile(0.10)
 export const p25 = atPercentile(0.25)
 export const median = atPercentile(0.50)
+export const p50 = median
 export const p75 = atPercentile(0.75)
 export const p90 = atPercentile(0.90)
 export const p95 = atPercentile(0.95)

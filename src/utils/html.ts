@@ -19,6 +19,7 @@ export interface CellResult {
   output: string
   error: string | null
   vizData: VizData | null
+  report?: string | null
 }
 
 /**
@@ -54,6 +55,7 @@ export function buildCellHtml(code: string, result: CellResult, exprId?: string)
       ].filter(Boolean).join(' ')
       resultHtml += `<div class="nf-viz" ${vizAttrs}></div>`
     }
+    if (result.report) resultHtml += `<pre class="nf-report">${escapeHtml(result.report)}</pre>`
   }
 
   return `<div class="nf-cell">

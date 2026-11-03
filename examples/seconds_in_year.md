@@ -14,8 +14,8 @@ quick_estimate = 60 * 60 * 24 * 365
 ## More Precise (with leap years)
 
 ```
-# Using the year distribution (accounts for leap years)
-seconds_exact = year as second
+# Using the calendar-year distribution (accounts for leap years)
+seconds_exact = calendar_year as second
 ```
 
 With leap years: **${seconds_exact}**

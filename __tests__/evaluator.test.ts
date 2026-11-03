@@ -329,12 +329,25 @@ describe('Evaluator', () => {
   })
 
   describe('Percent and db twiddles', () => {
-    it('percent creates lognormal factor', () => {
-      const result = parse('5%')
+    it('N% is the number N/100', () => {
+      expect(parse('5%')?.value).toBeCloseTo(0.05)
+      expect(parse('20 USD * 8%')?.value).toBeCloseTo(1.6)
+      const range = parse('2% to 10%')!
+      expect(range.percentile(0.16)).toBeCloseTo(0.02, 3)
+      expect(range.percentile(0.84)).toBeCloseTo(0.1, 2)
+    })
+
+    it('x +- N% is a normal with relative sigma', () => {
+      const r = parse('100 kg +- 10%')!
+      expect(r.unit.toString()).toBe('kg')
+      expect(r.percentile(0.16)).toBeCloseTo(90, 0)
+      expect(r.percentile(0.84)).toBeCloseTo(110, 0)
+    })
+
+    it('percent(N) is still the ±N% noise factor', () => {
+      const result = parse('percent(5)')
       expect(result?.isDistribution()).toBe(true)
-      const mean = result?.mean() ?? 0
-      // percent(5) = lognormal(1/1.05, 1.05) ≈ centered around 1
-      expect(mean).toBeCloseTo(1, 1)
+      expect(result?.mean() ?? 0).toBeCloseTo(1, 1)
     })
 
     it('db twiddle creates lognormal factor', () => {
@@ -399,9 +412,9 @@ describe('Evaluator', () => {
       expect(result?.value).toBe(10000)
     })
 
-    it('K abbreviation', () => {
-      const result = parse('50 K')
-      expect(result?.value).toBe(50000)
+    it('k abbreviation (capital K is kelvin)', () => {
+      expect(parse('50 k')?.value).toBe(50000)
+      expect(parse('50 K')?.value).toBe(50)
     })
 
     it('M abbreviation', () => {

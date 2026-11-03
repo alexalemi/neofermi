@@ -405,9 +405,12 @@ async function runRepl() {
         console.log(
           `${colorize('dim', `[${inputNum}]`)} ${formatQuantityConcise(result, { decorate: colorize })}`
         )
+        const report = evaluator.takeReport()
+        if (report) console.log(report)
         console.log('')
       }
     } catch (err) {
+      evaluator.takeReport() // a failed line must not leave a report for the next one
       const message = (err as Error).message
       // Point at the offending column of the (single-line) input, aligned
       // under the echoed line: prompt width + any leading whitespace trimmed

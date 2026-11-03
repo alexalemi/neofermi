@@ -357,36 +357,26 @@ export const milky_way_diameter = plusminus(8.27e20, 3.4e19, 'm')
 // Time Constants
 // ============================================
 
-/**
- * Gregorian calendar year
- * In a 400-year cycle: 303 regular years (365 days), 97 leap years (366 days)
- */
-export const year = weighted([365, 366], [303, 97], 'day')
-export const yr = year
+// Time units (day, hour, minute, week, month, year, yr) are deliberately NOT
+// constants: as identifiers they must resolve to the units themselves, so
+// `100 / day` is 100 day^-1 rather than 0.00116 s^-1, and `/ year` stays a
+// fixed 365.25 days instead of a leap-year distribution.
 
 /**
- * Gregorian calendar month
+ * Gregorian calendar year as a distribution over its length.
+ * In a 400-year cycle: 303 regular years (365 days), 97 leap years (366 days)
+ */
+export const calendar_year = weighted([365, 366], [303, 97], 'day')
+
+/**
+ * Gregorian calendar month as a distribution over its length.
  * In a 400-year cycle:
  * - 31-day months: 7 months × 400 years = 2800
  * - 30-day months: 4 months × 400 years = 1600
  * - February 29: 97 leap years
  * - February 28: 303 regular years
  */
-export const month = weighted([31, 30, 29, 28], [2800, 1600, 97, 303], 'day')
-
-/** Day (exact) */
-export const day = new Quantity(86400, 's')
-
-/** Hour (exact) */
-export const hour = new Quantity(3600, 's')
-export const hr = hour
-
-/** Minute (exact) */
-export const minute = new Quantity(60, 's')
-export const min = minute
-
-/** Week (exact) */
-export const week = new Quantity(604800, 's')
+export const calendar_month = weighted([31, 30, 29, 28], [2800, 1600, 97, 303], 'day')
 
 // Common time conversion constants (useful for Fermi estimation)
 /** Seconds per minute (exact) */
@@ -536,11 +526,11 @@ export const food_calorie = kcal
 // Economic Constants (2024 estimates)
 // ============================================
 
-/** US GDP (2024, nominal, in USD) */
-export const us_gdp = plusminus(28.8e12, 0.5e12)
+/** US GDP (2024, nominal) */
+export const us_gdp = plusminus(28.8e12, 0.5e12, 'USD/year')
 
-/** World GDP (2024, nominal, in USD) */
-export const world_gdp = plusminus(105e12, 5e12)
+/** World GDP (2024, nominal) */
+export const world_gdp = plusminus(105e12, 5e12, 'USD/year')
 
 /** US median household income (2024, in USD) */
 export const us_median_income = plusminus(80000, 5000)

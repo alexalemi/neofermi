@@ -5,9 +5,12 @@
  * must list these same keys so parse-time and eval-time agree on what
  * qualifies as a scale word.
  *
- * Short-form abbreviations (K/M/B/T) are NOT listed in the grammar's
- * ScaleWord rule — they parse as bare identifiers and fall through the
- * back-compat "unit slot is really a multiplier" path in the evaluator.
+ * Short-form abbreviations are NOT listed in the grammar's ScaleWord rule —
+ * they parse as bare identifiers and fall through the "unit slot is really a
+ * multiplier" path in the evaluator. Only `k` (thousand) and `M` (million):
+ * capital K/B/T are the units kelvin/byte/tesla (`300 K` must be a
+ * temperature), and lowercase m/b/t are meter/bit/tonne. For scaled
+ * currency use SI prefixes (`5 kUSD`, `3 MUSD`, `2 GUSD`) or the long words.
  */
 
 export const LONG_SCALE_WORDS = {
@@ -23,10 +26,8 @@ export const LONG_SCALE_WORDS = {
 } as const
 
 export const SHORT_SCALE_WORDS = {
-  K: 1e3,
+  k: 1e3,
   M: 1e6,
-  B: 1e9,
-  T: 1e12,
 } as const
 
 export const SCALE_WORDS: Record<string, number> = {

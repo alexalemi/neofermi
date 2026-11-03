@@ -25,7 +25,7 @@ export type ASTNode =
   | BetaOfNode
   | BetaAgainstNode
   | WeightedSetNode
-  | PercentTwiddleNode
+  | PercentNode
   | DbTwiddleNode
   | ConversionNode
   | FunctionCallNode
@@ -120,8 +120,8 @@ export interface BetaAgainstNode {
 }
 
 export interface WeightedSetEntry {
-  value: number
-  weight: number
+  value: ASTNode
+  weight: ASTNode | null // null = weight 1
 }
 
 export interface WeightedSetNode {
@@ -130,8 +130,8 @@ export interface WeightedSetNode {
   unit: UnitNode | null
 }
 
-export interface PercentTwiddleNode {
-  type: 'PercentTwiddle'
+export interface PercentNode {
+  type: 'Percent'
   value: number
 }
 
@@ -181,7 +181,7 @@ export interface IdentifierNode {
 }
 
 export interface UnitNode {
-  type: 'Unit' | 'reciprocal' | 'compound' | 'power'
+  type: 'Unit' | 'reciprocal' | 'compound' | 'power' | 'product'
   name?: string
   custom?: boolean
   special?: boolean // For special conversions like 'SI'
@@ -191,4 +191,6 @@ export interface UnitNode {
   // For powered units like m^2
   unit?: UnitNode
   power?: number
+  // For product units in conversion targets like `GW hour`
+  factors?: UnitNode[]
 }

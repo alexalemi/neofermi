@@ -112,6 +112,10 @@ function getDimensionSignature(unit: Unit): string {
  * Returns null if no specific name is known
  */
 export function getDimensionName(unit: Unit): string | null {
+  // A unit involving a custom dimension (money, `widget, FLOP) has no SI
+  // name: USD/day is not a {frequency}, nor USD a {dimensionless}.
+  const dims = (unit as any).dimensions as number[] | undefined
+  if (dims?.slice(9).some((d) => d !== 0)) return null
   const sig = getDimensionSignature(unit)
   const info = DIMENSION_NAMES[sig]
   return info?.name || null

@@ -42,6 +42,11 @@ safeCreate('dozen', '12')
 safeCreate('gross', '144') // 12 dozen
 safeCreate('score', '20')
 safeCreate('pair', '2')
+// `2 to 10 percent` — the word form of `%` (which is also 0.01).
+safeCreate('percent', '0.01')
+// Floating-point operations get their own dimension so compute estimates keep
+// a label (`6 * params * tokens FLOP`, `400 TFLOP/s`) and cancel to time.
+safeCreate('FLOP', { baseName: 'computation', prefixes: 'short' })
 
 // Currencies. USD is the base for the `money` dimension; all other
 // currencies are declared relative to USD. Rates are a fixed snapshot

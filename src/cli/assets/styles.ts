@@ -113,6 +113,16 @@ p code, li code {
   font-weight: 500;
 }
 
+.nf-report {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 6px 0 0;
+  white-space: pre;
+  overflow-x: auto;
+  opacity: 0.85;
+}
+
 .nf-ci {
   color: #656d76;
   font-size: 0.9em;

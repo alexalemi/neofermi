@@ -15,8 +15,10 @@ import {
   ensureLabelUnitRegistered,
   ensureAdhocUnit,
   displayUnit,
+  normalizeUnit,
 } from '../core/unitUtils.js'
 import { SCALE_WORDS } from '../core/scaleWords.js'
+import { rankSensitivity, formatRankSensitivity } from '../analysis/sensitivity.js'
 import { findSimilar, formatSuggestion } from './suggestions.js'
 import { parseSigFigs } from '../core/sigfigs.js'
 
@@ -90,11 +92,30 @@ interface UserFunction {
   body: ASTNode
 }
 
+/** Names of all identifiers referenced anywhere in an AST. */
+function collectIdentifiers(node: unknown, out: Set<string> = new Set()): Set<string> {
+  if (Array.isArray(node)) {
+    for (const child of node) collectIdentifiers(child, out)
+  } else if (node && typeof node === 'object') {
+    const n = node as { type?: string; name?: string }
+    if (n.type === 'Identifier' && n.name) out.add(n.name)
+    for (const [key, child] of Object.entries(node)) {
+      if (key !== 'location') collectIdentifiers(child, out)
+    }
+  }
+  return out
+}
+
 export class Evaluator {
   private variables: Map<string, Quantity> = new Map()
   private functions: Map<string, Function> = new Map()
   private userFunctions: Map<string, UserFunction> = new Map()
   private customUnits: Map<string, Quantity> = new Map()
+  // Identifiers each variable's definition referenced, for sensitivity().
+  private variableDeps: Map<string, Set<string>> = new Map()
+  // Text produced alongside the last result (sensitivity reports); surfaces
+  // read and clear it via takeReport().
+  private pendingReport: string | null = null
   // One frame per active user-function call. Name lookup sees the innermost
   // frame plus globals — never a caller's parameters (no dynamic scoping).
   private localScopes: Array<Map<string, Quantity>> = []
@@ -146,6 +167,7 @@ export class Evaluator {
           )
         }
         this.variables.set(node.name, value)
+        this.variableDeps.set(node.name, collectIdentifiers(node.value))
         return value
 
       case 'UnitDef':
@@ -198,8 +220,8 @@ export class Evaluator {
       case 'WeightedSet':
         return this.evaluateWeightedSet(node)
 
-      case 'PercentTwiddle':
-        return distributions.percent(node.value)
+      case 'Percent':
+        return new Quantity(node.value / 100)
 
       case 'DbTwiddle':
         // Positive db = precise, negative db = uncertain
@@ -687,6 +709,20 @@ export class Evaluator {
   }
 
   private evaluateNormal(node: ASTNode & { type: 'Normal' }): Quantity {
+    // `100 kg +- 10%`: the sigma is relative to the mean.
+    if (node.sigma.type === 'Percent') {
+      let mean = this.evaluate(node.mean)!
+      if (node.unit) mean = mean.multiply(new Quantity(1, this.evaluateUnit(node.unit)))
+      if (mean.isDistribution()) {
+        throw new EvaluationError(
+          'The mean of `+- N%` must be a fixed number, not a distribution',
+          (node as any).location
+        )
+      }
+      const m = mean.value as number
+      const sigma = (Math.abs(m) * node.sigma.value) / 100
+      return distributions.normal(m - sigma, m + sigma, mean.unit.toString() || undefined)
+    }
     const { a: mean, b: sigma, unitStr } = this.resolveBinaryDistArgs(
       node.mean, node.sigma, node.unit, 'normal()', 'a', (node as any).location, true,
     )
@@ -746,15 +782,56 @@ export class Evaluator {
     return v.isScalar() ? (v.value as number) : v.mean()
   }
 
+  /**
+   * `{365: 303, 366: 97} day` (weighted values) or `{0: 0.9, 1 to 10: 0.1}`
+   * (a mixture of distributions). A trailing unit applies to dimensionless
+   * entries; an exact 0 adopts the other entries' unit, since "none" has no
+   * dimension (`{0: 0.9, 1 to 10 USD: 0.1}`).
+   */
   private evaluateWeightedSet(node: ASTNode & { type: 'WeightedSet' }): Quantity {
-    // Extract values and weights from entries
-    const values = node.entries.map((e: { value: number; weight: number }) => e.value)
-    const weights = node.entries.map((e: { value: number; weight: number }) => e.weight)
+    const location = (node as any).location
+    const suffix = node.unit ? new Quantity(1, this.evaluateUnit(node.unit)) : null
 
-    // Get unit string if present
-    const unitStr = node.unit ? this.evaluateUnit(node.unit) : undefined
+    const weights = node.entries.map((e: { weight: ASTNode | null }) => {
+      if (!e.weight) return 1
+      const w = this.evaluate(e.weight)
+      if (!w || w.isDistribution() || w.unit.toString() !== '') {
+        throw new EvaluationError('Weights in {…} must be plain numbers', location)
+      }
+      return w.value as number
+    })
 
-    return distributions.weighted(values, weights, unitStr)
+    let values = node.entries.map((e: { value: ASTNode }) => {
+      let v = this.evaluate(e.value)
+      if (!v) throw new EvaluationError('An entry in {…} produced no value', location)
+      if (suffix && v.unit.toString() === '') v = v.multiply(suffix)
+      return v
+    })
+
+    // Common unit: the first entry that isn't an exact (unitless) zero.
+    const isBareZero = (q: Quantity) => !q.isDistribution() && q.value === 0 && q.unit.toString() === ''
+    const reference = values.find((q) => !isBareZero(q)) ?? values[0]
+    const unitStr = reference.unit.toString()
+    values = values.map((q) => {
+      if (isBareZero(q)) return new Quantity(0, unitStr || undefined)
+      if (!q.unit.equalBase(reference.unit)) {
+        throw new EvaluationError(
+          `Entries in {…} have incompatible units: ${displayUnit(reference.unit) || 'dimensionless'} and ${displayUnit(q.unit) || 'dimensionless'}`,
+          location
+        )
+      }
+      return unitStr ? q.to(unitStr) : q
+    })
+
+    const components = values.map((q) => (q.isDistribution() ? (q.value as number[]) : (q.value as number)))
+    try {
+      if (components.every((c) => typeof c === 'number')) {
+        return distributions.weighted(components as number[], weights, unitStr || undefined)
+      }
+      return distributions.mixture(components, weights, unitStr || undefined)
+    } catch (err) {
+      throw new EvaluationError((err as Error).message, location)
+    }
   }
 
   private evaluateConversion(node: ASTNode & { type: 'Conversion' }): Quantity {
@@ -870,12 +947,59 @@ export class Evaluator {
     return value.to(ensureAdhocUnit(`${factor} ${targetUnit}`, label))
   }
 
+  /** The report produced by the last evaluation, if any; clears it. */
+  takeReport(): string | null {
+    const report = this.pendingReport
+    this.pendingReport = null
+    return report
+  }
+
+  /**
+   * `sensitivity(x)`: returns x, and reports how much of x's spread each
+   * input distribution explains. Inputs are the leaf distribution variables
+   * x depends on (transitively through earlier assignments); a special form
+   * because it needs x's expression, not just its samples.
+   */
+  private evaluateSensitivity(node: ASTNode & { type: 'FunctionCall' }): Quantity {
+    if (node.args.length !== 1) {
+      throw new EvaluationError('sensitivity() expects 1 argument', (node as any).location)
+    }
+    const output = this.evaluate(node.args[0])
+    if (!output || !output.isDistribution()) {
+      throw new EvaluationError(
+        'sensitivity() needs an uncertain quantity (a distribution)',
+        (node as any).location
+      )
+    }
+
+    const isDist = (name: string) => this.variables.get(name)?.isDistribution() ?? false
+    const seen = new Set<string>()
+    const inputs = new Map<string, Quantity>()
+    const visit = (name: string) => {
+      if (seen.has(name) || !this.variables.has(name)) return
+      seen.add(name)
+      const deps = this.variableDeps.get(name) ?? new Set<string>()
+      deps.forEach(visit)
+      // A leaf: uncertain itself, but not computed from other uncertain variables.
+      if (isDist(name) && ![...deps].some(isDist)) inputs.set(name, this.variables.get(name)!)
+    }
+    collectIdentifiers(node.args[0]).forEach(visit)
+
+    const label = node.args[0].type === 'Identifier' ? node.args[0].name : 'result'
+    this.pendingReport =
+      inputs.size === 0
+        ? `Sensitivity of ${label}: no named uncertain inputs (assign inputs to variables to see their contributions)`
+        : formatRankSensitivity(label, rankSensitivity(output, inputs))
+    return output
+  }
+
   private evaluateFunctionCall(node: ASTNode & { type: 'FunctionCall' }): Quantity {
     // Check for user-defined function first
     const userFunc = this.userFunctions.get(node.name)
     if (userFunc) {
       return this.evaluateUserFunction(node.name, userFunc, node.args)
     }
+    if (node.name === 'sensitivity') return this.evaluateSensitivity(node)
 
     const func = this.functions.get(node.name)
     if (!func) {
@@ -1092,11 +1216,20 @@ export class Evaluator {
       return `${denom}^-1`
     }
 
-    // Compound unit (e.g., kg/m^3)
+    // Product unit (e.g., GW hour), only produced in conversion targets
+    if (unitNode.type === 'product' && unitNode.factors) {
+      return unitNode.factors.map((f) => this.evaluateUnit(f)).join(' ')
+    }
+
+    // Compound unit (e.g., kg/m^3). A product denominator divides by each
+    // factor: mathjs reads `J/kg m` as (J/kg)·m.
     if (unitNode.numerator && unitNode.denominator) {
       const num = this.evaluateUnit(unitNode.numerator)
-      const denom = this.evaluateUnit(unitNode.denominator)
-      return `${num}/${denom}`
+      const denoms =
+        unitNode.denominator.type === 'product' && unitNode.denominator.factors
+          ? unitNode.denominator.factors.map((f) => this.evaluateUnit(f))
+          : [this.evaluateUnit(unitNode.denominator)]
+      return `${num}/${denoms.join('/')}`
     }
 
     // Powered unit (e.g., m^2). Power 0 is legal, so don't test it for truth.
@@ -1119,6 +1252,9 @@ export class Evaluator {
             `Unknown unit: ${unitNode.name}${suggestionText || `. Use \`${unitNode.name} for custom units.`}`
           )
         }
+        // Resolve aliases per atom (`kcal` → `kilocalorie`): compound strings
+        // like `kcal/day` reach mathjs whole, and it knows no aliases.
+        return normalizeUnit(unitNode.name)
       }
       return unitNode.name
     }

@@ -132,3 +132,78 @@ export function formatSensitivity(analysis: SensitivityAnalysis): string {
 
   return lines.join('\n')
 }
+
+export interface RankSensitivity {
+  name: string
+  /** Spearman rank correlation between the input and the output samples. */
+  correlation: number
+  /** correlation², the share of output (rank) variance this input explains. */
+  share: number
+}
+
+/**
+ * Sample-based sensitivity: which named inputs drive an output's spread.
+ *
+ * NeoFermi keeps samples index-aligned through arithmetic (sample i of the
+ * output was computed from sample i of every input), so no re-evaluation is
+ * needed: an input's squared Spearman rank correlation with the output is the
+ * share of output variance it explains. For the products and quotients
+ * typical of Fermi estimates — independent inputs, output additive in log
+ * space — the shares sum to ≈1; what is left over comes from unnamed inline
+ * distributions or interactions. Rank-based, so it is unit-, scale- and
+ * sign-agnostic.
+ */
+export function rankSensitivity(
+  output: Quantity,
+  inputs: Map<string, Quantity>
+): RankSensitivity[] {
+  const out = output.toParticles()
+  const outRanks = ranks(out)
+  const results: RankSensitivity[] = []
+  for (const [name, q] of inputs) {
+    const xs = q.toParticles()
+    if (xs.length !== out.length) continue
+    const r = pearson(ranks(xs), outRanks)
+    results.push({ name, correlation: r, share: r * r })
+  }
+  return results.sort((a, b) => b.share - a.share)
+}
+
+/** Text report for `sensitivity(x)`: one bar per input, largest first. */
+export function formatRankSensitivity(label: string, results: RankSensitivity[]): string {
+  const width = Math.max(5, ...results.map((r) => r.name.length))
+  const line = (name: string, share: number, sign: string) =>
+    `  ${name.padEnd(width)}  ${sign} ${(share * 100).toFixed(0).padStart(3)}%  ${'█'.repeat(Math.round(share * 20))}`
+  const lines = [`Sensitivity of ${label} (share of variance):`]
+  for (const r of results) lines.push(line(r.name, r.share, r.correlation >= 0 ? '+' : '−'))
+  const other = 1 - results.reduce((sum, r) => sum + r.share, 0)
+  if (other > 0.02) lines.push(line('other', other, ' '))
+  return lines.join('\n')
+}
+
+/** Average ranks (ties share the mean rank). */
+function ranks(xs: number[]): number[] {
+  const order = xs.map((_, i) => i).sort((a, b) => xs[a] - xs[b])
+  const out = new Array<number>(xs.length)
+  for (let i = 0; i < order.length; ) {
+    let j = i
+    while (j + 1 < order.length && xs[order[j + 1]] === xs[order[i]]) j++
+    const rank = (i + j) / 2
+    for (let k = i; k <= j; k++) out[order[k]] = rank
+    i = j + 1
+  }
+  return out
+}
+
+function pearson(a: number[], b: number[]): number {
+  const n = a.length
+  let ma = 0, mb = 0
+  for (let i = 0; i < n; i++) { ma += a[i]; mb += b[i] }
+  ma /= n; mb /= n
+  let sab = 0, saa = 0, sbb = 0
+  for (let i = 0; i < n; i++) {
+    const da = a[i] - ma, db = b[i] - mb
+    sab += da * db; saa += da * da; sbb += db * db
+  }
+  return saa > 0 && sbb > 0 ? sab / Math.sqrt(saa * sbb) : 0
+}

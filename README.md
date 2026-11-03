@@ -105,17 +105,36 @@ For the full grammar and semantics see [docs/design/LANGUAGE_SPEC.md](docs/desig
 
 ```
 10 to 100           # lognormal, 68% CI from 10 to 100
+2% to 10%           # percentages are plain numbers: 0.02 to 0.10
 50 +/- 10           # normal, mean 50, std 10
+100 kg +- 10%       # normal with relative sigma
 uniform(0, 1)       # uniform between 0 and 1
 3 out of 10         # beta distribution (3 successes, 7 failures)
 poisson(5)          # poisson with lambda=5
 exponential(0.1)    # exponential with rate=0.1
 binomial(10, 0.5)   # 10 trials, 50% success rate
+{0: 90%, 1 to 10: 10%}  # mixture: 90% zero, otherwise 1 to 10
+```
+
+### Sensitivity
+
+`sensitivity(x)` shows `x` along with how much of its spread each named input explains, so you know which guess to refine:
+
+```
+tuners = households * frac_with_piano * tunings_per_year / tuner_rate
+sensitivity(tuners)
+#   frac_with_piano    +  44%  █████████
+#   tunings_per_year   +  33%  ███████
+#   tuner_rate         −  14%  ███
 ```
 
 ### Units
 
 ```
+300 K as degC              # K is kelvin; 5 k is 5000, 3 M is 3 million
+2000 kcal per day as W
+3e9 USD as billion         # 3 billion USD
+10 liters as 4 gallons     # convert to any fixed quantity
 speed = 100 km/hr
 time = 2 hours
 distance = speed * time    # 200 km

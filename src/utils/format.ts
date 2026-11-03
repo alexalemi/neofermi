@@ -91,6 +91,7 @@ export function formatQuantityConcise(
       : ` ${decorate('dim', `{${dimName}}`)}`
 
   let valuePart: string
+  let tailNote = ''
   if (q.isDistribution()) {
     const medianVal = q.median()
     const p16Val = q.percentile(0.16)
@@ -102,11 +103,24 @@ export function formatQuantityConcise(
     valuePart = html
       ? `<span class="${p}-scalar">${median}</span> <span class="${p}-ci">[${p16}, ${p84}]</span>`
       : `${decorate('scalar', median)} ${decorate('ci', `[${p16}, ${p84}]`)}`
+
+    // A point mass holding >68% of samples collapses the interval (a mixture
+    // like {0: 0.95, 1 to 100: 0.05} reads `0 [0, 0]`) and hides the tail
+    // entirely — say how much mass lies elsewhere and what the mean is.
+    if (p16Val === p84Val) {
+      const particles = q.toParticles()
+      const off = particles.filter((x) => x !== medianVal).length / particles.length
+      if (off > 0) {
+        const pct = off >= 0.01 ? `${Math.round(off * 100)}%` : '<1%'
+        const note = `(${pct} ≠ ${median}, mean ${formatNumber(q.mean())})`
+        tailNote = html ? ` <span class="${p}-ci">${note}</span>` : ` ${decorate('ci', note)}`
+      }
+    }
   } else {
     const value = formatNumber(q.value as number)
     valuePart = html ? `<span class="${p}-scalar">${value}</span>` : decorate('scalar', value)
   }
 
   const unitPart = unit && !html ? decorate('unit', unit) : unit
-  return `${valuePart} ${unitPart}${dimSuffix}`.trim()
+  return `${valuePart} ${unitPart}${dimSuffix}${tailNote}`.replace(/ {2,}/g, ' ').trim()
 }

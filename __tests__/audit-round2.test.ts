@@ -25,9 +25,8 @@ describe('Audit round 2 regressions', () => {
     })
 
     it('per requires a word boundary (percent is not per+cent)', () => {
-      // `percent` is not a known unit; the point is the error names the
-      // full word instead of the `cent` remnant `per` used to leave behind
-      expect(() => parse('3 percent + 1')).toThrow(/percent/)
+      // `per` used to grab the front of `percent`, leaving a `cent` remnant
+      expect(parse('3 percent + 1')?.toSI().value).toBeCloseTo(1.03)
     })
   })
 

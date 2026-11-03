@@ -55,6 +55,8 @@ function printUnit(unit: UnitNode): string {
       return `${printUnit(unit.numerator!)}/${printUnit(unit.denominator!)}`
     case 'power':
       return `${printUnit(unit.unit!)}^${unit.power}`
+    case 'product':
+      return unit.factors!.map(printUnit).join(' ')
     default:
       return unit.custom ? `\`${unit.name}` : (unit.name ?? '')
   }
@@ -104,7 +106,7 @@ function print(node: ASTNode, ctx: number, d: Decorate): string {
         node.right.type === 'Number' &&
         node.right.value === 1 &&
         (node.right.unit || node.right.scaleWord) &&
-        !['Identifier', 'Date', 'PercentTwiddle', 'DbTwiddle'].includes(node.left.type)
+        !['Identifier', 'Date', 'Percent', 'DbTwiddle'].includes(node.left.type)
       ) {
         const scale = node.right.scaleWord ? ` ${d('scalar', node.right.scaleWord)}` : ''
         return `${print(node.left, PREC.atom, d)}${scale}${unitSuffix(node.right.unit, d)}`
@@ -147,12 +149,15 @@ function print(node: ASTNode, ctx: number, d: Decorate): string {
 
     case 'WeightedSet': {
       const entries = node.entries
-        .map((e) => (e.weight === 1 ? d('scalar', String(e.value)) : `${d('scalar', String(e.value))}: ${d('scalar', String(e.weight))}`))
+        .map((e) => {
+          const value = print(e.value, PREC.additive, d)
+          return e.weight ? `${value}: ${print(e.weight, PREC.unary, d)}` : value
+        })
         .join(', ')
       return `{${entries}}${unitSuffix(node.unit, d)}`
     }
 
-    case 'PercentTwiddle':
+    case 'Percent':
       return d('scalar', `${node.value}%`)
 
     case 'DbTwiddle':

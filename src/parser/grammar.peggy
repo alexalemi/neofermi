@@ -226,17 +226,25 @@ ConversionQuantityLiteral
     }
 
 // A conversion target is always a unit, so unlike a value-attached unit it
-// can't be confused with division by a variable: allow `as km / hr` and
-// `as km per hr`, not just the tight `as km/hr`.
+// can't be confused with division by a variable or a product with one:
+// allow `as km / hr`, `as km per hr`, and products like `as GW hour` or
+// `as kg m / s^2`, not just the tight `as km/hr`.
 ConversionUnit
-  = numerator:UnitWithPower _h ("/" / "per" ![a-zA-Z0-9_]) _h denominator:UnitWithPower {
+  = numerator:UnitProduct _h ("/" / "per" ![a-zA-Z0-9_]) _h denominator:UnitProduct {
       return node('Unit', {
         type: 'compound',
         numerator,
         denominator
       })
     }
-  / Unit
+  / unit:Unit !(_no_newline UnitWithPower) { return unit }
+  / UnitProduct
+
+UnitProduct
+  = head:UnitWithPower tail:(_no_newline UnitWithPower)* {
+      if (tail.length === 0) return head
+      return node('Unit', { type: 'product', factors: [head, ...tail.map(t => t[1])] })
+    }
 
 // Primary expressions
 // A bare custom unit (x / `beat) is an expression meaning 1 of that unit,
@@ -250,7 +258,7 @@ Primary
       return node('Number', { value: 1, scaleWord: null, unit })
     }
   / LegacyCustomUnit
-  / PercentTwiddle
+  / Percent
   / Number
   / FunctionCall
   / ScaledUnit
@@ -284,10 +292,11 @@ DateYMD
 DateTimePart
   = "T" [0-9][0-9] ":" [0-9][0-9] (":" [0-9][0-9])?
 
-// Twiddle operators: 5% means percent(5), 3db means db(3)
-PercentTwiddle
+// `5%` is the number 0.05. (The ±5% noise-factor distribution is spelled
+// `percent(5)`; `x +- 5%` is a normal with a relative sigma.)
+Percent
   = value:NumericLiteral "%" {
-      return node('PercentTwiddle', { value: parseFloat(value) })
+      return node('Percent', { value: parseFloat(value) })
     }
 
 // The word boundary keeps `3dbm` from matching as `3db` + stray `m`; the
@@ -311,14 +320,11 @@ WeightedEntries
       return [head, ...tail.map(t => t[3])]
     }
 
+// Entries may be distributions (`{0: 0.9, 1 to 10: 0.1}` is a mixture) and
+// weights any dimensionless expression (`{0: 90%, 1 to 10: 10%}`).
 WeightedEntry
-  = value:SignedNumericLiteral _ ":" _ weight:SignedNumericLiteral {
-      // Negative weights parse so weighted() can reject them with a clear
-      // runtime error instead of an opaque parse error.
-      return { value: parseFloat(value), weight: parseFloat(weight) }
-    }
-  / value:SignedNumericLiteral {
-      return { value: parseFloat(value), weight: 1 }
+  = value:Additive weight:(_ ":" _ Unary)? {
+      return { value, weight: weight ? weight[3] : null }
     }
 
 // Significant figure number: '3.14 means "about 3.14" with uncertainty from sig figs
@@ -445,7 +451,16 @@ CustomUnit
 // a *variable* holding a Quantity) must remain a division — we can't
 // greedily absorb `mm / R_sun` into a compound unit.
 CompoundUnit
-  = numerator:UnitWithPower [ \t]* "/" [ \t]* denominator:CustomUnitWithPower {
+  = numerator:UnitWithPower [ \t]+ "per" ![a-zA-Z0-9_] [ \t]+ denominator:UnitWithPower {
+      // `per` is a keyword, so unlike a spaced `/` it can't be a division by
+      // a variable: `2000 kcal per day` is always a compound unit.
+      return node('Unit', {
+        type: 'compound',
+        numerator,
+        denominator
+      })
+    }
+  / numerator:UnitWithPower [ \t]* "/" [ \t]* denominator:CustomUnitWithPower {
       return node('Unit', {
         type: 'compound',
         numerator,
