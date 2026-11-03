@@ -14,7 +14,7 @@ import { visit } from 'unist-util-visit'
 import type { Root, Code, Text, Html } from 'mdast'
 import { Evaluator } from '../parser/index.js'
 import { runCell } from '../core/runCell.js'
-import { buildCellHtml } from '../utils/html.js'
+import { buildCellHtml, escapeHtml } from '../utils/html.js'
 import { stripAnnotations, scanInlineExpr } from '../core/annotations.js'
 
 /**
@@ -82,9 +82,14 @@ function remarkNeoFermi(options: { evaluator: Evaluator }) {
       ;(parent.children as (Code | Html)[])[index] = htmlNode
     })
 
-    // Second pass: interpolate ${var} in text
-    visit(tree, 'text', (node: Text) => {
-      node.value = interpolateText(node.value, evaluator)
+    // Second pass: interpolate ${var} in text. A text node with expressions
+    // becomes text + html nodes so results can carry typeset markup.
+    visit(tree, 'text', (node: Text, index, parent) => {
+      if (!parent || index === undefined) return
+      const parts = interpolateText(node.value, evaluator)
+      if (parts.length === 1 && parts[0].type === 'text') return
+      ;(parent.children as (Text | Html)[]).splice(index, 1, ...parts)
+      return index + parts.length
     })
   }
 }
@@ -103,20 +108,26 @@ function remarkNeoFermi(options: { evaluator: Evaluator }) {
  * A parse/eval failure is surfaced inline (`«expr: message»`) rather than
  * silently leaving the raw `${…}` in the rendered document.
  */
-function interpolateText(text: string, evaluator: Evaluator): string {
-  let out = ''
+function interpolateText(text: string, evaluator: Evaluator): (Text | Html)[] {
+  const parts: (Text | Html)[] = []
+  const pushText = (value: string) => { if (value) parts.push({ type: 'text', value }) }
   let pos = 0
   for (;;) {
     const hit = scanInlineExpr(text, pos)
     if (!hit) {
-      out += text.slice(pos)
+      pushText(text.slice(pos))
       break
     }
-    out += text.slice(pos, hit.start)
+    pushText(text.slice(pos, hit.start))
     const r = runCell(hit.expr, evaluator, { requireValue: true })
-    out += r.error ? `«${hit.expr.trim()}: ${r.error}»` : r.inlineOutput
+    parts.push({
+      type: 'html',
+      value: r.error
+        ? `<span class="nf-inline nf-inline-error">«${escapeHtml(hit.expr.trim())}: ${escapeHtml(r.error)}»</span>`
+        : `<span class="nf-inline">${r.inlineHtml}</span>`,
+    })
     pos = hit.end
   }
-  return out
+  return parts.length ? parts : [{ type: 'text', value: '' }]
 }
 

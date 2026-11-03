@@ -20,6 +20,7 @@ export interface CellResult {
   error: string | null
   vizData: VizData | null
   report?: string | null
+  label?: string | null
 }
 
 /**
@@ -40,9 +41,12 @@ export function buildCellHtml(code: string, result: CellResult, exprId?: string)
 
   let resultHtml = ''
   if (result.output) {
-    resultHtml = `<div class="nf-result">${result.output}</div>`
+    const label = result.label ? `<span class="nf-label">${escapeHtml(result.label)} =</span>` : ''
+    resultHtml = `<div class="nf-result">${label}${result.output}</div>`
 
-    if (result.vizData) {
+    // A report (sensitivity) is about a value already plotted upstream, so
+    // it takes the plot's place rather than repeating it.
+    if (result.vizData && !result.report) {
       const vizAttrs = [
         exprId ? `data-expr-id="${exprId}"` : '',
         // data-samples carries the 20 dot quantiles (client-viz draws them

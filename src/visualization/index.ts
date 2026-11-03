@@ -83,9 +83,9 @@ export function visualize(
 
   // Build axis label with unit and dimension name
   const dimName = quantity.dimensionName ? quantity.dimensionName() : null
-  let axisLabel = unit
+  let axisLabel = superscriptExponents(unit)
   if (dimName && dimName !== 'dimensionless') {
-    axisLabel = `${unit} {${dimName}}`
+    axisLabel = `${superscriptExponents(unit)} {${dimName}}`
   }
 
   const optsWithLabel = { ...options, axisLabel }
@@ -98,4 +98,16 @@ export function visualize(
     default:
       return null
   }
+}
+
+const SUPERSCRIPT: Record<string, string> = {
+  '-': '\u207b', '.': '\u00b7', '0': '\u2070', '1': '\u00b9', '2': '\u00b2', '3': '\u00b3',
+  '4': '\u2074', '5': '\u2075', '6': '\u2076', '7': '\u2077', '8': '\u2078', '9': '\u2079',
+}
+
+/** Canvas text can't do <sup>: `year^-1` → `year⁻¹` with Unicode superscripts. */
+function superscriptExponents(unit: string): string {
+  return unit.replace(/\^(-?[\d.]+)/g, (_m, exp: string) =>
+    [...exp].map((ch) => SUPERSCRIPT[ch] ?? ch).join('')
+  )
 }

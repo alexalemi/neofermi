@@ -63,6 +63,8 @@ export interface FormatQuantityOptions {
   classPrefix?: string
   /** Wrap each semantic part of the plain-text output (e.g. with ANSI colors). Ignored when html is set. */
   decorate?: (part: FormatPart, text: string) => string
+  /** Append the `{dimension}` tag (default true). Off for values set in prose. */
+  dimension?: boolean
 }
 
 /**
@@ -82,8 +84,10 @@ export function formatQuantityConcise(
   const decorate = (!html && opts?.decorate) || ((_part: FormatPart, text: string) => text)
 
   const unit = displayUnit(q.unit)
+  // HTML is typeset: 3.7e+6 → 3.7 × 10⁶, year^-1 → year⁻¹
+  const num = (text: string) => (html ? typesetNumber(text) : text)
   const dimName = q.dimensionName?.() || null
-  const hasDim = dimName && dimName !== 'dimensionless'
+  const hasDim = (opts?.dimension ?? true) && dimName && dimName !== 'dimensionless'
   const dimSuffix = !hasDim
     ? ''
     : html
@@ -98,7 +102,7 @@ export function formatQuantityConcise(
     const p84Val = q.percentile(0.84)
     const sigFigs = sigFigsForUncertainty(medianVal, (p84Val - p16Val) / 2)
     const [median, p16, p84] = [medianVal, p16Val, p84Val].map((v) =>
-      formatWithSigFigs(v, sigFigs)
+      num(formatWithSigFigs(v, sigFigs))
     )
     valuePart = html
       ? `<span class="${p}-scalar">${median}</span> <span class="${p}-ci">[${p16}, ${p84}]</span>`
@@ -112,15 +116,34 @@ export function formatQuantityConcise(
       const off = particles.filter((x) => x !== medianVal).length / particles.length
       if (off > 0) {
         const pct = off >= 0.01 ? `${Math.round(off * 100)}%` : '<1%'
-        const note = `(${pct} ≠ ${median}, mean ${formatNumber(q.mean())})`
+        const note = `(${pct} ≠ ${median}, mean ${num(formatNumber(q.mean()))})`
         tailNote = html ? ` <span class="${p}-ci">${note}</span>` : ` ${decorate('ci', note)}`
       }
     }
   } else {
-    const value = formatNumber(q.value as number)
+    const value = num(formatNumber(q.value as number))
     valuePart = html ? `<span class="${p}-scalar">${value}</span>` : decorate('scalar', value)
   }
 
-  const unitPart = unit && !html ? decorate('unit', unit) : unit
+  const unitPart = !unit
+    ? ''
+    : html
+      ? `<span class="${p}-unit">${typesetUnit(unit)}</span>`
+      : decorate('unit', unit)
   return `${valuePart} ${unitPart}${dimSuffix}${tailNote}`.replace(/ {2,}/g, ' ').trim()
+}
+
+/** `3.7e+6` → `3.7 × 10<sup>6</sup>` (minus signs as U+2212). */
+function typesetNumber(text: string): string {
+  return text.replace(
+    /(\d(?:\.\d+)?)e([+-]?)(\d+)/g,
+    (_m, mantissa: string, sign: string, exp: string) =>
+      `${mantissa}\u202f×\u202f10<sup>${sign === '-' ? '\u2212' : ''}${exp}</sup>`
+  )
+}
+
+/** Escape a unit string and raise its exponents: `m^-2` → `m<sup>−2</sup>`. */
+function typesetUnit(unit: string): string {
+  const escaped = unit.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return escaped.replace(/\^(-?[\d.]+)/g, (_m, exp: string) => `<sup>${exp.replace('-', '\u2212')}</sup>`)
 }

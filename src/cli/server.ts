@@ -5,7 +5,7 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { streamSSE } from 'hono/streaming'
-import { getStyles } from './assets/styles.js'
+import { getStyles, FONT_LINKS } from './assets/styles.js'
 import { getClientScript } from './assets/client.js'
 import { clientVizScript } from './assets/_generated-client-viz.js'
 import { escapeHtml } from '../utils/html.js'
@@ -89,7 +89,8 @@ function wrapInHtml(content: string, title: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)} - NeoFermi Notebook</title>
+  <title>${escapeHtml(title)} - NeoFermi</title>
+  ${FONT_LINKS}
   <style>
 ${getStyles()}
   </style>
@@ -109,20 +110,34 @@ ${getClientScript()}
 /**
  * Wrap content in standalone HTML (no live reload, for static export)
  */
-export function wrapInStaticHtml(content: string, title: string, darkMode: boolean = false): string {
+export interface StaticPageOptions {
+  /** Link shown above the article, e.g. back to a gallery page. */
+  back?: { href: string; label: string }
+}
+
+export function wrapInStaticHtml(
+  content: string,
+  title: string,
+  darkMode: boolean = false,
+  options: StaticPageOptions = {},
+): string {
+  const back = options.back
+    ? `<a class="nf-back" href="${escapeHtml(options.back.href)}">${escapeHtml(options.back.label)}</a>\n`
+    : ''
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)} - NeoFermi Notebook</title>
+  <title>${escapeHtml(title)} - NeoFermi</title>
+  ${FONT_LINKS}
   <style>
 ${getStyles(darkMode)}
   </style>
 </head>
 <body>
   <article class="neofermi-notebook">
-${content}
+${back}${content}
   </article>
   <script>${clientVizScript}</script>
 </body>

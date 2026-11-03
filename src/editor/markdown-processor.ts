@@ -185,5 +185,5 @@ function renderInlineResult(result: EvaluationResult | undefined): string {
     return `<span class="nf-inline nf-inline-error" title="${escapeHtml(result.error)}">error</span>`
   }
 
-  return `<span class="nf-inline">${result.inlineOutput || result.output || '???'}</span>`
+  return `<span class="nf-inline">${result.inlineHtml || result.output || '???'}</span>`
 }

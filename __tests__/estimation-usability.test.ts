@@ -120,3 +120,24 @@ describe('sensitivity()', () => {
     expect(runCell('out', ev).report).toBeNull()
   })
 })
+
+describe('units added while writing the worked examples', () => {
+  const ev = () => new Evaluator()
+
+  it('kWh is a named unit, so compound targets keep its name', () => {
+    expect(runCell('1 kWh/month as kWh/year', ev()).inlineOutput).toBe('12.0 kWh / year')
+    expect(runCell('1 TWh as GWh', ev()).inlineOutput).toBe('1000 GWh')
+    expect(runCell('1 kwh as J', ev()).inlineOutput).toMatch(/^3\.60e\+6 J$/)
+  })
+
+  it('barrel is 42 US gallons', () => {
+    expect(runCell('1 barrel as gallon', ev()).inlineOutput).toBe('42.0 gallon')
+    expect(runCell('2 bbl as L', ev()).inlineOutput).toBe('318 liter')
+  })
+
+  it('inline output omits the {dimension} tag; block output keeps it', () => {
+    const r = runCell('3 kWh', ev())
+    expect(r.inlineOutput).toBe('3.00 kWh')
+    expect(r.output).toContain('{energy}')
+  })
+})

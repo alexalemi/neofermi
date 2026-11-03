@@ -10,8 +10,8 @@ function renderDoc(doc: string): string {
 describe('editor markdown processor', () => {
   it('evaluates blocks and interpolates inline expressions', () => {
     const html = renderDoc('```neofermi\nx = 5\n```\n\nValue is ${x} and doubled is ${x * 2}.')
-    expect(html).toContain('<span class="nf-inline">5.00</span>')
-    expect(html).toContain('<span class="nf-inline">10.0</span>')
+    expect(html).toContain('<span class="nf-inline"><span class="nf-scalar">5.00</span></span>')
+    expect(html).toContain('<span class="nf-inline"><span class="nf-scalar">10.0</span></span>')
   })
 
   it('leaves ${...} untouched inside fenced code blocks and inline code', () => {
@@ -31,7 +31,7 @@ describe('editor markdown processor', () => {
     const html = renderDoc(doc)
     expect(html).toContain('<code>${x}</code>')
     expect(html).toContain('print(&quot;${x}&quot;)')
-    expect(html).toContain('<span class="nf-inline">5.00</span>')
+    expect(html).toContain('<span class="nf-inline"><span class="nf-scalar">5.00</span></span>')
   })
 
   it('gives repeated identical interpolations their own results', () => {

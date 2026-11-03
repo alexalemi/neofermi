@@ -42,7 +42,7 @@ examples: cli $(EXAMPLE_HTMLS)
 # Pattern rule: render .md to .html
 examples/%.html: examples/%.md bin/neoferminb.cjs
 	@echo "Rendering $<..."
-	@node bin/neoferminb.cjs "$<" --output "$@"
+	@node bin/neoferminb.cjs "$<" --output "$@" --back ./ --back-label "All examples"
 
 # Run tests
 test:

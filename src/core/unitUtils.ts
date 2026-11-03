@@ -18,6 +18,11 @@ function safeCreate(
   try { mathjsCreateUnit(name, def as any) } catch { /* already registered */ }
 }
 
+// Watt-hour as a real unit (not an alias for `W hour`) so kWh, TWh, … keep
+// their name in output: `as kWh/year` reads "kWh / year", not "(kW hour) / year".
+safeCreate('Wh', { definition: '3600 J', prefixes: 'short' })
+// Oil barrel: 42 US gallons (EIA's unit for crude and fuels)
+safeCreate('barrel', '42 gallon')
 // Nautical mile: exactly 1852 meters by international agreement
 safeCreate('nmi', '1852 m')
 // Energy — thermochemical calorie; 'long' prefixes give kilocalorie, megacalorie, etc.
@@ -138,6 +143,8 @@ const UNIT_ALIASES: Record<string, string> = {
   Tbsp: 'tablespoon',
   tsp: 'teaspoon',
   floz: 'fluidounce',
+  bbl: 'barrel',
+  barrels: 'barrel',
 
   // Area
   sqft: 'foot^2',
@@ -156,10 +163,8 @@ const UNIT_ALIASES: Record<string, string> = {
   cal: 'calorie',
   kcal: 'kilocalorie',
   Cal: 'kilocalorie',  // food calorie
-  kWh: 'kW hour',
-  kwh: 'kW hour',
-  Wh: 'W hour',
-  wh: 'W hour',
+  kwh: 'kWh',
+  wh: 'Wh',
   eV: 'electronvolt',
   ev: 'electronvolt',
   keV: 'kiloelectronvolt',

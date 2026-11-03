@@ -18,43 +18,31 @@ const THEME_KEY = 'neofermi-theme'
 const SETTINGS_KEY = 'neofermi-settings'
 const DEBOUNCE_MS = 400
 
-const DEFAULT_CONTENT = `# NeoFermi Editor
+const DEFAULT_CONTENT = `# How many piano tuners work in Chicago?
 
-Write markdown with embedded calculations. Use fenced code blocks for NeoFermi expressions:
-
-\`\`\`
-distance = 10 to 100 km
-time = 1 to 2 hours
-speed = distance / time
-\`\`\`
-
-Reference variables inline: the speed is approximately \${speed}.
-
-## Try more examples
+Write prose in markdown and calculations in fenced code blocks. A range like
+\`3% to 10%\` means the true value is probably (68%, one sigma) in between;
+the answer carries the combined uncertainty and the units.
 
 \`\`\`
-# How many piano tuners in Chicago?
-population = 2.7e6          # Chicago metro population
-pianos_per_household = 1 of 20    # ~5% of households have pianos
-households = population / 2.5      # avg household size
-pianos = households * pianos_per_household
-
-tunings_per_year = 1 to 2
-tuning_time = 2 hours
-tunings_per_tuner = 8 hours * 250 days / tuning_time
-
-piano_tuners = pianos * tunings_per_year / tunings_per_tuner
+households = 3.4 to 4 million
+have_piano = 3% to 10%
+tunings = 0.5 to 2 per year
+capacity = 3 to 5 per day * 220 day/year
+tuners = households * have_piano * tunings / capacity
 \`\`\`
 
-There are approximately \${piano_tuners} piano tuners in Chicago.
+So Chicago has about \${tuners} piano tuners. The Bureau of Labor Statistics
+counts 150 instrument repairers and tuners in the metro area (May 2025),
+not counting the self-employed.
 
-## LaTeX Math
+Which guess matters most?
 
-You can also write LaTeX equations: $E = mc^2$
+\`\`\`
+sensitivity(tuners)
+\`\`\`
 
-Or display equations:
-
-$$\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
+LaTeX works too: $N = H p t / c$.
 `
 
 // State
@@ -63,6 +51,8 @@ let vizType: VizType = 'dotplot'
 let currentTheme: 'light' | 'dark' = 'light'
 let currentConfig: EditorConfig = { ...DEFAULT_CONFIG }
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+// Name of the last opened file, reused as the Export filename.
+let documentName = 'neofermi-document.md'
 
 // DOM Elements
 const editorPane = document.getElementById('editor-pane')!
@@ -99,6 +89,7 @@ function init() {
   setupKeyboardShortcuts()
   setupExport()
   setupShare()
+  setupOpen()
 
   setStatus('Ready')
 }
@@ -226,7 +217,7 @@ function exportDocument() {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'neofermi-document.md'
+  a.download = documentName
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -351,6 +342,8 @@ function toggleTheme() {
   currentTheme = currentTheme === 'dark' ? 'light' : 'dark'
   applyTheme()
   localStorage.setItem(THEME_KEY, currentTheme)
+  // Plot colors are read from the theme tokens, so redraw them.
+  renderVisualizations(previewContent, vizType)
 }
 
 function setupThemeToggle() {
@@ -531,6 +524,79 @@ function setupExport() {
 function setupShare() {
   const shareBtn = document.getElementById('share-btn')!
   shareBtn.addEventListener('click', shareDocument)
+}
+
+// =====================
+// Opening files (button or drag and drop)
+// =====================
+
+const OPENABLE = /\.(md|markdown|txt)$/i
+
+/**
+ * Replace the document with a file's text. It goes through a normal editor
+ * transaction, so Ctrl+Z brings back what was there before.
+ */
+async function openFile(file: File) {
+  if (!OPENABLE.test(file.name) && !file.type.startsWith('text/')) {
+    setStatus(`Can't open ${file.name}: choose a .md or .txt file`)
+    return
+  }
+  const text = await file.text()
+  editorView.dispatch({
+    changes: { from: 0, to: editorView.state.doc.length, insert: text },
+    selection: { anchor: 0 },
+    scrollIntoView: true,
+  })
+  documentName = file.name
+  // A share-link hash would describe the old document.
+  window.history.replaceState(null, '', window.location.pathname)
+
+  // Render now rather than after the debounce, then say what happened.
+  if (debounceTimer) clearTimeout(debounceTimer)
+  await updatePreview(text)
+  setStatus(`Opened ${file.name} (Ctrl+Z to undo)`)
+}
+
+function setupOpen() {
+  const openBtn = document.getElementById('open-btn')!
+  const fileInput = document.getElementById('open-file') as HTMLInputElement
+  openBtn.addEventListener('click', () => fileInput.click())
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0]
+    if (file) openFile(file)
+    fileInput.value = '' // let the same file be chosen again
+  })
+
+  // Drag and drop anywhere on the page. Capture phase, so a file dropped on
+  // the editor opens as the document instead of CodeMirror inserting it.
+  const hasFiles = (e: DragEvent) => e.dataTransfer?.types.includes('Files') ?? false
+  let depth = 0 // dragenter/leave fire for every child element crossed
+  window.addEventListener('dragenter', (e) => {
+    if (!hasFiles(e)) return
+    depth++
+    document.body.classList.add('dropping')
+  }, true)
+  window.addEventListener('dragleave', (e) => {
+    if (!hasFiles(e)) return
+    if (--depth <= 0) {
+      depth = 0
+      document.body.classList.remove('dropping')
+    }
+  }, true)
+  window.addEventListener('dragover', (e) => {
+    if (!hasFiles(e)) return
+    e.preventDefault()
+    e.dataTransfer!.dropEffect = 'copy'
+  }, true)
+  window.addEventListener('drop', (e) => {
+    if (!hasFiles(e)) return
+    e.preventDefault()
+    e.stopPropagation()
+    depth = 0
+    document.body.classList.remove('dropping')
+    const file = e.dataTransfer!.files[0]
+    if (file) openFile(file)
+  }, true)
 }
 
 // =====================

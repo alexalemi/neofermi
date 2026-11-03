@@ -49,8 +49,11 @@ export function renderVisualizations(
   vizType: VizType,
   options: { width?: number; height?: number } = {}
 ): void {
-  const width = options.width || 200
-  const height = options.height || 105
+  // Colors come from the theme tokens in styles.css so dark mode follows.
+  const css = getComputedStyle(container)
+  const dotColor = css.getPropertyValue('--viz-dot').trim() || 'rgba(46, 90, 172, 0.85)'
+  const axisColor = css.getPropertyValue('--text-muted').trim() || '#6b6b7b'
+  const height = options.height || 96
 
   const vizElements = container.querySelectorAll('.nf-viz')
 
@@ -79,15 +82,17 @@ export function renderVisualizations(
     // Clear any existing canvas
     vizEl.innerHTML = ''
 
-    // Create visualization canvas
+    // Fit the column, but stay a figure rather than a banner.
+    const width = options.width || Math.round(Math.min(440, Math.max(240, vizEl.clientWidth - 32)))
     const vizOptions = {
       width,
       height,
       numDots: 20,
       numBins: 25,
       dotRadius: 6, // Larger dots create wider bins for better stacking
-      dotColor: '#4ec9b0',
-      barColor: '#4ec9b0',
+      dotColor,
+      barColor: dotColor,
+      axisColor,
       axisLabel: unit, // Show unit as axis label
     }
 

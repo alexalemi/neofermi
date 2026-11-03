@@ -42,7 +42,7 @@ export const DEFAULT_CONFIG: EditorConfig = {
  */
 const baseTheme = EditorView.theme({
   '.cm-content': {
-    fontFamily: "'Menlo', 'Monaco', 'Courier New', monospace",
+    fontFamily: "var(--mono, 'JetBrains Mono', Menlo, Monaco, monospace)",
   },
   '.cm-foldPlaceholder': {
     backgroundColor: 'transparent',

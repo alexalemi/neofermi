@@ -31,15 +31,17 @@ function evaluateExample(source: string): Evaluator {
   return evaluator
 }
 
-function meanOf(q: Quantity | undefined): number {
-  if (!q) throw new Error('variable not defined')
-  return q.isDistribution() ? q.mean() : (q.value as number)
+// Each example ends by checking itself against a published figure; the
+// estimate's median should land within a factor of 2.5 of it.
+function toBeNear(actual: number, expected: number) {
+  expect(actual).toBeGreaterThan(expected / 2.5)
+  expect(actual).toBeLessThan(expected * 2.5)
 }
 
-// Fermi tolerance: within one order of magnitude of the textbook answer.
-function toBeInFermiRange(actual: number, expected: number) {
-  expect(actual).toBeGreaterThan(expected / 10)
-  expect(actual).toBeLessThan(expected * 10)
+function medianOf(q: Quantity | undefined, unit?: string): number {
+  if (!q) throw new Error('variable not defined')
+  const v = unit ? q.to(unit) : q
+  return v.isDistribution() ? v.median() : (v.value as number)
 }
 
 describe('examples/*.md — smoke test', () => {
@@ -54,46 +56,26 @@ describe('examples/*.md — smoke test', () => {
   }
 })
 
-describe('examples/*.md — textbook answers (Fermi ±10x)', () => {
-  it('piano_tuners.md: ~80 tuners in Chicago', () => {
-    const ev = evaluateExample(
-      readFileSync(join(EXAMPLES_DIR, 'piano_tuners.md'), 'utf-8')
-    )
-    toBeInFermiRange(meanOf(ev.getVariable('num_tuners')), 100)
-  })
+// [file, variable, unit to read it in, published value, source]
+const CHECKS: [string, string, string | undefined, number, string][] = [
+  ['piano_tuners.md', 'tuners', undefined, 150, 'BLS OEWS May 2025, Chicago metro'],
+  ['household_electricity.md', 'total', 'kWh/year', 10791, 'EIA 2022'],
+  ['us_gasoline.md', 'from_cars', 'barrel/day', 8.94e6, 'EIA 2023'],
+  ['us_gasoline.md', 'from_stations', 'barrel/day', 8.94e6, 'EIA 2023'],
+  ['llm_training.md', 'gpu_time', 'hour', 1720320, 'Llama 2 paper, Table 2'],
+  ['llm_training.md', 'llama3', 'hour', 30.84e6, 'Llama 3.1 405B model card'],
+  ['data_centers.md', 'energy', 'TWh', 415, 'IEA Energy and AI'],
+  ['atmosphere_mass.md', 'first_pass', 'kg', 5.148e18, 'Trenberth & Smith 2005'],
+  ['atmosphere_mass.md', 'mass', 'kg', 5.148e18, 'Trenberth & Smith 2005'],
+  ['uk_tea.md', 'cups', 'day^-1', 100e6, 'UKTIA 2023'],
+  ['daily_flights.md', 'flights', 'day^-1', 102000, 'ICAO 2024'],
+]
 
-  it('seconds_in_year.md: ~3.15e7 seconds', () => {
-    const ev = evaluateExample(
-      readFileSync(join(EXAMPLES_DIR, 'seconds_in_year.md'), 'utf-8')
-    )
-    expect(meanOf(ev.getVariable('quick_estimate'))).toBeCloseTo(31_536_000, -2)
-  })
-
-  it('earth_size.md: ~40000 km circumference', () => {
-    const ev = evaluateExample(
-      readFileSync(join(EXAMPLES_DIR, 'earth_size.md'), 'utf-8')
-    )
-    toBeInFermiRange(meanOf(ev.getVariable('earth_circumference_km')), 40075)
-  })
-
-  it('heartbeats_lifetime.md: ~2.5e9 heartbeats', () => {
-    const ev = evaluateExample(
-      readFileSync(join(EXAMPLES_DIR, 'heartbeats_lifetime.md'), 'utf-8')
-    )
-    toBeInFermiRange(meanOf(ev.getVariable('total_heartbeats')), 2.5e9)
-  })
-
-  it('golf_balls_bus.md: ~4e5 balls', () => {
-    const ev = evaluateExample(
-      readFileSync(join(EXAMPLES_DIR, 'golf_balls_bus.md'), 'utf-8')
-    )
-    toBeInFermiRange(meanOf(ev.getVariable('num_balls')), 4e5)
-  })
-
-  it('atmosphere_weight.md: ~5e18 kg', () => {
-    const ev = evaluateExample(
-      readFileSync(join(EXAMPLES_DIR, 'atmosphere_weight.md'), 'utf-8')
-    )
-    toBeInFermiRange(meanOf(ev.getVariable('atmosphere_mass')), 5e18)
-  })
+describe('examples/*.md — published answers (within 2.5x)', () => {
+  for (const [file, name, unit, expected, source] of CHECKS) {
+    it(`${file}: ${name} ≈ ${expected} (${source})`, () => {
+      const ev = evaluateExample(readFileSync(join(EXAMPLES_DIR, file), 'utf-8'))
+      toBeNear(medianOf(ev.getVariable(name), unit), expected)
+    })
+  }
 })

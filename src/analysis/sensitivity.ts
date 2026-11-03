@@ -169,15 +169,23 @@ export function rankSensitivity(
   return results.sort((a, b) => b.share - a.share)
 }
 
-/** Text report for `sensitivity(x)`: one bar per input, largest first. */
+/**
+ * Text report for `sensitivity(x)`: one bar per input that matters, largest
+ * first. Inputs under 2% (beyond the top 10) fold into a single remainder
+ * line along with any unexplained variance, so a 30-input model still reads
+ * as a short ranking.
+ */
 export function formatRankSensitivity(label: string, results: RankSensitivity[]): string {
-  const width = Math.max(5, ...results.map((r) => r.name.length))
+  const shown = results.filter((r, i) => i === 0 || r.share >= 0.02).slice(0, 10)
+  const hidden = results.length - shown.length
+  const restName = hidden > 0 ? `${hidden} others` : 'other'
+  const width = Math.max(5, restName.length, ...shown.map((r) => r.name.length))
   const line = (name: string, share: number, sign: string) =>
     `  ${name.padEnd(width)}  ${sign} ${(share * 100).toFixed(0).padStart(3)}%  ${'█'.repeat(Math.round(share * 20))}`
   const lines = [`Sensitivity of ${label} (share of variance):`]
-  for (const r of results) lines.push(line(r.name, r.share, r.correlation >= 0 ? '+' : '−'))
-  const other = 1 - results.reduce((sum, r) => sum + r.share, 0)
-  if (other > 0.02) lines.push(line('other', other, ' '))
+  for (const r of shown) lines.push(line(r.name, r.share, r.correlation >= 0 ? '+' : '−'))
+  const rest = 1 - shown.reduce((sum, r) => sum + r.share, 0)
+  if (rest > 0.02) lines.push(line(restName, rest, ' '))
   return lines.join('\n')
 }
 

@@ -205,6 +205,7 @@ export const UNITS: Completion[] = [
   // Volume
   { label: 'L', type: 'unit', description: 'Liter' },
   { label: 'mL', type: 'unit', description: 'Milliliter' },
+  { label: 'barrel', type: 'unit', description: 'Oil barrel (42 US gallons)' },
   { label: 'gal', type: 'unit', description: 'Gallon' },
   // Area
   { label: 'sqm', type: 'unit', description: 'Square meter' },

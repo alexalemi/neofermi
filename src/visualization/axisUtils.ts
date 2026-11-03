@@ -179,3 +179,61 @@ export function createScale(
     return pixelMin + ((value - min) / range) * (pixelMax - pixelMin)
   }
 }
+
+/** The host page's body font, so axis text matches the prose around it. */
+export function pageFont(): string {
+  if (typeof document === 'undefined' || !document.body) return 'sans-serif'
+  return getComputedStyle(document.body).fontFamily || 'sans-serif'
+}
+
+/**
+ * Tick marks and labels along an axis at `axisY`, plus the unit label below.
+ * Ticks too close to the ends are skipped; the ends get min/max labels only
+ * when no interior tick landed — otherwise they collide ("5e6e+6").
+ */
+export function drawAxisLabels(
+  ctx: CanvasRenderingContext2D,
+  opts: {
+    ticks: number[]
+    scale: (v: number) => number
+    min: number
+    max: number
+    left: number
+    right: number
+    axisY: number
+    color: string
+    axisLabel?: string
+  }
+): void {
+  const { ticks, scale, min, max, left, right, axisY, color, axisLabel } = opts
+  ctx.strokeStyle = color
+  ctx.fillStyle = color
+  ctx.font = `11px ${pageFont()}`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+
+  let drawn = 0
+  for (const tick of ticks) {
+    const x = scale(tick)
+    if (x < left + 15 || x > right - 15) continue
+    ctx.beginPath()
+    ctx.moveTo(x, axisY)
+    ctx.lineTo(x, axisY + 3)
+    ctx.stroke()
+    ctx.fillText(formatAxisNumber(tick), x, axisY + 4)
+    drawn++
+  }
+
+  if (drawn === 0) {
+    ctx.textAlign = 'left'
+    ctx.fillText(formatAxisNumber(min), left, axisY + 4)
+    ctx.textAlign = 'right'
+    ctx.fillText(formatAxisNumber(max), right, axisY + 4)
+  }
+
+  if (axisLabel) {
+    ctx.textAlign = 'center'
+    ctx.font = `italic 11px ${pageFont()}`
+    ctx.fillText(axisLabel, (left + right) / 2, axisY + 17)
+  }
+}

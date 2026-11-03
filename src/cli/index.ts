@@ -109,7 +109,13 @@ async function runAnnotate(inputPath: string, options: { output?: string }) {
   }
 }
 
-async function runStatic(inputPath: string, outputPath: string, darkMode: boolean) {
+interface StaticOptions {
+  dark: boolean
+  back?: string
+  backLabel?: string
+}
+
+async function runStatic(inputPath: string, outputPath: string, opts: StaticOptions) {
   const resolvedInput = resolve(inputPath)
   const resolvedOutput = resolve(outputPath)
 
@@ -122,8 +128,11 @@ async function runStatic(inputPath: string, outputPath: string, darkMode: boolea
 
     console.log(`Processing: ${resolvedInput}`)
     const html = await processMarkdown(resolvedInput)
-    const title = basename(resolvedInput, '.md')
-    const fullHtml = wrapInStaticHtml(html, title, darkMode)
+    // Page title: the document's first `# heading`, else the file name.
+    const source = await readFile(resolvedInput, 'utf-8')
+    const title = source.match(/^# (.+)$/m)?.[1].trim() ?? basename(resolvedInput, '.md')
+    const back = opts.back ? { href: opts.back, label: opts.backLabel ?? 'Back' } : undefined
+    const fullHtml = wrapInStaticHtml(html, title, opts.dark, { back })
 
     // Ensure output directory exists
     await mkdir(dirname(resolvedOutput), { recursive: true })
@@ -436,7 +445,7 @@ async function runRepl() {
   })
 }
 
-async function run(inputPath: string | undefined, options: { port: string; host: string; open: boolean; output?: string; repl?: boolean; dark?: boolean }) {
+async function run(inputPath: string | undefined, options: { port: string; host: string; open: boolean; output?: string; repl?: boolean; dark?: boolean; back?: string; backLabel?: string }) {
   if (options.repl) {
     await runRepl()
   } else if (options.output) {
@@ -444,7 +453,11 @@ async function run(inputPath: string | undefined, options: { port: string; host:
       console.error('Error: --output requires an input markdown file')
       process.exit(1)
     }
-    await runStatic(inputPath, options.output, options.dark ?? false)
+    await runStatic(inputPath, options.output, {
+      dark: options.dark ?? false,
+      back: options.back,
+      backLabel: options.backLabel,
+    })
   } else if (inputPath) {
     await runServer(inputPath, options)
   } else {
@@ -461,6 +474,8 @@ program
   .option('-H, --host <address>', 'Host to bind to (use 0.0.0.0 for all interfaces)', 'localhost')
   .option('-o, --output <file>', 'Render to static HTML file instead of serving')
   .option('-d, --dark', 'Use dark mode theme (default is light mode)')
+  .option('--back <href>', 'With --output: add a link above the page, e.g. to a gallery')
+  .option('--back-label <text>', 'Text for the --back link', 'Back')
   .option('-r, --repl', 'Start interactive REPL mode')
   .option('--no-open', 'Do not open browser automatically')
   .action(run)

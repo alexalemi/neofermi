@@ -2,591 +2,443 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>NeoFermi</title>
+  <meta name="description" content="A calculator for back-of-envelope estimates: write what you know as ranges, and NeoFermi carries the uncertainty and the units through the arithmetic.">
+  <title>NeoFermi — estimates with ranges</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
+    /* A well-set scientific paper: serif for prose and for computed results,
+       monospace only for code you type. One column, hairline rules, one
+       accent color for answers. */
+    :root {
+      --paper: #ffffff;
+      --ink: #1a1a2e;
+      --muted: #6b6b7b;
+      --faint: #9a9aaa;
+      --rule: #e2e2ea;
+      --code-bg: #f7f7fa;
+      --accent: #2e5aac;
+      --result-bg: #f4f6fb;
+      --error: #b42318;
+      --error-bg: #fdf3f2;
+      --serif: 'Source Serif 4', 'Iowan Old Style', Georgia, serif;
+      --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+      --column: 46rem;
+      --gutter: 2.75rem;
     }
 
-    html, body {
-      height: 100%;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-      background: #ffffff;
-      color: #24292f;
-      display: flex;
-      flex-direction: column;
+      font-family: var(--serif);
+      font-size: 18px;
+      line-height: 1.6;
+      background: var(--paper);
+      color: var(--ink);
+      font-variant-numeric: lining-nums;
+      -webkit-font-smoothing: antialiased;
     }
 
+    a { color: var(--accent); text-underline-offset: 2px; }
+    code { font-family: var(--mono); font-size: 0.8em; }
+    sup { font-size: 0.7em; line-height: 0; }
+    button { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* Header: wordmark left, navigation right, hairline below */
     header {
-      background: #f6f8fa;
-      padding: 12px 16px;
-      border-bottom: 1px solid #d1d9e0;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--paper);
+      border-bottom: 1px solid var(--rule);
     }
 
-    .header-left {
+    .header-inner {
+      max-width: calc(var(--column) + var(--gutter));
+      margin: 0 auto;
+      padding: 12px 20px 12px calc(20px + var(--gutter));
       display: flex;
-      align-items: center;
-      gap: 8px;
+      align-items: baseline;
+      gap: 24px;
     }
 
     h1 {
-      font-size: 18px;
+      font-size: 22px;
       font-weight: 600;
-      color: #1f2328;
+      letter-spacing: -0.01em;
     }
 
-    .subtitle {
-      font-size: 11px;
-      color: #656d76;
-      display: none;
-    }
-
-    @media (min-width: 480px) {
-      .subtitle { display: inline; }
-    }
-
-    .header-actions {
+    nav {
+      margin-left: auto;
       display: flex;
-      gap: 8px;
+      align-items: baseline;
+      gap: 20px;
+      font-size: 16px;
     }
 
-    .header-btn {
-      background: #d1d9e0;
-      color: #24292f;
-      border: none;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 12px;
-      cursor: pointer;
-      touch-action: manipulation;
-    }
-
-    .header-btn:active {
-      background: #c0c8d0;
-    }
-
-    a.header-btn {
-      display: inline-flex;
-      align-items: center;
+    nav a, .text-btn {
+      color: var(--ink);
       text-decoration: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+    }
+    nav a:hover, .text-btn:hover { color: var(--accent); }
+
+    .status {
+      font-size: 14px;
+      color: var(--muted);
+      min-height: 1em;
     }
 
-    .header-btn.active {
-      background: #0969da;
-      color: white;
-    }
+    /* Notebook menu */
+    .menu { position: relative; }
 
-    /* Export dropdown */
-    .export-dropdown {
-      position: relative;
-      display: inline-block;
-    }
-
-    .export-menu {
+    .menu-panel {
       display: none;
       position: absolute;
-      top: 100%;
       right: 0;
-      margin-top: 4px;
-      background: #eef1f4;
-      border: 1px solid #c0c8d0;
+      top: calc(100% + 10px);
+      min-width: 14rem;
+      background: var(--paper);
+      border: 1px solid var(--rule);
       border-radius: 6px;
-      min-width: 120px;
-      z-index: 100;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 6px 0;
+      box-shadow: 0 8px 24px rgba(26, 26, 46, 0.08);
+      font-size: 15px;
     }
+    .menu-panel.visible { display: block; }
 
-    .export-menu.visible {
-      display: block;
-    }
-
-    .export-option {
+    .menu-panel button {
       display: block;
       width: 100%;
-      padding: 8px 12px;
-      background: transparent;
-      border: none;
-      color: #24292f;
-      font-size: 12px;
       text-align: left;
+      background: none;
+      border: none;
+      padding: 6px 16px;
       cursor: pointer;
     }
+    .menu-panel button:hover { background: var(--result-bg); color: var(--accent); }
+    .menu-panel hr { border: none; border-top: 1px solid var(--rule); margin: 6px 0; }
+    .menu-panel .menu-note { padding: 4px 16px 2px; color: var(--muted); font-size: 13px; }
+    .menu-panel .plot-choice[aria-pressed="true"] { color: var(--accent); font-weight: 600; }
 
-    .export-option:hover {
-      background: #d1d9e0;
+    /* Column */
+    main {
+      max-width: calc(var(--column) + var(--gutter));
+      margin: 0 auto;
+      padding: 40px 20px 120px calc(20px + var(--gutter));
     }
 
-    .export-option:first-child {
-      border-radius: 5px 5px 0 0;
-    }
 
-    .export-option:last-child {
-      border-radius: 0 0 5px 5px;
-    }
-
-    #notebook {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      -webkit-overflow-scrolling: touch;
-    }
-
+    /* Cells: a gutter number, the code, then its answer */
     .cell {
-      background: #f6f8fa;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      border: 1px solid #d1d9e0;
-      overflow: hidden;
-    }
-
-    .cell.focused {
-      border-color: #0969da;
+      position: relative;
+      margin-bottom: 22px;
     }
 
     .cell-header {
-      display: flex;
-      align-items: center;
-      padding: 6px 12px;
-      background: #eef1f4;
-      border-bottom: 1px solid #d1d9e0;
-      gap: 8px;
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 0;
+      z-index: 2; /* above the code textarea, which comes later in the DOM */
     }
 
     .cell-num {
-      color: #656d76;
-      font-size: 11px;
-      font-weight: 500;
-      min-width: 24px;
+      position: absolute;
+      left: calc(-1 * var(--gutter));
+      top: 11px;
+      width: calc(var(--gutter) - 12px);
+      text-align: right;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--faint);
     }
+    .cell.focused .cell-num { color: var(--accent); }
 
     .cell-actions {
-      margin-left: auto;
+      position: absolute;
+      right: 6px;
+      top: 6px;
       display: flex;
-      gap: 4px;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity 120ms;
     }
+    .cell:hover .cell-actions,
+    .cell:focus-within .cell-actions { opacity: 1; }
 
     .cell-btn {
-      background: transparent;
-      border: none;
-      color: #656d76;
-      padding: 4px 8px;
-      font-size: 12px;
-      cursor: pointer;
+      background: var(--paper);
+      border: 1px solid var(--rule);
+      color: var(--muted);
+      font-size: 13px;
+      padding: 1px 8px;
       border-radius: 4px;
+      cursor: pointer;
     }
-
-    .cell-btn:hover {
-      background: #d1d9e0;
-      color: #24292f;
-    }
-
-    .cell-btn.run {
-      color: #1a7f64;
-    }
-
-    .cell-btn.delete {
-      color: #cf222e;
-    }
+    .cell-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .cell-btn.delete:hover { color: var(--error); border-color: var(--error); }
 
     .cell-input {
+      display: block;
       width: 100%;
-      background: transparent;
+      background: var(--code-bg);
       border: none;
-      color: #24292f;
-      padding: 12px;
-      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-      font-size: 14px;
-      line-height: 1.5;
+      border-left: 2px solid var(--rule);
+      color: var(--ink);
+      padding: 10px 84px 10px 16px;
+      font-family: var(--mono);
+      font-size: 14.5px;
+      line-height: 1.6;
       resize: none;
       outline: none;
-      min-height: 40px;
+      min-height: 44px;
     }
+    .cell.focused .cell-input { border-left-color: var(--accent); }
+    .cell-input::placeholder { color: var(--faint); }
 
-    .cell-input::placeholder {
-      color: #8b949e;
-    }
-
-    /* Autocomplete dropdown */
-    .autocomplete-container {
-      position: relative;
-    }
+    /* Autocomplete */
+    .autocomplete-container { position: relative; }
 
     .autocomplete-dropdown {
       position: absolute;
-      left: 12px;
-      background: #eef1f4;
-      border: 1px solid #c0c8d0;
+      left: 16px;
+      background: var(--paper);
+      border: 1px solid var(--rule);
       border-radius: 6px;
-      max-height: 200px;
+      max-height: 220px;
       overflow-y: auto;
-      z-index: 1000;
+      z-index: 40;
       display: none;
-      min-width: 200px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      min-width: 260px;
+      box-shadow: 0 8px 24px rgba(26, 26, 46, 0.08);
     }
-
-    .autocomplete-dropdown.visible {
-      display: block;
-    }
+    .autocomplete-dropdown.visible { display: block; }
 
     .autocomplete-item {
-      padding: 6px 10px;
+      padding: 5px 12px;
       cursor: pointer;
       display: flex;
-      align-items: center;
-      gap: 8px;
+      align-items: baseline;
+      gap: 10px;
       font-size: 13px;
-      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
     }
-
     .autocomplete-item:hover,
-    .autocomplete-item.selected {
-      background: #d1d9e0;
-    }
-
-    .autocomplete-item .label {
-      color: #24292f;
-      font-weight: 500;
-    }
-
-    .autocomplete-item .type {
-      color: #656d76;
-      font-size: 10px;
-      padding: 1px 4px;
-      background: #d1d9e0;
-      border-radius: 3px;
-    }
-
-    .autocomplete-item .type.function { color: #7c3aed; background: #d1d9e0; }
-    .autocomplete-item .type.constant { color: #0550ae; background: #d1d9e0; }
-    .autocomplete-item .type.unit { color: #1a7f64; background: #d1d9e0; }
-    .autocomplete-item .type.keyword { color: #8250df; background: #d1d9e0; }
-
+    .autocomplete-item.selected { background: var(--result-bg); }
+    .autocomplete-item .label { font-family: var(--mono); color: var(--ink); }
+    .autocomplete-item .type { color: var(--faint); font-size: 12px; font-style: italic; }
     .autocomplete-item .desc {
-      color: #8b949e;
-      font-size: 11px;
+      color: var(--muted);
       margin-left: auto;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 150px;
+      max-width: 220px;
     }
 
+    /* Answers */
     .cell-output {
-      border-top: 1px solid #d1d9e0;
-      padding: 12px;
-      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-      font-size: 13px;
-      line-height: 1.5;
       display: none;
+      padding: 9px 16px 10px;
+      border-left: 2px solid var(--accent);
+      background: var(--result-bg);
+      font-size: 19px;
+      line-height: 1.45;
     }
-
-    .cell-output.visible {
-      display: block;
-    }
+    .cell-output.visible { display: block; }
 
     .cell-output.error {
-      color: #cf222e;
-      background: rgba(207, 34, 46, 0.08);
-    }
-
-    .cell-output.result {
-      color: #24292f;
-      background: rgba(9, 105, 218, 0.04);
+      border-left-color: var(--error);
+      background: var(--error-bg);
+      color: var(--error);
+      font-family: var(--mono);
+      font-size: 14px;
     }
 
     .cell-output .error-excerpt {
       margin-top: 8px;
-      padding: 8px 12px;
-      background: rgba(0, 0, 0, 0.05);
-      border-radius: 6px;
-      color: #24292f;
+      color: var(--ink);
       white-space: pre;
       overflow-x: auto;
     }
 
-    .result-stats {
-      white-space: pre-wrap;
-      word-break: break-word;
+    .result-stats { word-break: break-word; }
+    .nf-label {
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--muted);
+      margin-right: 0.35em;
     }
-
-    .nf-scalar {
-      color: #1a7f64;
-      font-weight: 500;
-    }
+    .nf-scalar { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+    .nf-ci { color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
+    .nf-dim { color: var(--muted); font-style: italic; font-size: 0.85em; }
 
     .nf-report {
-      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-      font-size: 12px;
-      line-height: 1.35;
-      margin: 6px 0 0;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 8px 0 2px;
       white-space: pre;
       overflow-x: auto;
-      opacity: 0.85;
+      color: var(--muted);
     }
 
-    .nf-ci {
-      color: #656d76;
-      font-size: 0.9em;
-    }
-
-    .nf-dim {
-      color: #656d76;
-      font-style: italic;
-    }
-
-    .result-viz {
-      margin-top: 12px;
-      display: flex;
-      justify-content: center;
-    }
-
-    .result-viz canvas {
-      border-radius: 4px;
-    }
+    .result-viz { margin-top: 6px; }
 
     #add-cell-btn {
-      width: 100%;
-      padding: 12px;
-      background: transparent;
-      border: 2px dashed #d1d9e0;
-      border-radius: 8px;
-      color: #8b949e;
-      font-size: 14px;
-      cursor: pointer;
-      margin-bottom: 16px;
-    }
-
-    #add-cell-btn:hover {
-      border-color: #0969da;
-      color: #0969da;
-    }
-
-    .examples-banner {
-      background: #eef1f4;
-      padding: 12px 16px;
-      margin-bottom: 16px;
-      border-radius: 8px;
-      border-left: 3px solid #0969da;
-    }
-
-    .examples-banner h3 {
-      font-size: 13px;
-      color: #1a7f64;
-      margin-bottom: 8px;
-    }
-
-    .example-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .example-chip {
-      background: rgba(0, 0, 0, 0.05);
+      background: none;
       border: none;
-      color: #953800;
-      padding: 6px 10px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      color: var(--muted);
+      font-size: 16px;
       cursor: pointer;
+      padding: 4px 0;
     }
+    #add-cell-btn:hover { color: var(--accent); }
 
-    .example-chip:active {
-      background: rgba(9, 105, 218, 0.15);
-    }
-
-    .footer-bar {
-      background: #f6f8fa;
-      border-top: 1px solid #d1d9e0;
-      padding: 8px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-shrink: 0;
-    }
-
-    .viz-toggle {
-      display: flex;
-      gap: 4px;
-    }
-
-    .status {
-      font-size: 11px;
-      color: #8b949e;
-    }
-
-    /* Help modal */
+    /* Help */
     .modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.4);
+      inset: 0;
+      background: rgba(26, 26, 46, 0.35);
       display: none;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       z-index: 100;
-      padding: 16px;
+      padding: 6vh 16px;
     }
-
-    .modal-overlay.visible {
-      display: flex;
-    }
+    .modal-overlay.visible { display: flex; }
 
     .modal {
-      background: #eef1f4;
-      border-radius: 12px;
-      max-width: 500px;
-      max-height: 80vh;
+      background: var(--paper);
+      border-radius: 6px;
+      max-width: 40rem;
+      max-height: 88vh;
       overflow-y: auto;
       width: 100%;
     }
 
     .modal-header {
-      padding: 16px;
-      border-bottom: 1px solid #d1d9e0;
+      padding: 18px 24px 10px;
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: baseline;
+      border-bottom: 1px solid var(--rule);
     }
-
-    .modal-header h2 {
-      font-size: 16px;
-      color: #1f2328;
-    }
+    .modal-header h2 { font-size: 22px; font-weight: 600; }
 
     .modal-close {
       background: none;
       border: none;
-      color: #656d76;
-      font-size: 20px;
+      color: var(--muted);
+      font-size: 24px;
+      line-height: 1;
       cursor: pointer;
-      padding: 4px 8px;
     }
 
-    .modal-body {
-      padding: 16px;
+    .modal-body { padding: 8px 24px 24px; font-size: 16px; }
+    .modal-body h4 { font-size: 17px; font-weight: 600; margin: 20px 0 6px; }
+    .modal-body code {
+      font-family: var(--mono);
+      font-size: 13px;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+    .modal-body pre {
+      font-family: var(--mono);
       font-size: 13px;
       line-height: 1.6;
-      color: #24292f;
-    }
-
-    .modal-body h4 {
-      color: #1a7f64;
-      margin-top: 16px;
-      margin-bottom: 8px;
-    }
-
-    .modal-body h4:first-child,
-    #help-syntax h4:first-child {
-      margin-top: 0;
-    }
-
-    .modal-body code {
-      background: rgba(0, 0, 0, 0.05);
-      padding: 2px 6px;
-      border-radius: 3px;
-      color: #953800;
-    }
-
-    .modal-body pre {
-      background: rgba(0, 0, 0, 0.05);
-      padding: 12px;
-      border-radius: 6px;
+      background: var(--code-bg);
+      padding: 10px 14px;
       overflow-x: auto;
-      margin: 8px 0;
+    }
+
+    @media (max-width: 640px) {
+      :root { --gutter: 0px; }
+      body { font-size: 17px; }
+      .header-inner { padding: 10px 16px; gap: 12px; flex-wrap: wrap; }
+      nav { gap: 14px; font-size: 15px; }
+      main { padding: 24px 16px 96px; }
+      .cell-num { display: none; }
+      .cell-actions { opacity: 1; }
+      .cell-input { font-size: 14px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cell-actions { transition: none; }
     }
   </style>
 </head>
 <body>
   <header>
-    <div class="header-left">
+    <div class="header-inner">
       <h1>NeoFermi</h1>
-      <span class="subtitle">Monte Carlo calculator</span>
-    </div>
-    <div class="header-actions">
-      <a class="header-btn" href="./examples/">Examples</a>
-      <a class="header-btn" href="./editor.html">Editor</a>
-      <button class="header-btn" id="help-btn">Help</button>
-      <button class="header-btn" id="share-btn">Share</button>
-      <button class="header-btn" id="import-btn">Import</button>
-      <input type="file" id="import-file" accept=".json,.md,.txt" style="display:none">
-      <div class="export-dropdown">
-        <button class="header-btn" id="export-btn">Export</button>
-        <div class="export-menu" id="export-menu">
-          <button class="export-option" data-format="text">Plain Text</button>
-          <button class="export-option" data-format="markdown">Markdown</button>
-          <button class="export-option" data-format="json">JSON</button>
+      <nav aria-label="Main">
+        <span class="status" id="status" role="status" aria-live="polite"></span>
+        <a href="./examples/">Examples</a>
+        <a href="./editor.html">Editor</a>
+        <button class="text-btn" id="help-btn">Help</button>
+        <div class="menu">
+          <button class="text-btn" id="export-btn" aria-haspopup="true" aria-expanded="false">Notebook ▾</button>
+          <div class="menu-panel" id="export-menu" role="menu">
+            <button id="share-btn" role="menuitem">Copy share link</button>
+            <button id="run-all-btn" role="menuitem">Run all cells</button>
+            <hr>
+            <button id="import-btn" role="menuitem">Open a file…</button>
+            <button class="export-option" data-format="markdown" role="menuitem">Save as Markdown</button>
+            <button class="export-option" data-format="text" role="menuitem">Save as text</button>
+            <button class="export-option" data-format="json" role="menuitem">Save as JSON</button>
+            <hr>
+            <div class="menu-note">Plot distributions as</div>
+            <button class="plot-choice" data-viz="dotplot" aria-pressed="true" role="menuitem">Dots</button>
+            <button class="plot-choice" data-viz="histogram" aria-pressed="false" role="menuitem">Histogram</button>
+            <hr>
+            <button id="starter-btn" role="menuitem">Load the worked example</button>
+            <button id="clear-btn" role="menuitem">Clear notebook</button>
+          </div>
         </div>
-      </div>
-      <button class="header-btn" id="run-all-btn">Run All</button>
-      <button class="header-btn" id="clear-btn">Clear</button>
+        <input type="file" id="import-file" accept=".json,.md,.txt" hidden>
+      </nav>
     </div>
   </header>
 
-  <div id="notebook">
-    <div class="examples-banner" id="examples-banner">
-      <h3>Try these examples:</h3>
-      <div class="example-chips">
-        <button class="example-chip" data-code="10 to 100 meters">10 to 100 meters</button>
-        <button class="example-chip" data-code="x = 1 to 1000 kg">x = 1 to 1000 kg</button>
-        <button class="example-chip" data-code="outof(7, 10)">outof(7, 10)</button>
-        <button class="example-chip" data-code="100 meters as feet">100 meters as feet</button>
-      </div>
-    </div>
+  <main id="notebook">
 
     <div id="cells"></div>
 
-    <button id="add-cell-btn">+ Add Cell</button>
-  </div>
+    <button id="add-cell-btn">+ Add a cell</button>
+  </main>
 
-  <div class="footer-bar">
-    <div class="viz-toggle">
-      <button class="header-btn active" data-viz="dotplot">Dots</button>
-      <button class="header-btn" data-viz="histogram">Hist</button>
-    </div>
-    <div class="status" id="status">Ready</div>
-  </div>
-
-  <!-- Help Modal -->
+  <!-- Help -->
   <div class="modal-overlay" id="help-modal">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
       <div class="modal-header">
-        <h2>NeoFermi Help</h2>
-        <button class="modal-close" id="close-help">&times;</button>
+        <h2 id="help-title">Syntax</h2>
+        <button class="modal-close" id="close-help" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <!-- DSL syntax sections are rendered at startup from the shared
              SYNTAX_HELP data (src/help/syntax.ts) -->
         <div id="help-syntax"></div>
 
-        <h4>Operators &amp; Comments</h4>
+        <h4>Operators and comments</h4>
         <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>^</code> &nbsp; <code># comment</code>
 
-        <h4>Keyboard Shortcuts</h4>
-        <pre>Shift+Enter          # Run current cell
-Ctrl+Space           # Show completions
-Ctrl/Cmd+Enter       # Run all cells
-Ctrl/Cmd+S           # Export as JSON
-Ctrl/Cmd+O           # Import file
-Ctrl/Cmd+N           # New cell
-Escape               # Unfocus cell</pre>
+        <h4>Keyboard</h4>
+        <pre>Shift+Enter          Run the current cell
+Ctrl+Space           Show completions
+Ctrl/Cmd+Enter       Run all cells
+Ctrl/Cmd+S           Save as JSON
+Ctrl/Cmd+O           Open a file
+Ctrl/Cmd+N           New cell
+Escape               Leave the current cell</pre>
       </div>
     </div>
   </div>
@@ -612,11 +464,37 @@ Escape               # Unfocus cell</pre>
     const cellsContainer = document.getElementById('cells')
     const addCellBtn = document.getElementById('add-cell-btn')
     const statusEl = document.getElementById('status')
-    const examplesBanner = document.getElementById('examples-banner')
+
+    // First-visit notebook: one worked estimate, small enough to read at a
+    // glance, that shows ranges, units and sensitivity together.
+    const STARTER = [
+      '# Welcome to NeoFermi. Write what you know as a range (3% to 10%,\n' +
+        '# 2 to 4 per day) and the uncertainty and units carry through the\n' +
+        '# arithmetic, so the answer comes out as a range too.\n' +
+        '# Each cell sees the variables defined above it; answers update as\n' +
+        '# you type. Delete this cell (✕, top right) whenever you like.',
+      '# How many piano tuners work in the Chicago area?\nhouseholds = 3.4 to 4 million',
+      'have_piano = 3% to 10%',
+      'tunings = 0.5 to 2 per year',
+      'capacity = 3 to 5 per day * 220 day/year',
+      'tuners = households * have_piano * tunings / capacity',
+      '# Which guess matters most?\nsensitivity(tuners)',
+    ]
 
     // =====================
     // Cell Management
     // =====================
+
+    // Grow a code textarea to fit its (wrapped) contents.
+    function fitTextarea(textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = textarea.scrollHeight + 'px'
+    }
+
+    // Line wrapping changes when the web font arrives or the window resizes.
+    const refitAll = () => document.querySelectorAll('.cell-input').forEach(fitTextarea)
+    document.fonts?.ready.then(refitAll)
+    window.addEventListener('resize', refitAll)
 
     function createCell(code = '', id = null) {
       const cellId = id || Date.now().toString(36) + Math.random().toString(36).substr(2)
@@ -686,10 +564,7 @@ Escape               # Unfocus cell</pre>
       let acState = { visible: false, items: [], selectedIndex: 0, wordInfo: null }
 
       // Auto-resize textarea
-      const autoResize = () => {
-        textarea.style.height = 'auto'
-        textarea.style.height = textarea.scrollHeight + 'px'
-      }
+      const autoResize = () => fitTextarea(textarea)
 
       // Autocomplete functions. `explicit` is a Ctrl+Space trigger: it works
       // with no prefix at all (listing everything) and shows more results.
@@ -851,6 +726,11 @@ Escape               # Unfocus cell</pre>
       }
     }
 
+    // `tuners =` before the answer when the cell ends in an assignment
+    function labelHtml(cell) {
+      return cell.label ? `<span class="nf-label">${escapeHtml(cell.label)} =</span>` : ''
+    }
+
     function renderOutput(cell) {
       const el = document.getElementById(`cell-${cell.id}`)
       if (!el) return
@@ -891,35 +771,39 @@ Escape               # Unfocus cell</pre>
           if (q && typeof q === 'object' && q.isDistribution && q.isDistribution()) {
             const stats = document.createElement('div')
             stats.className = 'result-stats'
-            stats.innerHTML = formatQuantityConcise(q, { html: true })
+            stats.innerHTML = labelHtml(cell) + formatQuantityConcise(q, { html: true })
             output.appendChild(stats)
-            if (cell.report) {
-              const report = document.createElement('pre')
-              report.className = 'nf-report'
-              report.textContent = cell.report
-              output.appendChild(report)
-            }
 
             // Visualize in display units so the axis agrees with the stat
             // line above it (toSI here plotted `10 to 100 km` as 10000-100000
             // labelled m while the stat read km; embed/CLI keep display units)
             const vizContainer = document.createElement('div')
             vizContainer.className = 'result-viz'
-            const width = Math.min(window.innerWidth - 80, 280)
+            // Measure the container itself so the plot never overflows the
+            // cell, whatever the padding at this breakpoint.
+            output.appendChild(vizContainer)
+            const width = Math.round(Math.min(vizContainer.clientWidth, 440))
             const canvas = visualize(q, vizType, {
               width,
-              height: 105, // Increased to accommodate axis label
+              height: 88,
               numDots: 20,
               numBins: 25,
-              dotColor: '#0969da',
-              barColor: '#0969da',
+              dotColor: 'rgba(46, 90, 172, 0.85)',
+              barColor: 'rgba(46, 90, 172, 0.85)',
             })
-            if (canvas) {
+            if (canvas && !cell.report) {
               vizContainer.appendChild(canvas)
-              output.appendChild(vizContainer)
+            } else {
+              vizContainer.remove()
+            }
+            if (cell.report) {
+              const report = document.createElement('pre')
+              report.className = 'nf-report'
+              report.textContent = cell.report
+              output.appendChild(report)
             }
           } else if (q && typeof q === 'object' && q.isScalar && q.isScalar()) {
-            output.innerHTML = formatQuantityConcise(q, { html: true })
+            output.innerHTML = labelHtml(cell) + formatQuantityConcise(q, { html: true })
           } else {
             // Other result
             output.textContent = String(q)
@@ -946,6 +830,7 @@ Escape               # Unfocus cell</pre>
         cell.result = r.quantity
         cell.error = r.error
         cell.report = r.report
+        cell.label = r.label
 
         // History bindings, mirroring the CLI REPL: `_` is the most recent
         // result, `_N` the result of cell N (1-based). Run All resets the
@@ -990,10 +875,6 @@ Escape               # Unfocus cell</pre>
           data.forEach(item => {
             createCell(item.code, item.id)
           })
-          // Hide examples if we have saved cells
-          if (cells.length > 0) {
-            examplesBanner.style.display = 'none'
-          }
           // Run all to restore state
           runAllCells()
           return true
@@ -1010,7 +891,6 @@ Escape               # Unfocus cell</pre>
       localStorage.removeItem(STORAGE_KEY)
       window.location.hash = ''
       createCell()
-      examplesBanner.style.display = 'block'
       setStatus('Notebook cleared')
     }
 
@@ -1052,7 +932,6 @@ Escape               # Unfocus cell</pre>
 
       // Create cells from hash
       codes.forEach(code => createCell(code))
-      examplesBanner.style.display = 'none'
 
       // Run all cells
       runAllCells()
@@ -1231,8 +1110,7 @@ Escape               # Unfocus cell</pre>
         evaluator.reset()
 
         codes.forEach(code => createCell(code))
-        examplesBanner.style.display = 'none'
-        runAllCells()
+          runAllCells()
         setStatus(`Imported ${codes.length} cell${codes.length > 1 ? 's' : ''}`)
       }
       reader.readAsText(file)
@@ -1298,8 +1176,7 @@ Escape               # Unfocus cell</pre>
     // =====================
 
     function updateStatus() {
-      const count = cells.length
-      statusEl.textContent = `${count} cell${count !== 1 ? 's' : ''}`
+      statusEl.textContent = ''
     }
 
     function setStatus(msg) {
@@ -1346,7 +1223,8 @@ Escape               # Unfocus cell</pre>
 
     exportBtn.addEventListener('click', (e) => {
       e.stopPropagation()
-      exportMenu.classList.toggle('visible')
+      const open = exportMenu.classList.toggle('visible')
+      exportBtn.setAttribute('aria-expanded', String(open))
     })
 
     document.querySelectorAll('.export-option').forEach(option => {
@@ -1361,6 +1239,7 @@ Escape               # Unfocus cell</pre>
     // Close export menu when clicking outside
     document.addEventListener('click', () => {
       exportMenu.classList.remove('visible')
+      exportBtn.setAttribute('aria-expanded', 'false')
     })
 
     // Render the shared DSL syntax reference (src/help/syntax.ts) into the
@@ -1405,8 +1284,7 @@ Escape               # Unfocus cell</pre>
     document.querySelectorAll('[data-viz]').forEach(btn => {
       btn.addEventListener('click', () => {
         vizType = btn.dataset.viz
-        document.querySelectorAll('[data-viz]').forEach(b => b.classList.remove('active'))
-        btn.classList.add('active')
+        document.querySelectorAll('[data-viz]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)))
         // Re-render all outputs with new viz type
         cells.forEach(cell => {
           if (cell.result && cell.result.isDistribution?.()) {
@@ -1416,25 +1294,18 @@ Escape               # Unfocus cell</pre>
       })
     })
 
-    // Example chips
-    document.querySelectorAll('.example-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const code = chip.dataset.code
-        // Add to first empty cell or create new cell
-        let targetCell = cells.find(c => !c.code.trim())
-        if (!targetCell) {
-          targetCell = createCell(code)
-        } else {
-          targetCell.code = code
-          const textarea = document.querySelector(`#cell-${targetCell.id} .cell-input`)
-          if (textarea) {
-            textarea.value = code
-            textarea.dispatchEvent(new Event('input'))
-          }
-        }
-        evaluateCell(targetCell.id)
-        examplesBanner.style.display = 'none'
-      })
+    function loadStarter() {
+      cells = []
+      cellsContainer.innerHTML = ''
+      evaluator.reset()
+      window.history.replaceState(null, '', window.location.pathname)
+      STARTER.forEach(code => createCell(code))
+      runAllCells()
+    }
+
+    document.getElementById('starter-btn').addEventListener('click', () => {
+      loadStarter()
+      setStatus('Worked example loaded')
     })
 
     // =====================
@@ -1486,7 +1357,8 @@ Escape               # Unfocus cell</pre>
 
     // Priority: URL hash > localStorage > empty notebook
     if (!loadFromHash() && !loadFromStorage()) {
-      createCell()
+      loadStarter()
+      updateStatus()
     }
     updateStatus()
   </script>

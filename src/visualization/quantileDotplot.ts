@@ -10,8 +10,8 @@ import {
   shouldUseLogScale,
   generateLinearTicks,
   generateLogTicks,
-  formatAxisNumber,
   createScale,
+  drawAxisLabels,
 } from './axisUtils.js'
 
 export interface DotplotOptions {
@@ -169,40 +169,10 @@ export function renderDotplot(
       ? generateLogTicks(data.min, data.max)
       : generateLinearTicks(data.min, data.max, Math.min(5, Math.floor(plotWidth / 50)))
 
-    // Draw ticks and labels
-    ctx.fillStyle = axisColor
-    ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'top'
-
-    for (const tick of ticks) {
-      const x = scale(tick)
-      // Skip if too close to edges
-      if (x < padding + 15 || x > width - padding - 15) continue
-
-      // Tick mark
-      ctx.beginPath()
-      ctx.moveTo(x, axisY)
-      ctx.lineTo(x, axisY + 3)
-      ctx.stroke()
-
-      // Label
-      ctx.fillText(formatAxisNumber(tick), x, axisY + 4)
-    }
-
-    // Always draw min and max labels
-    ctx.textAlign = 'left'
-    ctx.fillText(formatAxisNumber(data.min), padding, axisY + 4)
-    ctx.textAlign = 'right'
-    ctx.fillText(formatAxisNumber(data.max), width - padding, axisY + 4)
-
-    // Draw axis label (unit and dimension name) centered below
-    if (axisLabel) {
-      ctx.textAlign = 'center'
-      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif'
-      ctx.fillStyle = axisColor
-      ctx.fillText(axisLabel, width / 2, axisY + 16)
-    }
+    drawAxisLabels(ctx, {
+      ticks, scale, min: data.min, max: data.max,
+      left: padding, right: width - padding, axisY, color: axisColor, axisLabel,
+    })
   }
 }
 

@@ -24,7 +24,10 @@ function getColor(el: Element, prop: string, fallback: string): string {
 export function renderDotplots(): void {
   document.querySelectorAll('.nf-viz').forEach((el) => {
     const samplesStr = (el as HTMLElement).dataset.samples
-    const unit = (el as HTMLElement).dataset.unit || ''
+    // Canvas text can't do <sup>: year^-1 → year⁻¹
+    const unit = ((el as HTMLElement).dataset.unit || '').replace(/\^(-?[\d.]+)/g, (_m, e: string) =>
+      [...e].map((ch) => '⁻·⁰¹²³⁴⁵⁶⁷⁸⁹'['-.0123456789'.indexOf(ch)] ?? ch).join('')
+    )
     const min = parseFloat((el as HTMLElement).dataset.min || '0')
     const max = parseFloat((el as HTMLElement).dataset.max || '1')
 
@@ -45,8 +48,9 @@ export function renderDotplots(): void {
     const unitColor = getColor(el, '--nf-unit-color', '#777')
     const bgColor = getColor(el, '--nf-viz-bg', 'transparent')
 
-    const width = 280
-    const height = 90
+    // Fill the column (minus the result block's 18px side padding), within reason
+    const width = Math.round(Math.min(440, Math.max(200, el.clientWidth - 36)))
+    const height = 96
     const padding = 25
     const dotRadius = 5
     const axisHeight = 20
@@ -121,7 +125,7 @@ export function renderDotplots(): void {
 
     // Draw ticks and labels
     ctx.fillStyle = labelColor
-    ctx.font = '10px -apple-system, sans-serif'
+    ctx.font = `12px ${getComputedStyle(document.body).fontFamily}`
     ctx.textAlign = 'center'
     for (const tick of ticks) {
       const x = scale(tick)
@@ -141,9 +145,13 @@ export function renderDotplots(): void {
   })
 }
 
-// Auto-run on DOM ready
+// Auto-run on DOM ready, after web fonts load (canvas text can't reflow)
+const start = () => {
+  const ready = document.fonts?.ready ?? Promise.resolve()
+  ready.then(renderDotplots, renderDotplots)
+}
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', renderDotplots)
+  document.addEventListener('DOMContentLoaded', start)
 } else {
-  renderDotplots()
+  start()
 }
